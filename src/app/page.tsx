@@ -7,10 +7,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { TrendingUp, Monitor, Globe, Smartphone, Star, CheckCircle, ArrowRight, Users, Award, MapPin, Clock, BookOpen, Zap, Shield, Target, ChevronDown, HelpCircle, DollarSign, Check } from "lucide-react"
 
 const courses = [
-  { title: "Digital Marketing Mastery", description: "SEO, social media, content strategy", icon: TrendingUp, duration: "8 weeks", level: "Beginner–Advanced", image: "/courses/digital-marketing.jpg" },
-  { title: "Web Development Bootcamp", description: "HTML, CSS, JavaScript, React", icon: Monitor, duration: "12 weeks", level: "Beginner", image: "/courses/web-development.jpg" },
-  { title: "Data Analytics & Viz", description: "Excel, Python, dashboards", icon: Globe, duration: "10 weeks", level: "Intermediate", image: "/courses/data-analytics.jpg" },
-  { title: "Mobile App Development", description: "iOS and Android apps", icon: Smartphone, duration: "14 weeks", level: "Advanced", image: "/courses/mobile-development.jpg" },
+  { title: "Graphic Design", description: "Master visual communication and design principles", icon: Star, duration: "8 weeks", level: "Beginner–Advanced", image: "/graphicdesigning.png" },
+  { title: "Mini Importation", description: "Learn import/export business strategies", icon: Globe, duration: "6 weeks", level: "Beginner", image: "/miniimportation.png" },
+  { title: "Digital Marketing", description: "SEO, social media, content strategy", icon: TrendingUp, duration: "8 weeks", level: "Beginner–Advanced", image: "/digitalmarketing.png" },
+  { title: "No Code Web Development", description: "Build websites without coding", icon: Monitor, duration: "10 weeks", level: "Beginner", image: "/nocodeweb.png" },
 ]
 
 const testimonials = [
