@@ -45,6 +45,7 @@ const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({ children, t
       title: "Content", 
       icon: BookOpen,
       submenu: [
+        { title: "Blog", href: "/dashboard/admin/blog" },
         { title: "Courses", href: "/dashboard/admin/courses" },
         { title: "Tutorials", href: "/dashboard/admin/tutorials" },
         { title: "Categories", href: "/dashboard/admin/categories" }

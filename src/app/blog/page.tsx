@@ -1,6 +1,6 @@
 "use client"
 import { motion } from "framer-motion"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,7 @@ const categories = [
   { name: "Learning Skills", slug: "learning-skills", count: 5 }
 ]
 
+// NOTE: Featured and static arrays replaced by dynamic fetch below
 const featuredPosts = [
   {
     id: 1,
@@ -122,8 +123,19 @@ const blogPosts = [
   }
 ]
 
+interface PublicPost {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  featured_image: string | null
+  published_at: string
+  views: number
+  author: string
+}
+
 interface BlogCardProps {
-  post: typeof blogPosts[0]
+  post: PublicPost
   featured?: boolean
 }
 
@@ -137,14 +149,18 @@ function BlogCard({ post, featured = false }: BlogCardProps) {
     >
       <Card className="h-full border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
         <div className={`relative overflow-hidden ${featured ? 'h-64' : 'h-48'}`}>
-          <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-            <BookOpen className="w-12 h-12 text-gray-400" />
-          </div>
-          <div className="absolute top-4 left-4">
-            <span className="bg-[#ed874a] text-white px-3 py-1 rounded-full text-sm font-medium">
-              {post.category}
-            </span>
-          </div>
+          {post.featured_image ? (
+            <img 
+              src={post.featured_image} 
+              alt={post.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+              <BookOpen className="w-12 h-12 text-gray-400" />
+            </div>
+          )}
+          {/* Category removed for dynamic posts without category */}
           {featured && (
             <div className="absolute top-4 right-4">
               <span className="bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
@@ -159,14 +175,17 @@ function BlogCard({ post, featured = false }: BlogCardProps) {
           <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
             <div className="flex items-center space-x-1">
               <Calendar className="w-4 h-4" />
-              <span>{new Date(post.date).toLocaleDateString('en-US', { 
+              <span>{new Date(post.published_at).toLocaleDateString('en-US', { 
                 year: 'numeric', 
                 month: 'long', 
                 day: 'numeric' 
               })}</span>
             </div>
-            <span>•</span>
-            <span>{post.readTime}</span>
+            <div className="flex items-center space-x-1">
+              <BookOpen className="w-4 h-4" />
+              <span>By {post.author || 'admin'}</span>
+            </div>
+            {/* Removed read time for dynamic posts */}
           </div>
           <CardTitle className={`group-hover:text-[#ed874a] transition-colors ${featured ? 'text-2xl' : 'text-xl'} leading-tight`}>
             <Link href={`/blog/${post.slug}`}>
@@ -198,6 +217,28 @@ function BlogCard({ post, featured = false }: BlogCardProps) {
 export default function BlogPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
+  const [posts, setPosts] = useState<PublicPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch(`/api/blog?limit=12`)
+        if (!res.ok) throw new Error('Failed to fetch blog posts')
+        const data = await res.json()
+        setPosts(data.posts || [])
+      } catch (e) {
+        console.error('Blog listing fetch error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to fetch blog posts')
+        setPosts([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPosts()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
@@ -289,7 +330,7 @@ export default function BlogPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {featuredPosts.map((post) => (
+            {(loading ? [] : posts.slice(0, 2)).map((post) => (
               <BlogCard key={post.id} post={post} featured={true} />
             ))}
           </div>
@@ -310,7 +351,7 @@ export default function BlogPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {blogPosts.map((post, index) => (
+            {(loading ? [] : posts).map((post, index) => (
               <motion.div
                 key={post.id}
                 initial={{ opacity: 0, y: 20 }}

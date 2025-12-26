@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, Monitor, Globe, Smartphone, Star, CheckCircle, ArrowRight, Users, Award, MapPin, Clock, BookOpen, Zap, Shield, Target, ChevronDown, HelpCircle, DollarSign, Check } from "lucide-react"
+import { useBlogPosts } from "@/lib/hooks/useBlogPosts"
 
 const courses = [
   { title: "Graphic Design", description: "Master visual communication and design principles", icon: Star, duration: "8 weeks", level: "Beginner–Advanced", image: "/graphicdesigning.png" },
@@ -42,6 +43,8 @@ const stats = [
 ]
 
 export default function Home() {
+  const { posts: blogPosts, loading: blogLoading } = useBlogPosts(3)
+
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-[#fef3e8] via-white to-[#fef3e8] overflow-hidden">
       {/* Animated Background Elements - Applied to entire page */}
@@ -139,7 +142,7 @@ export default function Home() {
                   className="group border-2 border-[#ed874a] text-[#ed874a] hover:bg-[#fef3e8] px-8 py-6 rounded-xl font-semibold text-base transition-all duration-300 hover:border-[#d76f32] hover:shadow-lg"
                   asChild
                 >
-                  <Link href="/join/dcs-affiliate" className="flex items-center justify-center">
+                  <Link href="/signup" className="flex items-center justify-center">
                     <span>Join as affiliate</span>
                     <Users className="w-5 h-5 ml-2 group-hover:rotate-12 transition-transform" />
                   </Link>
@@ -418,140 +421,176 @@ export default function Home() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-16 relative z-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Choose Your Plan
-            </h2>
-            <p className="text-base text-gray-600">
-              Select the package that best fits your goals. Both plans include lifetime access and regular updates.
-            </p>
+      <section id="pricing" className="py-24 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-tr from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative">
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-6">
+                Choose Your Path to Success
+              </h2>
+              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                Select the perfect package for your journey. Both plans include unlimited course access, 
+                regular updates, and our commitment to your success.
+              </p>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {/* Learner Package */}
-            <Card className="relative overflow-hidden transition-all bg-transparent border border-gray-200 p-6 hover:shadow-lg">
-              {/* Status Bar */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ed874a] to-[#ed874a]/50" />
-
-              <CardHeader className="p-0 space-y-2">
-                <CardTitle className="text-2xl font-bold">Learner Package</CardTitle>
-                <CardDescription className="text-sm text-gray-600">
-                  Perfect for individuals looking to build digital skills
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="p-0 mt-6 space-y-6">
-                {/* Price Section */}
-                <div className="space-y-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold">100</span>
-                    <span className="text-muted-foreground">cedis/year</span>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="relative group"
+            >
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#ed874a] to-[#d76f32] rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-xl"></div>
+              <Card className="relative h-full bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden">
+                {/* Gradient Border Top */}
+                <div className="h-2 bg-gradient-to-r from-[#ed874a] to-[#d76f32]"></div>
+                
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-2xl flex items-center justify-center">
+                      <BookOpen className="w-8 h-8 text-[#ed874a]" />
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Lifetime access to all courses
-                  </p>
+
+                  <CardHeader className="p-0 mb-6">
+                    <CardTitle className="text-3xl font-bold text-gray-900 mb-3">
+                      Learner Package
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 text-base leading-relaxed">
+                      Perfect for individuals ready to master in-demand digital skills and transform their career
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="p-0 space-y-8">
+                    {/* Price */}
+                    <div className="text-center py-6 px-4 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-xl">
+                      <div className="flex items-baseline justify-center gap-2 mb-2">
+                        <span className="text-5xl font-bold text-[#ed874a]">100</span>
+                        <span className="text-xl text-gray-600 font-medium">cedis/year</span>
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        Full access to all premium courses
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-4">
+                      {[
+                        "Unlimited access to 50+ courses",
+                        "Learn at your own flexible schedule", 
+                        "Join 15,000+ active learners",
+                        "Community support & forums",
+                        "Certificates of completion",
+                        "Mobile app for learning on-the-go"
+                      ].map((feature, index) => (
+                        <div key={index} className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-[#ed874a]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Check className="w-4 h-4 text-[#ed874a]" />
+                          </div>
+                          <span className="text-gray-700 font-medium">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="p-0 mt-8">
+                    <Button className="w-full py-4 text-lg bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" asChild>
+                      <Link href="/signup">
+                        Start Learning Today
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Link>
+                    </Button>
+                  </CardFooter>
                 </div>
-
-                {/* Features List */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Access to all courses</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Learn at your own pace</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Community support</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">In-Demand Digital Skills</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Continuous Growth</span>
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="p-0 mt-6">
-                <Button className="w-full py-6 text-lg bg-[#ed874a] hover:bg-[#ed874a]/90 text-white" asChild>
-                  <Link href="/signup">Get Started</Link>
-                </Button>
-              </CardFooter>
-            </Card>
+              </Card>
+            </motion.div>
 
             {/* Digital Cashflow System Package */}
-            <Card className="relative overflow-hidden transition-all bg-transparent border border-gray-200 p-6 hover:shadow-lg ring-2 ring-[#ed874a]">
-              {/* Status Bar */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ed874a] to-[#ed874a]/50" />
-              
-              {/* Popular Badge */}
-              <div className="absolute top-2 right-6 z-20">
-                <span className="bg-[#ed874a] text-white px-4 py-2 text-sm font-bold uppercase tracking-wide shadow-lg">
-                  Popular
-                </span>
-              </div>
-
-              <CardHeader className="p-0 space-y-2">
-                <CardTitle className="text-2xl font-bold">Digital Cashflow System</CardTitle>
-                <CardDescription className="text-sm text-gray-600">
-                  Learn and earn with our complete affiliate system
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="p-0 mt-6 space-y-6">
-                {/* Price Section */}
-                <div className="space-y-2">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold">180</span>
-                    <span className="text-muted-foreground">cedis/year</span>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative group"
+            >
+              <div className="absolute -inset-1 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] rounded-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl"></div>
+              <Card className="relative h-full bg-white/80 backdrop-blur-sm border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl overflow-hidden transform scale-105">
+                {/* Gradient Border Top */}
+                <div className="h-2 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a]"></div>
+                
+                <div className="p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-2xl flex items-center justify-center">
+                      <Users className="w-8 h-8 text-[#ed874a]" />
+                    </div>
+                    <span className="px-4 py-2 bg-gradient-to-r from-[#ed874a]/10 to-[#d76f32]/10 text-[#ed874a] rounded-full text-sm font-semibold border border-[#ed874a]/20">
+                      Premium Choice
+                    </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Everything in Learner Package + affiliate features
-                  </p>
+
+                  <CardHeader className="p-0 mb-6">
+                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent mb-3">
+                      Digital Cashflow System
+                    </CardTitle>
+                    <CardDescription className="text-gray-600 text-base leading-relaxed">
+                      Learn digital skills AND earn income with our complete affiliate marketing system
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="p-0 space-y-8">
+                    {/* Price */}
+                    <div className="text-center py-6 px-4 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-xl">
+                      <div className="flex items-baseline justify-center gap-2 mb-2">
+                        <span className="text-5xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent">180</span>
+                        <span className="text-xl text-gray-600 font-medium">cedis/year</span>
+                      </div>
+                      <p className="text-sm text-gray-600 font-medium">
+                        Everything in Learner + affiliate features
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-4">
+                      {[
+                        "Everything in Learner Package",
+                        "Affiliate dashboard & analytics",
+                        "Earn 80% commission on referrals", 
+                        "Professional marketing materials",
+                        "Real-time earnings tracking",
+                        "Weekly payout processing"
+                      ].map((feature, index) => (
+                        <div key={index} className="flex items-center gap-3">
+                          <div className="w-6 h-6 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-full flex items-center justify-center flex-shrink-0">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-gray-700 font-medium">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="p-0 mt-8">
+                    <Button className="w-full py-4 text-lg bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] hover:from-[#d76f32] hover:via-[#ed874a] hover:to-[#d76f32] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" asChild>
+                      <Link href="/signup">
+                        Start Earning Today
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Link>
+                    </Button>
+                  </CardFooter>
                 </div>
-
-                {/* Features List */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Everything in Learner Package</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Affiliate dashboard access</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Earn 80% commission on learner package</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">20% yearly recurring commission eligibility</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Marketing materials provided</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Check className="h-5 w-5 text-[#ed874a] shrink-0" />
-                    <span className="text-sm text-gray-700">Real-time earnings tracking</span>
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="p-0 mt-6">
-                <Button className="w-full py-6 text-lg bg-[#ed874a] hover:bg-[#ed874a]/90 text-white" asChild>
-                  <Link href="/signup">Get Started</Link>
-                </Button>
-              </CardFooter>
-            </Card>
+              </Card>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -683,7 +722,7 @@ export default function Home() {
                   className="bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white font-bold py-4 px-8 shadow-lg transform hover:scale-105 transition-all duration-300"
                   asChild
                 >
-                  <Link href="/join/dcs-affiliate">
+                  <Link href="/signup">
                     Become a Partner
                     <ArrowRight className="w-5 h-5 ml-2" />
                   </Link>
@@ -766,19 +805,16 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             {/* Left Column - Illustration */}
             <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               className="flex justify-center lg:justify-start"
             >
               <div className="relative">
-                <div className="w-80 h-80 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-full flex items-center justify-center">
-                  <div className="w-60 h-60 bg-[#ed874a] rounded-full flex items-center justify-center relative overflow-hidden">
-                    <span className="text-white text-8xl font-bold">?</span>
-                    {/* Decorative elements */}
-                    <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/20 rounded-full"></div>
-                    <div className="absolute -bottom-6 -left-6 w-12 h-12 bg-white/20 rounded-full"></div>
-                  </div>
+                <div className="w-96 h-96 flex items-center justify-center">
+                  <img 
+                    src="/faq-image.png" 
+                    alt="FAQ - Frequently Asked Questions"
+                    className="w-80 h-80 object-contain"
+                  />
                 </div>
                 {/* Floating elements */}
                 <div className="absolute top-8 right-8 w-8 h-8 bg-[#ed874a]/20 rounded-lg rotate-12"></div>
@@ -871,77 +907,80 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                date: "16 Sep 2025",
-                title: "Make money as International Students",
-                excerpt: "Studying abroad is exciting—but it can also be expensive. Between tuition, accommodation, food, and...",
-                image: "/blog/international-students.jpg",
-                slug: "make-money-as-international-students"
-              },
-              {
-                date: "16 Jun 2025",
-                title: "The UMM Super Win Challenge is HERE! 🎯 💖",
-                excerpt: "Are you ready to turn your hustle into massive wins? 💰 This is your chance to show up, sell hard,...",
-                image: "/blog/umm-super-win-challenge.jpg",
-                slug: "umm-super-win-challenge"
-              },
-              {
-                date: "12 Dec 2024",
-                title: "Introducing the BIG FISH CHALLENGE: Your Path to...",
-                excerpt: "Big Fish Challenge: Transform Your Success Story body { font-family: Ari...",
-                image: "/blog/big-fish-challenge.jpg",
-                slug: "big-fish-challenge"
-              }
-            ].map((post, index) => (
-              <motion.div
-                key={post.slug}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-              >
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-0 shadow-md overflow-hidden bg-white">
-                  {/* Blog Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={post.image} 
-                      alt={post.title}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                    <div className="absolute top-4 left-4">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1">
-                        <div className="flex items-center text-sm text-[#ed874a] font-medium">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {post.date}
+            {blogLoading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <Card className="h-full border-0 shadow-md overflow-hidden bg-white">
+                    <div className="h-48 bg-gray-200"></div>
+                    <CardHeader className="pb-4">
+                      <div className="h-6 bg-gray-200 rounded mb-3"></div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))
+            ) : (
+              blogPosts.map((post, index) => (
+                <motion.div
+                  key={post.slug}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                >
+                  <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-0 shadow-md overflow-hidden bg-white">
+                    {/* Blog Image */}
+                    <div className="relative h-48 overflow-hidden">
+                      <img 
+                        src={post.featured_image || '/blog/default-blog.jpg'} 
+                        alt={post.title}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                      <div className="absolute top-4 left-4">
+                        <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1">
+                          <div className="flex items-center text-sm text-[#ed874a] font-medium">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {new Date(post.published_at).toLocaleDateString('en-US', { 
+                              day: 'numeric', 
+                              month: 'short', 
+                              year: 'numeric' 
+                            })}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 hover:text-[#ed874a] transition-colors">
-                      {post.title}
-                    </CardTitle>
-                    <CardDescription className="text-gray-600 text-base leading-relaxed line-clamp-3">
-                      {post.excerpt}
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="pt-0">
-                    <Button 
-                      variant="ghost" 
-                      className="text-[#ed874a] hover:text-[#d76f32] hover:bg-[#ed874a]/5 p-0 h-auto font-medium"
-                      asChild
-                    >
-                      <Link href={`/blog/${post.slug}`} className="flex items-center">
-                        Read More
-                        <ArrowRight className="w-4 h-4 ml-1" />
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                    
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 hover:text-[#ed874a] transition-colors">
+                        {post.title}
+                      </CardTitle>
+                      <CardDescription className="text-gray-600 text-base leading-relaxed line-clamp-3">
+                        {post.excerpt}
+                      </CardDescription>
+                    </CardHeader>
+                    
+                    <CardContent className="pt-0">
+                      <Button 
+                        variant="ghost" 
+                        className="text-[#ed874a] hover:text-[#d76f32] hover:bg-[#ed874a]/5 p-0 h-auto font-medium"
+                        asChild
+                      >
+                        <Link href={`/blog/${post.slug}`} className="flex items-center">
+                          Read More
+                          <ArrowRight className="w-4 h-4 ml-1" />
+                        </Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            )}
           </div>
 
           {/* View All Blogs CTA */}

@@ -185,12 +185,6 @@ export default function PricingPage() {
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               <Card className="h-full border-2 border-[#ed874a] hover:border-[#ed874a] transition-colors duration-300 relative overflow-hidden shadow-lg">
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-[#ed874a] text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center">
-                    <Star className="w-4 h-4 mr-1" />
-                    Popular Choice
-                  </span>
-                </div>
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#ed874a] to-[#d76f32]"></div>
                 <CardHeader className="text-center pb-8 pt-8">
                   <div className="w-16 h-16 bg-[#ed874a]/10 rounded-full flex items-center justify-center mx-auto mb-4">

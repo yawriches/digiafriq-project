@@ -522,6 +522,96 @@ export type Database = {
           updated_at?: string
         }
       }
+      blog_posts: {
+        Row: {
+          id: string
+          title: string
+          slug: string
+          excerpt: string | null
+          content: string
+          author_id: string
+          status: 'draft' | 'published' | 'archived'
+          featured_image: string | null
+          meta_title: string | null
+          meta_description: string | null
+          published_at: string | null
+          views: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          slug: string
+          excerpt?: string | null
+          content: string
+          author_id: string
+          status?: 'draft' | 'published' | 'archived'
+          featured_image?: string | null
+          meta_title?: string | null
+          meta_description?: string | null
+          published_at?: string | null
+          views?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          slug?: string
+          excerpt?: string | null
+          content?: string
+          author_id?: string
+          status?: 'draft' | 'published' | 'archived'
+          featured_image?: string | null
+          meta_title?: string | null
+          meta_description?: string | null
+          published_at?: string | null
+          views?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      blog_tags: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          created_at?: string
+        }
+      }
+      blog_post_tags: {
+        Row: {
+          id: string
+          post_id: string
+          tag_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          tag_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          tag_id?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -574,12 +664,6 @@ export type Database = {
         }
         Returns: number
       }
-    }
-    Enums: {
-      lesson_type: 'video' | 'text' | 'file' | 'quiz'
-      payment_status: 'pending' | 'completed' | 'failed' | 'refunded'
-      payout_status: 'pending' | 'processing' | 'completed' | 'failed'
-      user_role: 'learner' | 'affiliate' | 'admin'
     }
     CompositeTypes: {
       [_ in never]: never
