@@ -4,7 +4,6 @@ import {
   BookOpen, 
   PlayCircle, 
   CheckCircle,
-  Loader2,
   RotateCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +12,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import AffiliatePromoSection from '@/components/dashboard/AffiliatePromoSection'
 import { useLearnerData } from '@/lib/hooks/useLearnerData'
+import { LearnerDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+
+export const dynamic = 'force-dynamic'
 
 const LearnerDashboard = () => {
   const { stats, recentCourses, profile, loading, error, refresh } = useLearnerData()
@@ -27,11 +29,10 @@ const LearnerDashboard = () => {
     }
   }
 
-
   const statsCards = [
     {
       title: "Enrolled Courses",
-      value: loading ? "..." : stats.totalEnrolled.toString(),
+      value: stats.totalEnrolled.toString(),
       icon: BookOpen,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
@@ -39,7 +40,7 @@ const LearnerDashboard = () => {
     },
     {
       title: "Completed Courses", 
-      value: loading ? "..." : stats.totalCompleted.toString(),
+      value: stats.totalCompleted.toString(),
       icon: CheckCircle,
       color: "text-green-600",
       bgColor: "bg-green-50", 
@@ -47,13 +48,17 @@ const LearnerDashboard = () => {
     },
     {
       title: "In Progress",
-      value: loading ? "..." : stats.totalInProgress.toString(),
+      value: stats.totalInProgress.toString(),
       icon: PlayCircle,
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       iconBg: "bg-orange-100"
     }
   ]
+
+  if (loading) {
+    return <LearnerDashboardSkeleton />
+  }
 
   if (error) {
     return (

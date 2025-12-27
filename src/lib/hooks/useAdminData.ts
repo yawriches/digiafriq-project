@@ -1,7 +1,8 @@
 "use client"
-import { useState, useEffect } from 'react'
+import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { CURRENCY_RATES } from '@/contexts/CurrencyContext'
+import { useSWR, supabaseFetcher, swrDefaults } from '@/lib/hooks/swr'
 
 interface AdminStats {
   totalUsers: number
@@ -46,108 +47,55 @@ interface AdminData {
 }
 
 export const useAdminData = (): AdminData => {
-  const [stats, setStats] = useState<AdminStats>({
-    totalUsers: 0,
-    activeUsers: 0,
-    suspendedUsers: 0,
-    pendingUsers: 0,
-    totalRevenue: 0,
-    activeCourses: 0,
-    activeAffiliates: 0,
-    totalPayments: 0,
-    totalCommissions: 0
-  })
-  const [recentUsers, setRecentUsers] = useState<User[]>([])
-  const [recentPayments, setRecentPayments] = useState<Payment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const key = 'admin-dashboard'
 
-  useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  const fetcher = useCallback(async () => {
+    return supabaseFetcher(key, async () => {
+      const { data: revenueData, error: revenueError } = await supabase
+        .from('payments')
+        .select('amount, currency')
+        .eq('status', 'completed')
 
-        // Get total revenue from payments (with currency for proper conversion) - same as user management
-        const { data: revenueData, error: revenueError } = await supabase
-          .from('payments')
-          .select('amount, currency')
-          .eq('status', 'completed')
+      if (revenueError) {
+        throw revenueError
+      }
 
-        if (revenueError) {
-          console.error('🔍 Admin Dashboard - Revenue fetch error:', revenueError)
-          throw revenueError
+      const totalRevenue = revenueData?.reduce((sum: number, p: any) => {
+        const currency = p.currency?.toUpperCase() || 'USD'
+        let usdAmount = p.amount
+        if (currency !== 'USD' && currency in CURRENCY_RATES) {
+          usdAmount = p.amount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
         }
+        return sum + usdAmount
+      }, 0) || 0
 
-        console.log('🔍 Admin Dashboard - Revenue data fetched:', revenueData?.length || 0)
-        if (revenueData && revenueData.length > 0) {
-          console.log('🔍 Admin Dashboard - Sample revenue data:', revenueData[0])
+      const [usersResult, coursesResult, commissionsResult] = await Promise.all([
+        (supabase as any).from('profiles').select('*'),
+        (supabase as any).from('courses').select('*'),
+        (supabase as any).from('commissions').select('*')
+      ])
+
+      const users = usersResult.data || []
+      const affiliates = users.filter((u: User) => u.role === 'affiliate')
+
+      const activeUsers = users.filter((u: any) => u.status === 'active').length
+      const suspendedUsers = users.filter((u: any) => u.status === 'suspended').length
+      const pendingUsers = users.filter((u: any) => u.status === 'pending').length
+
+      const courses = coursesResult.data || []
+
+      const commissions = commissionsResult.data || []
+      const totalCommissions = commissions.reduce((sum: number, c: any) => {
+        const currency = c.commission_currency?.toUpperCase() || 'USD'
+        let usdAmount = c.commission_amount || c.amount || 0
+        if (currency !== 'USD' && currency in CURRENCY_RATES) {
+          usdAmount = usdAmount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
         }
+        return sum + usdAmount
+      }, 0)
 
-        // Calculate revenue using exact same logic as user management
-        const totalRevenue = revenueData?.reduce((sum: number, p: any) => {
-          // Convert payment amount to USD based on its currency
-          const currency = p.currency?.toUpperCase() || 'USD'
-          let usdAmount = p.amount
-          
-          console.log(`🔍 Processing payment: ${p.amount} ${currency}`)
-          
-          // If currency is not USD, convert to USD
-          if (currency !== 'USD' && currency in CURRENCY_RATES) {
-            usdAmount = p.amount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
-            console.log(`🔍 Converted ${p.amount} ${currency} to ${usdAmount} USD`)
-          }
-          
-          return sum + usdAmount
-        }, 0) || 0
-
-        console.log('🔍 Admin Dashboard - Total revenue calculated:', totalRevenue)
-
-        // Fetch other data
-        const [
-          usersResult,
-          coursesResult,
-          commissionsResult
-        ] = await Promise.all([
-          (supabase as any).from('profiles').select('*'),
-          (supabase as any).from('courses').select('*'),
-          (supabase as any).from('commissions').select('*')
-        ])
-
-        // Check for errors in data fetching
-        if (usersResult.error) {
-          console.error('🔍 Admin Dashboard - Users fetch error:', usersResult.error)
-        }
-
-        // Process users
-        const users = usersResult.data || []
-        const affiliates = users.filter((u: User) => u.role === 'affiliate')
-        
-        // Calculate user status counts
-        const activeUsers = users.filter((u: any) => u.status === 'active').length
-        const suspendedUsers = users.filter((u: any) => u.status === 'suspended').length
-        const pendingUsers = users.filter((u: any) => u.status === 'pending').length
-
-        // Process courses
-        const courses = coursesResult.data || []
-
-        // Process commissions
-        const commissions = commissionsResult.data || []
-        const totalCommissions = commissions.reduce((sum: number, c: any) => {
-          // Convert commission amount to USD based on its currency
-          const currency = c.commission_currency?.toUpperCase() || 'USD'
-          let usdAmount = c.commission_amount || c.amount || 0
-          
-          // If currency is not USD, convert to USD using proper rates
-          if (currency !== 'USD' && currency in CURRENCY_RATES) {
-            usdAmount = usdAmount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
-          }
-          
-          return sum + usdAmount
-        }, 0)
-
-        // Set stats
-        setStats({
+      return {
+        stats: {
           totalUsers: users.length,
           activeUsers,
           suspendedUsers,
@@ -156,31 +104,34 @@ export const useAdminData = (): AdminData => {
           activeCourses: courses.length,
           activeAffiliates: affiliates.length,
           totalPayments: revenueData?.length || 0,
-          totalCommissions
-        })
-
-        // Set recent users (last 5)
-        setRecentUsers(users.slice(0, 5))
-
-        // Set recent payments (last 5) - use revenue data since we don't have full payment data
-        setRecentPayments([])
-
-      } catch (err: any) {
-        console.error('Error fetching admin data:', err)
-        setError(err.message)
-      } finally {
-        setLoading(false)
+          totalCommissions,
+        } as AdminStats,
+        recentUsers: users.slice(0, 5) as User[],
+        recentPayments: [] as Payment[],
       }
-    }
-
-    fetchAdminData()
+    })
   }, [])
 
+  const { data, error, isLoading } = useSWR(key, fetcher, {
+    ...swrDefaults,
+    revalidateOnFocus: true,
+  })
+
   return {
-    stats,
-    recentUsers,
-    recentPayments,
-    loading,
-    error
+    stats: data?.stats ?? {
+      totalUsers: 0,
+      activeUsers: 0,
+      suspendedUsers: 0,
+      pendingUsers: 0,
+      totalRevenue: 0,
+      activeCourses: 0,
+      activeAffiliates: 0,
+      totalPayments: 0,
+      totalCommissions: 0,
+    },
+    recentUsers: data?.recentUsers ?? [],
+    recentPayments: data?.recentPayments ?? [],
+    loading: !data && isLoading,
+    error: error ? (error as any).message ?? String(error) : null,
   }
 }

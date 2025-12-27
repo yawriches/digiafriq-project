@@ -6,7 +6,6 @@ import {
   Activity,
   GraduationCap,
   Copy,
-  Loader2,
   UserPlus,
   Clock
 } from 'lucide-react'
@@ -19,6 +18,9 @@ import { toast } from 'sonner'
 import { getUserWithdrawals, Withdrawal } from '@/lib/withdrawals'
 import Link from 'next/link'
 import { useCurrency, CURRENCY_RATES } from '@/contexts/CurrencyContext'
+import { AffiliateDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+
+export const dynamic = 'force-dynamic'
 
 const AffiliateDashboard = () => {
   const { stats: affiliateStats, recentCommissions, recentPayouts, affiliateProfile, loading: affiliateLoading, error } = useAffiliateData()
@@ -37,7 +39,7 @@ const AffiliateDashboard = () => {
   const totalMembershipSales = affiliateStats.totalSales
   const totalDcsSales = affiliateStats.totalDcsSales
 
-  const loading = affiliateLoading || referralStatsLoading || commissionsLoading || referralCodeLoading || currencyLoading
+  const loading = affiliateLoading || currencyLoading
 
   // Pending withdrawals state
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Withdrawal[]>([])
@@ -89,7 +91,7 @@ const AffiliateDashboard = () => {
   const statsCards = [
     {
       title: "Current Balance",
-      value: loading ? "..." : formatAmount(currentBalanceValue),
+      value: formatAmount(currentBalanceValue),
       icon: DollarSign,
       color: "text-green-600",
       bgColor: "bg-green-50",
@@ -97,7 +99,7 @@ const AffiliateDashboard = () => {
     },
     {
       title: "Total Earnings", 
-      value: loading ? "..." : formatAmount(totalEarnings),
+      value: formatAmount(totalEarnings),
       icon: TrendingUp,
       color: "text-blue-600",
       bgColor: "bg-blue-50", 
@@ -105,7 +107,7 @@ const AffiliateDashboard = () => {
     },
     {
       title: "Total Sales",
-      value: loading ? "..." : totalMembershipSales.toString(),
+      value: totalMembershipSales.toString(),
       icon: UserPlus,
       color: "text-orange-600",
       bgColor: "bg-orange-50",
@@ -113,7 +115,7 @@ const AffiliateDashboard = () => {
     },
     {
       title: "DCS Sales",
-      value: loading ? "..." : totalDcsSales.toString(),
+      value: totalDcsSales.toString(),
       icon: Activity,
       color: "text-purple-600",
       bgColor: "bg-purple-50",
@@ -121,20 +123,9 @@ const AffiliateDashboard = () => {
     }
   ]
 
-  // Show skeleton loading instead of full screen loader for better UX
-  const SkeletonCard = () => (
-    <Card className="relative overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-            <div className="h-6 bg-gray-200 rounded w-16 animate-pulse"></div>
-          </div>
-          <div className="w-12 h-12 rounded-lg bg-gray-200 animate-pulse"></div>
-        </div>
-      </CardContent>
-    </Card>
-  )
+  if (loading) {
+    return <AffiliateDashboardSkeleton />
+  }
 
   if (error) {
     return (
@@ -195,13 +186,7 @@ const AffiliateDashboard = () => {
 
       {/* Stats Grid - Mobile optimized */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {loading ? (
-          // Show skeleton cards while loading
-          Array.from({ length: 4 }).map((_, index) => (
-            <SkeletonCard key={index} />
-          ))
-        ) : (
-          statsCards.map((stat, index) => (
+        {statsCards.map((stat, index) => (
             <Card key={index} className="relative overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -215,8 +200,7 @@ const AffiliateDashboard = () => {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
+          ))}
       </div>
 
       {/* Pending Withdrawals Card */}

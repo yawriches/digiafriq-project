@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import { Database } from './types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -8,22 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true, // Enable auto-refresh for proper session management
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce'
-  },
-  global: {
-    headers: {
-      'x-client-info': 'digiafriq-web'
-    }
-  },
-  db: {
-    schema: 'public'
-  }
-})
+export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 
 // Helper function to get the current user
 export const getCurrentUser = async () => {

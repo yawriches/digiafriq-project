@@ -7,8 +7,8 @@ import AffiliateRequiresLearnerMembership from '@/components/AffiliateRequiresLe
 import { Loader2, Crown, Lock, TrendingUp, DollarSign, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/supabase/auth';
 import React, { useState, useEffect } from 'react';
+import { AffiliateDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 
 interface AffiliateLayoutProps {
   children: React.ReactNode;
@@ -16,11 +16,11 @@ interface AffiliateLayoutProps {
 
 const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
   const router = useRouter();
-  const { user } = useAuth();
   const { hasLearnerMembership, hasAffiliateMembership, loading: membershipLoading } = useMembershipStatus();
   const { hasDCS, loading: dcsLoading } = useMembershipDetails();
   const [affiliatePackageId, setAffiliatePackageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isReadyToGate, setIsReadyToGate] = useState(false);
 
   // Fetch affiliate packages
   useEffect(() => {
@@ -45,6 +45,17 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     fetchAffiliatePackages()
   }, [])
 
+  useEffect(() => {
+    // If any membership-related check is loading, disable gating to avoid flashing the gate UI
+    if (membershipLoading || dcsLoading) {
+      setIsReadyToGate(false)
+      return
+    }
+
+    // Only enable gating once membership checks are settled.
+    setIsReadyToGate(true)
+  }, [membershipLoading, dcsLoading])
+
   const handleUpgradeClick = () => {
     if (affiliatePackageId) {
       // Go directly to checkout for the $7 package
@@ -55,15 +66,14 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     }
   };
 
-  // Show simple loading state without dashboard layout to avoid double loaders
-  if (membershipLoading || loading || dcsLoading) {
+  // During route transitions / refetches, avoid flashing the gate UI.
+  // Show a skeleton while membership is being confirmed.
+  // IMPORTANT: never render the "learner membership required" UI until checks are complete.
+  if (!isReadyToGate) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-[#ed874a] mx-auto mb-3" />
-          <p className="text-gray-600 text-sm">Loading...</p>
-        </div>
-      </div>
+      <AffiliateDashboardLayout>
+        <AffiliateDashboardSkeleton />
+      </AffiliateDashboardLayout>
     );
   }
 

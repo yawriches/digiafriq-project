@@ -39,13 +39,16 @@ import { useCurrency } from '@/contexts/CurrencyContext'
 import { CURRENCY_RATES } from '@/contexts/CurrencyContext'
 import { RevenueTrendCard, UserGrowthCard, SummaryStatsCard } from '@/components/dashboard/AdminCharts'
 import { RecentUsersCard, RecentPaymentsCard } from '@/components/dashboard/RecentActivityCards'
+import { AdminDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+
+export const dynamic = 'force-dynamic'
 
 const AdminDashboard = () => {
   const router = useRouter()
   const { stats, recentUsers, recentPayments, loading, error } = useAdminData()
   const { selectedCurrency, formatAmount } = useCurrency()
 
-  // Generate enhanced chart data
+  // Generate enhanced chart data - must be before early return to maintain hook order
   const chartData = useMemo(() => {
     const revenueData = [
       { label: 'Mon', value: stats.totalRevenue * 0.12 },
@@ -69,6 +72,10 @@ const AdminDashboard = () => {
 
     return { revenueData, userData }
   }, [stats])
+
+  if (loading) {
+    return <AdminDashboardSkeleton />
+  }
 
   const premiumStatCards = [
     {

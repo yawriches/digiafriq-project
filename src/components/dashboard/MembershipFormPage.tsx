@@ -331,19 +331,6 @@ export default function MembershipFormPage({
 
     setLoading(true)
     try {
-      // session check
-      try {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession()
-        if (sessionErr) console.warn('Error reading session:', sessionErr)
-        if (!sessionData?.session) {
-          toast.error('Your session has expired. Please sign in again and retry.')
-          setLoading(false)
-          return
-        }
-      } catch (err) {
-        console.warn('Could not verify session before save. Proceeding anyway.', err)
-      }
-
       const membershipData: MembershipInsert = {
         name: formData.name.trim(),
         description: formData.description.trim(),

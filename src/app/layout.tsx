@@ -2,10 +2,12 @@ import type { Metadata } from "next"
 import "./globals.css"
 import "./fonts.css"
 import "@/styles/nprogress-custom.css"
+import "@/styles/nprogress.css"
 import { ConditionalLayout } from "@/components/ConditionalLayout"
 import { AuthProvider } from '@/lib/supabase/auth'
 import { CurrencyProvider } from '@/contexts/CurrencyContext'
 import TopLoader from '@/components/TopLoader'
+import RouteLoading from '@/components/RouteLoading'
 import { Toaster } from 'sonner'
 import { PageRefreshHandler } from '@/components/PageRefreshHandler'
 
@@ -38,6 +40,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased min-h-screen flex flex-col">
         <TopLoader />
+        <RouteLoading />
         <AuthProvider>
           <CurrencyProvider>
             <PageRefreshHandler />

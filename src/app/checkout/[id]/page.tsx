@@ -93,7 +93,7 @@ function CheckoutContent() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const { hasLearnerMembership } = useMembershipStatus();
 
   const membershipId = params.id as string;
@@ -119,13 +119,6 @@ function CheckoutContent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [availableProviders, setAvailableProviders] = useState<PaymentProvider[]>(['kora']);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !user) {
-      console.log('[Checkout] No user found, redirecting to login');
-      router.push(`/login?redirect=/checkout/${membershipId}${window.location.search}`);
-    }
-  }, [user, authLoading, router, membershipId]);
 
   // Fetch membership data
   useEffect(() => {
@@ -256,11 +249,9 @@ function CheckoutContent() {
     setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
-        toast.error('Please log in to continue');
-        router.push('/login');
+        toast.error('Session error. Please refresh the page.');
+        setLoading(false);
         return;
       }
 

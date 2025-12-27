@@ -104,7 +104,7 @@ const generatePaymentHash = (data: any): string => {
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { hasLearnerMembership } = useMembershipStatus();
 
   // Get membership details from URL params
@@ -388,13 +388,12 @@ export default function CheckoutPage() {
     }, 30000); // 30 seconds timeout
 
     try {
-      // Get current session for authorization
+      // Get session from auth context (middleware ensures user is authenticated)
       console.log('🔐 Getting user session...');
-      const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
         console.error('❌ No session found');
-        toast.error('Please log in to continue');
+        toast.error('Session error. Please refresh the page.');
         setLoading(false);
         return;
       }
