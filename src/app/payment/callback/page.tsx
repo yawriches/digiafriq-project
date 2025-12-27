@@ -19,7 +19,7 @@ interface PaymentVerification {
   isAddonUpgrade?: boolean;
 }
 
-export default function PaymentCallbackPage() {
+function PaymentCallbackPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -283,6 +283,28 @@ export default function PaymentCallbackPage() {
   };
 
   return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center py-12 px-4">
+    <div className="max-w-md w-full">
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-8">
+        {renderVerificationContent()}
+      </div>
+      
+      {/* Support Info */}
+      <div className="text-center mt-6">
+        <p className="text-sm text-gray-600">
+          Need help? Contact{' '}
+          <a href="mailto:support@digiafriq.com" className="text-orange-600 hover:underline">
+            support@digiafriq.com
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+  );
+}
+
+export default function PaymentCallbackPage() {
+  return (
     <Suspense fallback={
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center py-12 px-4">
         <div className="text-center">
@@ -291,23 +313,7 @@ export default function PaymentCallbackPage() {
         </div>
       </div>
     }>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-100 p-8">
-          {renderVerificationContent()}
-        </div>
-        
-        {/* Support Info */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-gray-600">
-            Need help? Contact{' '}
-            <a href="mailto:support@digiafriq.com" className="text-orange-600 hover:underline">
-              support@digiafriq.com
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
+      <PaymentCallbackPageInner />
     </Suspense>
-  );
+  )
 }

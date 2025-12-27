@@ -101,7 +101,7 @@ const generatePaymentHash = (data: any): string => {
   return hash.toString(36);
 };
 
-export default function CheckoutPage() {
+function CheckoutPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, session } = useAuth();
@@ -823,4 +823,12 @@ export default function CheckoutPage() {
     </div>
     </Suspense>
   );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutPageInner />
+    </Suspense>
+  )
 }

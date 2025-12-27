@@ -61,19 +61,13 @@ const contactInfo = [
   {
     icon: Mail,
     title: "Email Us",
-    details: "support@digiafriq.com",
+    details: "admin@digiafriq.com",
     description: "We typically respond within 24 hours"
-  },
-  {
-    icon: Phone,
-    title: "Call Us",
-    details: "+233 (0) 123 456 789",
-    description: "Monday to Friday, 9 AM - 6 PM GMT"
   },
   {
     icon: MapPin,
     title: "Visit Us",
-    details: "Accra, Ghana",
+    details: "Kumasi, Ghana",
     description: "Serving learners across Africa"
   }
 ]
