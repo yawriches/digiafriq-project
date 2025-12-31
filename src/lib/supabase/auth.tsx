@@ -15,6 +15,7 @@ interface AuthContextType {
   loading: boolean
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: AuthError | null }>
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>
   refreshProfile: () => Promise<void>
@@ -136,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshProfile = async () => {
     if (user) {
       console.log('🔄 Refreshing profile for user:', user.id)
-      const profileData = await fetchProfile(user.id)
+      const profileData = (await fetchProfile(user.id)) as Profile | null
       if (profileData) {
         console.log('✅ Profile refreshed:', profileData.id)
         setProfile(profileData)
@@ -244,6 +245,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return { error: lastError }
+  }
+
+  const resetPassword = async (email: string) => {
+    try {
+      const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_VERCEL_URL || '').trim()
+      const origin = baseUrl
+        ? (baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`)
+        : window.location.origin
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/set-password`,
+      })
+
+      if (error) {
+        return { error }
+      }
+
+      return { error: null }
+    } catch (error) {
+      return { error: error as AuthError }
+    }
   }
 
   // Sign out function
@@ -588,6 +610,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signUp,
     signIn,
+    resetPassword,
     signOut,
     updateProfile,
     refreshProfile,

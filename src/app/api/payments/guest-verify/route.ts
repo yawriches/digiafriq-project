@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { sendEmail } from '@/../lib/email'
 
 // Create Supabase admin client with service role
 const supabaseAdmin = createClient(
@@ -159,6 +160,43 @@ function generateTempPassword(): string {
   return password.split('').sort(() => Math.random() - 0.5).join('')
 }
 
+function getTempPasswordExpiryIso(): string {
+  return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+}
+
+async function sendGuestTempPasswordEmail(params: {
+  email: string
+  fullName: string
+  temporaryPassword: string
+}): Promise<boolean> {
+  try {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const loginUrl = `${appUrl}/login`
+
+    await sendEmail({
+      to: params.email,
+      subject: 'Welcome to DigiafrIQ — Your Temporary Password',
+      template: 'signup.html',
+      placeholders: {
+        name: params.fullName,
+        email: params.email,
+        temporaryPassword: params.temporaryPassword,
+        loginUrl,
+        year: new Date().getFullYear(),
+      },
+    })
+
+    console.log('✅ Guest temp password email sent to:', params.email)
+    return true
+  } catch (e) {
+    console.error('❌ Failed to send guest temp password email:', {
+      email: params.email,
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
   console.log('🚀 Guest verify API called')
   
@@ -178,7 +216,8 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Verifying guest payment:', { reference, referral_code, referral_type })
 
     // Step 1: Get payment record from database to determine provider
-    // Try multiple columns: provider_reference, reference, or metadata.reference
+    // NOTE: In this project schema, payments are identified by provider_reference.
+    // There is no payments.reference column.
     let paymentRecord = null
     
     // Try provider_reference first
@@ -192,42 +231,29 @@ export async function POST(request: NextRequest) {
       paymentRecord = recordByProviderRef
       console.log('✅ Found payment by provider_reference')
     } else {
-      // Try by reference column
-      const { data: recordByRef } = await supabaseAdmin
+      // Fallback: Try recent pending payments and match by provider_reference or metadata.reference
+      // (Kora may stash the reference inside metadata)
+      const { data: recentPayments } = await supabaseAdmin
         .from('payments')
         .select('*')
-        .eq('reference', reference)
-        .maybeSingle()
-      
-      if (recordByRef) {
-        paymentRecord = recordByRef
-        console.log('✅ Found payment by reference column')
-      } else {
-        // Try searching in metadata.reference (Kora stores reference there)
-        const { data: recentPayments } = await supabaseAdmin
-          .from('payments')
-          .select('*')
-          .eq('status', 'pending')
-          .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()) // Last hour
-          .order('created_at', { ascending: false })
-          .limit(10)
-        
-        if (recentPayments) {
-          // Check if any payment has this reference in metadata or provider_reference
-          paymentRecord = recentPayments.find((p: any) => 
-            p.provider_reference === reference || 
-            p.reference === reference ||
-            p.metadata?.reference === reference
-          )
-          
-          if (paymentRecord) {
-            console.log('✅ Found payment in recent pending payments')
-          }
+        .eq('status', 'pending')
+        .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()) // Last hour
+        .order('created_at', { ascending: false })
+        .limit(25)
+
+      if (recentPayments) {
+        paymentRecord = recentPayments.find((p: any) =>
+          p.provider_reference === reference ||
+          p.metadata?.reference === reference
+        )
+
+        if (paymentRecord) {
+          console.log('✅ Found payment in recent pending payments')
         }
-        
-        if (!paymentRecord) {
-          console.log('⚠️ No payment record found in database, will verify directly with provider')
-        }
+      }
+
+      if (!paymentRecord) {
+        console.log('⚠️ No payment record found in database, will verify directly with provider')
       }
     }
 
@@ -325,14 +351,70 @@ export async function POST(request: NextRequest) {
 
     let userId: string
 
-    // Generate temporary password for new users
+    // Temporary password handling (never stored/returned)
+    // - For new users: create user with temp password
+    // - For existing users: if they haven't set a password yet or temp password is expired/missing, reset to a new temp password
     let tempPassword: string | null = null
+    let tempPasswordEmailSent = false
     let isNewUser = false
 
     if (existingUser) {
       // User exists, use their ID
       userId = existingUser.id
       console.log('👤 User already exists:', userId)
+
+      // Fetch profile to determine whether we should issue/reset a temp password
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('password_set, temp_password_expires_at, full_name')
+        .eq('id', userId)
+        .maybeSingle()
+
+      const passwordSet = Boolean((existingProfile as any)?.password_set)
+      const expiresAt = (existingProfile as any)?.temp_password_expires_at as string | null | undefined
+      const isExpired = expiresAt ? new Date(expiresAt).getTime() <= Date.now() : true
+
+      const shouldIssueTempPassword = !passwordSet && isExpired
+
+      if (shouldIssueTempPassword) {
+        tempPassword = generateTempPassword()
+        const tempPasswordExpiresAt = getTempPasswordExpiryIso()
+
+        // Reset password via admin API (do not store it anywhere)
+        const { error: updateAuthErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: tempPassword,
+          user_metadata: {
+            ...existingUser.user_metadata,
+            has_temp_password: true,
+            temp_password_issued_at: new Date().toISOString(),
+          },
+        })
+
+        if (updateAuthErr) {
+          console.error('❌ Failed to set temp password for existing user:', updateAuthErr)
+          return NextResponse.json(
+            { success: false, message: 'Failed to generate login credentials. Please contact support.' },
+            { status: 500 }
+          )
+        }
+
+        // Store only the expiry timestamp (no plain password)
+        await supabaseAdmin
+          .from('profiles')
+          .update({
+            password_set: false,
+            temp_password_expires_at: tempPasswordExpiresAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', userId)
+
+        const nameForEmail = (existingProfile as any)?.full_name || fullName
+        tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+          email,
+          fullName: nameForEmail,
+          temporaryPassword: tempPassword,
+        })
+      }
       
       // Update existing user's profile with payment status
       await supabaseAdmin
@@ -377,10 +459,10 @@ export async function POST(request: NextRequest) {
       console.log('✅ New user created in Supabase Auth:', userId)
 
       // Calculate temp password expiry (24 hours from now)
-      const tempPasswordExpiresAt = new Date()
-      tempPasswordExpiresAt.setHours(tempPasswordExpiresAt.getHours() + 24)
+      const tempPasswordExpiresAt = getTempPasswordExpiryIso()
 
-      // Step 4: Create profile with payment_status, password_set, and temp_password
+      // Step 4: Create profile with payment_status, password_set, and temp_password_expires_at
+      // NOTE: Never store the plain temp password in the database.
       console.log('📝 Creating profile for user:', userId)
       const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -394,8 +476,7 @@ export async function POST(request: NextRequest) {
           available_roles: ['learner'],
           payment_status: 'paid',
           password_set: false,
-          temp_password: tempPassword, // Store temp password to show on success page
-          temp_password_expires_at: tempPasswordExpiresAt.toISOString(),
+          temp_password_expires_at: tempPasswordExpiresAt,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -409,6 +490,13 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('✅ Profile created successfully:', profileData?.id)
       }
+
+      // Send temp password via email ONLY (never returned)
+      tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+        email,
+        fullName,
+        temporaryPassword: tempPassword,
+      })
     }
 
     // Step 5: Create or update payment record
@@ -481,6 +569,27 @@ export async function POST(request: NextRequest) {
 
     console.log('💰 Payment recorded:', payment?.id || 'unknown')
 
+    // Critical: ensure we have a valid payment row loaded from DB before processing referrals.
+    // This avoids FK failures when inserting commissions.
+    const { data: paymentReload, error: paymentReloadError } = await supabaseAdmin
+      .from('payments')
+      .select('id, provider_reference, status, base_currency_amount')
+      .eq('id', payment.id)
+      .maybeSingle()
+
+    if (paymentReloadError || !paymentReload) {
+      console.error('❌ Failed to reload payment row after write:', paymentReloadError)
+      console.error('❌ Payment reload error details:', JSON.stringify(paymentReloadError, null, 2))
+    } else {
+      console.log('✅ Payment reloaded for commissions:', {
+        id: paymentReload.id,
+        provider_reference: paymentReload.provider_reference,
+        status: paymentReload.status,
+        base_currency_amount: paymentReload.base_currency_amount
+      })
+      payment = { ...payment, ...paymentReload }
+    }
+
     // Step 6: Create membership
     // Use membership_package_id from payment record (more reliable) or metadata
     const membershipPackageId = payment.membership_package_id || existingPayment?.membership_package_id || metadata.membership_package_id
@@ -523,20 +632,26 @@ export async function POST(request: NextRequest) {
       console.log('ℹ️ No referral code found, skipping referral processing')
     }
 
-    // Step 8: Return success with temporary password for new users
-    console.log('✅ Guest checkout complete:', { email, isNewUser, hasTempPassword: !!tempPassword })
+    // Step 8: Return success WITHOUT temporary password
+    console.log('✅ Guest checkout complete:', {
+      email,
+      isNewUser,
+      tempPasswordIssued: !!tempPassword,
+      tempPasswordEmailSent,
+    })
     
     return NextResponse.json({
       success: true,
-      message: isNewUser 
-        ? 'Payment verified and account created! Use your temporary password to login.'
-        : 'Payment verified! You can login with your existing credentials.',
+      message: isNewUser
+        ? 'Payment verified and account created! Check your email for your temporary password.'
+        : (tempPasswordEmailSent
+          ? 'Payment verified! Check your email for your temporary password.'
+          : 'Payment verified! You can log in with your existing credentials.'),
       email,
       fullName,
       userId,
       isNewUser,
-      tempPassword: isNewUser ? tempPassword : null, // Only return temp password for new users
-      passwordExpiresIn: isNewUser ? '24 hours' : null
+      tempPasswordEmailSent
     })
 
   } catch (error: any) {
@@ -693,6 +808,7 @@ async function processReferral(
     // The $2 bonus is ONLY based on link_type, NOT what the buyer purchased
 
     // 1. Always create learner commission (80% of $10 = $8)
+    const learnerBaseAmountUSD = 10
     const learnerCommission = 8
     const { error: learnerCommissionError } = await supabaseAdmin
       .from('commissions')
@@ -701,7 +817,7 @@ async function processReferral(
         referral_id: referral.id,
         payment_id: payment.id,
         commission_type: 'learner_initial',
-        base_amount: 10, // Base learner price
+        base_amount: learnerBaseAmountUSD, // Base learner price
         base_currency: 'USD',
         commission_rate: 0.80,
         commission_amount: learnerCommission,
@@ -712,10 +828,12 @@ async function processReferral(
 
     if (learnerCommissionError) {
       console.error('❌ Learner commission creation error:', learnerCommissionError)
-    } else {
-      console.log('✅ Learner commission created: $', learnerCommission)
+      console.error('❌ Learner commission error details:', JSON.stringify(learnerCommissionError, null, 2))
+      // Critical: do not update affiliate balances if we failed to create the accounting row
+      return
     }
 
+    console.log('✅ Learner commission created: $', learnerCommission)
     commissionAmount = learnerCommission
 
     // 2. DCS Link Bonus: If referral was made via DCS link (linkType === 'dcs'), 
@@ -742,10 +860,13 @@ async function processReferral(
 
       if (dcsLinkBonusError) {
         console.error('❌ Failed to create $2 DCS link bonus:', dcsLinkBonusError)
-      } else {
-        console.log('✅ $2 USD DCS link bonus created successfully')
-        commissionAmount += dcsBonus // Total now $10
+        console.error('❌ DCS bonus error details:', JSON.stringify(dcsLinkBonusError, null, 2))
+        // Critical: do not partially credit balances when bonus accounting row failed
+        return
       }
+
+      console.log('✅ $2 USD DCS link bonus created successfully')
+      commissionAmount += dcsBonus // Total now $10
     }
 
     // Update affiliate_profiles stats
@@ -762,15 +883,13 @@ async function processReferral(
         .eq('id', referrerId)
 
       if (updateError) {
-        console.error('❌ Error updating affiliate profile:', updateError)
+        console.error('❌ Error updating affiliate profile stats:', updateError)
+        console.error('❌ Affiliate profile update error details:', JSON.stringify(updateError, null, 2))
       } else {
-        console.log('✅ Affiliate profile updated with $', commissionAmount)
+        console.log('✅ Affiliate profile stats updated successfully')
       }
     }
 
-    console.log('💰 Commission processing complete for referrer:', referrerId)
-
-    // Mark affiliate link as converted
     const { error: linkConvertError } = await supabaseAdmin
       .from('affiliate_links')
       .update({
@@ -788,7 +907,7 @@ async function processReferral(
     } else {
       console.log('✅ Affiliate link marked as converted')
     }
-
+    
   } catch (error) {
     console.error('❌ Referral processing error:', error)
     // Don't fail the main transaction if referral processing fails

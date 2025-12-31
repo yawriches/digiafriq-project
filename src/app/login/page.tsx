@@ -11,12 +11,14 @@ import Image from 'next/image'
 
 const LoginPage = () => {
   const router = useRouter()
-  const { signIn, user, profile, loading: authLoading } = useAuth()
+  const { signIn, resetPassword, user, profile, loading: authLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [resetMode, setResetMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   // Redirect if already logged in
   useEffect(() => {
@@ -135,6 +137,35 @@ const LoginPage = () => {
     }
   }
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    setResetSent(false)
+
+    if (!email.trim()) {
+      setError('Email is required')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { error: resetError } = await resetPassword(email.trim())
+      if (resetError) {
+        setError(resetError.message || 'Failed to send reset email')
+        setLoading(false)
+        return
+      }
+
+      setResetSent(true)
+    } catch (err) {
+      console.error('Password reset error:', err)
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-amber-50">
@@ -168,7 +199,7 @@ const LoginPage = () => {
 
         {/* Login Form */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-6">
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={resetMode ? handleResetPassword : handleLogin} className="space-y-5">
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -189,31 +220,55 @@ const LoginPage = () => {
             </div>
 
             {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+            {!resetMode && (
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    disabled={loading}
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
+            )}
+
+            {/* Forgot Password */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setResetMode(!resetMode)
+                  setError('')
+                  setResetSent(false)
+                }}
+                className="text-sm text-[#ed874a] hover:underline"
+                disabled={loading}
+              >
+                {resetMode ? 'Back to sign in' : 'Forgot password?'}
+              </button>
             </div>
+
+            {resetMode && resetSent && (
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                If an account exists for <strong>{email}</strong>, a password reset link has been sent.
+              </div>
+            )}
 
             {/* Error Message */}
             {error && (
@@ -231,10 +286,10 @@ const LoginPage = () => {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Signing in...
+                  {resetMode ? 'Sending reset link...' : 'Signing in...'}
                 </>
               ) : (
-                'Sign In'
+                resetMode ? 'Send reset link' : 'Sign In'
               )}
             </Button>
           </form>

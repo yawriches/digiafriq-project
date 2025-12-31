@@ -181,16 +181,31 @@ export default function CheckoutPage() {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referralType, setReferralType] = useState<string | null>(null);
 
-  // Load referral code from localStorage on mount
+  // Load referral info from URL params first, then fall back to localStorage.
+  // This fixes cases where users land directly on /checkout/guest/... ?ref=XXXX&type=dcs
+  // and localStorage hasn't been set by the sales page.
   useEffect(() => {
+    const urlRef = searchParams.get('ref');
+    const urlType = searchParams.get('type');
+    const normalizedType = urlType === 'dcs' ? 'dcs' : (urlType === 'learner' ? 'learner' : null);
+
+    if (urlRef) {
+      setReferralCode(urlRef);
+      setReferralType(normalizedType || 'learner');
+      localStorage.setItem('referral_code', urlRef);
+      localStorage.setItem('referral_type', normalizedType || 'learner');
+      console.log('📎 Loaded referral code from URL:', urlRef, 'type:', normalizedType);
+      return;
+    }
+
     const storedCode = localStorage.getItem('referral_code');
     const storedType = localStorage.getItem('referral_type');
     if (storedCode) {
       setReferralCode(storedCode);
       setReferralType(storedType || 'learner');
-      console.log('📎 Loaded referral code:', storedCode, 'type:', storedType);
+      console.log('📎 Loaded referral code from localStorage:', storedCode, 'type:', storedType);
     }
-  }, []);
+  }, [searchParams]);
 
   // Fetch membership data from database
   useEffect(() => {
@@ -513,17 +528,25 @@ export default function CheckoutPage() {
       };
       console.log('Payment data:', paymentData);
 
-      console.log('🌐 Calling initialize-payment Edge Function (guest mode)...');
-      // Call existing Supabase Edge Function with guest/referral mode
-      // Use the supabase client to invoke the edge function
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('initialize-payment', {
+      console.log('🌐 Calling initialize-guest-payment Edge Function...');
+      // Guest checkout uses a dedicated Edge Function that creates a pending payment
+      // without requiring auth, then sets payments.provider_reference from the provider.
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('initialize-guest-payment', {
         body: paymentData,
       });
 
       console.log('📥 Edge Function response:', { functionData, functionError });
 
       if (functionError) {
-        console.error('❌ Edge Function error:', functionError);
+        console.error('❌ Edge Function error:', {
+          name: (functionError as any)?.name,
+          message: (functionError as any)?.message,
+          status: (functionError as any)?.status,
+          context: (functionError as any)?.context,
+          details: (functionError as any)?.details,
+          stack: (functionError as any)?.stack,
+          functionData
+        });
         toast.error(`Payment error: ${functionError.message}`);
         throw new Error(functionError.message);
       }

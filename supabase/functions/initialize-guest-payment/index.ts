@@ -303,9 +303,11 @@ serve(async (req) => {
     const { membership_package_id, payment_type, payment_provider, is_guest, metadata } = requestBody
 
     // Validate this is a guest payment
-    if (!is_guest) {
+    // The client may send is_guest at the top-level OR inside metadata.
+    const isGuestRequest = Boolean(is_guest ?? metadata?.is_guest)
+    if (!isGuestRequest) {
       return new Response(
-        JSON.stringify({ error: 'This endpoint is for guest payments only' }),
+        JSON.stringify({ error: 'This endpoint is for guest payments only (missing is_guest)' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -319,16 +321,23 @@ serve(async (req) => {
     }
 
     // Validate guest metadata
-    if (!metadata?.email || !metadata?.full_name || !metadata?.country) {
+    const guestCountry = metadata?.country || metadata?.guest_country
+    const guestEmail = metadata?.email || metadata?.guest_email
+    const guestName = metadata?.full_name || metadata?.guest_name
+
+    if (!guestEmail || !guestName || !guestCountry) {
       return new Response(
-        JSON.stringify({ error: 'Missing required guest information: email, full_name, country' }),
+        JSON.stringify({
+          error: 'Missing required guest information: email, full_name, country',
+          details: {
+            hasEmail: Boolean(guestEmail),
+            hasFullName: Boolean(guestName),
+            hasCountry: Boolean(guestCountry)
+          }
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    const guestCountry = metadata.country
-    const guestEmail = metadata.email
-    const guestName = metadata.full_name
 
     console.log('👤 Guest Details:', { email: guestEmail, name: guestName, country: guestCountry })
 
@@ -459,7 +468,8 @@ serve(async (req) => {
       metadata: {
         payment_id: payment.id,
         membership_package_id,
-        reference: payment.reference,
+        // NOTE: payments.reference does not exist in this project schema.
+        // The provider will generate/return the reference.
         is_guest: true,
         guest_email: guestEmail,
         guest_name: guestName,
@@ -482,13 +492,36 @@ serve(async (req) => {
     }
 
     // Update payment record with provider reference
-    await supabase
+    if (!paymentResponse.reference) {
+      console.error('❌ Provider did not return a reference:', paymentResponse)
+      await supabase
+        .from('payments')
+        .update({ status: 'failed', error_message: 'Provider did not return a reference' })
+        .eq('id', payment.id)
+
+      return new Response(
+        JSON.stringify({ error: 'Payment initialization failed', details: 'Provider did not return a reference' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { error: updateRefError } = await supabase
       .from('payments')
-      .update({ 
+      .update({
         provider_reference: paymentResponse.reference,
-        authorization_url: paymentResponse.authorization_url 
+        metadata: {
+          ...(payment as any).metadata,
+          provider_reference: paymentResponse.reference,
+          authorization_url: paymentResponse.authorization_url,
+        } as any,
       })
       .eq('id', payment.id)
+
+    if (updateRefError) {
+      console.error('❌ Failed to update payment with provider_reference:', updateRefError)
+      console.error('❌ Update provider_reference error details:', JSON.stringify(updateRefError, null, 2))
+      throw new Error(`Failed to update payment with provider_reference: ${updateRefError.message}`)
+    }
 
     console.log('✅ Guest payment initialized successfully:', {
       paymentId: payment.id,

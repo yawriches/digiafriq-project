@@ -178,11 +178,21 @@ const SignupPage = () => {
         confirmPassword: formData.confirmPassword
       }))
 
-      // Create user account
-      const { error: signUpError } = await signUp(formData.email, formData.password, formData.fullName)
-      
-      if (signUpError) {
-        throw signUpError
+      // Create user account (server-side) and send welcome email via ZeptoMail
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          fullName: formData.fullName
+        })
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || 'Failed to create account')
       }
 
       // Small delay to ensure auth state is updated
