@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
-import { sendEmail } from '@/../lib/email'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +12,34 @@ const supabaseAdmin = createClient(
     },
   }
 )
+
+async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin.functions.invoke('email-events', {
+      body: payload,
+    })
+
+    if (error) {
+      console.error('❌ email-events invoke error (signup):', {
+        message: (error as any)?.message,
+        name: (error as any)?.name,
+        status: (error as any)?.status,
+        context: (error as any)?.context,
+        payload,
+      })
+      return false
+    }
+
+    console.log('✅ email-events invoked (signup):', { payload, data })
+    return true
+  } catch (e) {
+    console.error('❌ email-events invoke exception (signup):', {
+      error: e instanceof Error ? e.message : String(e),
+      payload,
+    })
+    return false
+  }
+}
 
 function generateTempPassword(): string {
   const randomBytes = crypto.randomBytes(12)
@@ -95,17 +122,13 @@ export async function POST(request: NextRequest) {
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
     const loginUrl = `${appUrl}/login`
 
-    await sendEmail({
+    // Fire-and-forget: email via Edge Function (uses Edge secrets)
+    await invokeEmailEvents({
+      type: 'signup',
       to: email,
-      subject: 'Welcome to DigiafrIQ — Your Temporary Password',
-      template: 'signup.html',
-      placeholders: {
-        name: fullName,
-        email,
-        temporaryPassword: tempPassword,
-        loginUrl,
-        year: new Date().getFullYear(),
-      },
+      name: fullName,
+      temporaryPassword: tempPassword,
+      loginUrl,
     })
 
     return NextResponse.json({ success: true })

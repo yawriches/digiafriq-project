@@ -19,6 +19,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke('email-events', {
+      body: payload,
+    })
+
+    if (error) {
+      console.error('❌ email-events invoke error (verify):', {
+        message: (error as any)?.message,
+        name: (error as any)?.name,
+        status: (error as any)?.status,
+        context: (error as any)?.context,
+        payload,
+      })
+      return false
+    }
+
+    console.log('✅ email-events invoked (verify):', { payload, data })
+    return true
+  } catch (e) {
+    console.error('❌ email-events invoke exception (verify):', {
+      error: e instanceof Error ? e.message : String(e),
+      payload,
+    })
+    return false
+  }
+}
+
 // Payment provider interfaces
 interface PaymentProvider {
   verifyTransaction(reference: string): Promise<any>
@@ -177,6 +205,18 @@ async function processReferralCommissions(payment: any, verificationData: any) {
 
     console.log('✅ Found referral:', referral)
 
+    const { data: referrerProfile, error: referrerProfileError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', referral.referrer_id)
+      .maybeSingle() as any
+
+    if (referrerProfileError) {
+      console.error('⚠️ Failed to load referrer profile email (verify):', referrerProfileError)
+    }
+
+    const referrerEmail = (referrerProfile as any)?.email as string | undefined
+
     // Get membership package details to determine commission type
     const { data: membershipPackage, error: packageError } = await supabase
       .from('membership_packages')
@@ -221,6 +261,17 @@ async function processReferralCommissions(payment: any, verificationData: any) {
     if (commission) {
       console.log('✅ Commission created successfully:', commission)
 
+      if (referrerEmail) {
+        await invokeEmailEvents({
+          type: 'commission',
+          to: referrerEmail,
+          amount: (commission as any)?.commission_amount,
+          currency: (commission as any)?.commission_currency || 'USD',
+          source: notes,
+          date: new Date().toISOString(),
+        })
+      }
+
       // Special handling for affiliate referrals - create additional $2 commission (in USD)
       if (commissionType === 'affiliate_referral') {
         console.log('💰 Creating additional $2 USD commission for affiliate referral')
@@ -246,6 +297,17 @@ async function processReferralCommissions(payment: any, verificationData: any) {
           console.error('❌ Failed to create $2 affiliate commission:', affiliateCommissionError)
         } else {
           console.log('✅ $2 USD affiliate commission created successfully')
+
+          if (referrerEmail) {
+            await invokeEmailEvents({
+              type: 'commission',
+              to: referrerEmail,
+              amount: 2.0,
+              currency: 'USD',
+              source: '$2 USD bonus for affiliate referral upgrade',
+              date: new Date().toISOString(),
+            })
+          }
         }
       }
 
@@ -274,6 +336,17 @@ async function processReferralCommissions(payment: any, verificationData: any) {
           console.error('❌ Failed to create $2 DCS commission:', dcsCommissionError)
         } else {
           console.log('✅ $2 USD DCS commission created successfully')
+
+          if (referrerEmail) {
+            await invokeEmailEvents({
+              type: 'commission',
+              to: referrerEmail,
+              amount: 2.0,
+              currency: 'USD',
+              source: '$2 USD DCS bonus - referral made via Digital Cashflow link',
+              date: new Date().toISOString(),
+            })
+          }
         }
       }
 

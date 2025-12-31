@@ -15,6 +15,37 @@ const supabaseAdmin = createClient(
   }
 )
 
+async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin.functions.invoke('email-events', {
+      body: payload,
+    })
+
+    if (error) {
+      console.error('❌ email-events invoke error (guest-verify):', {
+        message: (error as any)?.message,
+        name: (error as any)?.name,
+        status: (error as any)?.status,
+        context: (error as any)?.context,
+        payload,
+      })
+      return false
+    }
+
+    console.log('✅ email-events invoked (guest-verify):', {
+      payload,
+      data,
+    })
+    return true
+  } catch (e) {
+    console.error('❌ email-events invoke exception (guest-verify):', {
+      error: e instanceof Error ? e.message : String(e),
+      payload,
+    })
+    return false
+  }
+}
+
 // Payment provider interfaces (same as verify route)
 interface PaymentProvider {
   verifyTransaction(reference: string): Promise<any>
@@ -750,6 +781,19 @@ async function processReferral(
 
     console.log('✅ Using referrer:', referrerId)
 
+    // Resolve recipient email (affiliate user) from profiles table
+    const { data: referrerProfile, error: referrerProfileError } = await supabaseAdmin
+      .from('profiles')
+      .select('email')
+      .eq('id', referrerId)
+      .maybeSingle()
+
+    if (referrerProfileError) {
+      console.error('⚠️ Failed to load referrer profile email:', referrerProfileError)
+    }
+
+    const referrerEmail = (referrerProfile as any)?.email as string | undefined
+
     // Check if referrer is eligible (has active membership with DCS)
     const { data: referrerMembership, error: membershipError } = await supabaseAdmin
       .from('user_memberships')
@@ -860,13 +904,26 @@ async function processReferral(
 
       if (dcsLinkBonusError) {
         console.error('❌ Failed to create $2 DCS link bonus:', dcsLinkBonusError)
-        console.error('❌ DCS bonus error details:', JSON.stringify(dcsLinkBonusError, null, 2))
-        // Critical: do not partially credit balances when bonus accounting row failed
-        return
+      } else {
+        console.log('✅ $2 USD DCS link bonus created successfully')
+        commissionAmount += dcsBonus
       }
+    }
 
-      console.log('✅ $2 USD DCS link bonus created successfully')
-      commissionAmount += dcsBonus // Total now $10
+    // Fire-and-forget: send a single commission email after all commission inserts succeed
+    if (referrerEmail) {
+      await invokeEmailEvents({
+        type: 'commission',
+        to: referrerEmail,
+        amount: commissionAmount,
+        currency: 'USD',
+        source: linkType === 'dcs'
+          ? 'Learner referral commission + $2 DCS bonus'
+          : 'Learner referral commission',
+        date: new Date().toISOString(),
+      })
+    } else {
+      console.log('⚠️ Skipping commission email: missing referrer email')
     }
 
     // Update affiliate_profiles stats

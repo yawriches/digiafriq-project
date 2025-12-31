@@ -17,6 +17,34 @@ import {
   isWithdrawalDay
 } from './types'
 
+async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
+  try {
+    const { data, error } = await (supabase as any).functions.invoke('email-events', {
+      body: payload,
+    })
+
+    if (error) {
+      console.error('❌ email-events invoke error (withdrawal-service):', {
+        message: (error as any)?.message,
+        name: (error as any)?.name,
+        status: (error as any)?.status,
+        context: (error as any)?.context,
+        payload,
+      })
+      return false
+    }
+
+    console.log('✅ email-events invoked (withdrawal-service):', { payload, data })
+    return true
+  } catch (e) {
+    console.error('❌ email-events invoke exception (withdrawal-service):', {
+      error: e instanceof Error ? e.message : String(e),
+      payload,
+    })
+    return false
+  }
+}
+
 // ============================================================================
 // CURRENCY CONVERSION RATES
 // ============================================================================
@@ -340,6 +368,36 @@ export async function approveWithdrawal(
       return { success: false, error: error.message }
     }
 
+    try {
+      const withdrawalUserId = (withdrawalForEmail as any)?.user_id as string | undefined
+      if (withdrawalUserId) {
+        const { data: profile, error: profileError } = await (supabase as any)
+          .from('profiles')
+          .select('email')
+          .eq('id', withdrawalUserId)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('⚠️ Failed to load affiliate email for payout:', profileError)
+        }
+
+        const to = (profile as any)?.email as string | undefined
+        if (to) {
+          await invokeEmailEvents({
+            type: 'payout',
+            to,
+            amount: (withdrawalForEmail as any)?.amount_usd,
+            currency: 'USD',
+            paymentMethod: 'Withdrawal',
+            referenceId: (withdrawalForEmail as any)?.reference || providerReference || withdrawalId,
+            date: new Date().toISOString(),
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error('⚠️ Payout email send failed (non-blocking):', emailErr)
+    }
+
     return { success: true, error: null }
   } catch (err: any) {
     return { success: false, error: err.message }
@@ -382,6 +440,16 @@ export async function markWithdrawalPaid(
 ): Promise<{ success: boolean; error: string | null }> {
   try {
     const user = (await supabase.auth.getUser()).data.user
+
+    const { data: withdrawalForEmail, error: withdrawalForEmailError } = await (supabase as any)
+      .from('withdrawals')
+      .select('id, user_id, amount_usd, amount_local, currency, reference')
+      .eq('id', withdrawalId)
+      .maybeSingle()
+
+    if (withdrawalForEmailError) {
+      console.error('⚠️ Failed to load withdrawal for email:', withdrawalForEmailError)
+    }
 
     const { error } = await (supabase as any).rpc('mark_withdrawal_paid', {
       p_withdrawal_id: withdrawalId,
