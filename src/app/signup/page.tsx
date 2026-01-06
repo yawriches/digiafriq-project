@@ -170,14 +170,6 @@ const SignupPage = () => {
     setIsSigningUp(true) // Prevent redirect during signup
 
     try {
-      // Store form data in localStorage for role selection page
-      localStorage.setItem('signupFormData', JSON.stringify({
-        fullName: formData.fullName,
-        email: formData.email,
-        password: formData.password,
-        confirmPassword: formData.confirmPassword
-      }))
-
       // Create user account (server-side) and send welcome email via ZeptoMail
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
@@ -186,13 +178,24 @@ const SignupPage = () => {
         },
         body: JSON.stringify({
           email: formData.email,
-          fullName: formData.fullName
+          fullName: formData.fullName,
+          password: formData.password,
         })
       })
 
       const result = await response.json()
       if (!response.ok || !result?.success) {
         throw new Error(result?.message || 'Failed to create account')
+      }
+
+      // Sign in immediately so user is authenticated on /choose-role
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      })
+
+      if (signInError) {
+        throw new Error(signInError.message || 'Failed to sign in after signup')
       }
 
       // Small delay to ensure auth state is updated
@@ -231,13 +234,15 @@ const SignupPage = () => {
             {/* Header */}
             <div className="text-center mb-8">
               <div className="flex justify-center mb-6">
-                <Image
-                  src="/digiafriqlogo.png"
-                  alt="DigiAfriq Logo"
-                  width={80}
-                  height={80}
-                  className="rounded-lg shadow-lg"
-                />
+                <Link href="/" className="cursor-pointer">
+                  <Image
+                    src="/digiafriqlogo.png"
+                    alt="DigiAfriq Logo"
+                    width={80}
+                    height={80}
+                    className="object-contain"
+                  />
+                </Link>
               </div>
               <h1 className="text-4xl font-bold text-gray-900 mb-3">
                 Create your account

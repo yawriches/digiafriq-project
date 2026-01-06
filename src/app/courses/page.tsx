@@ -5,6 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Clock, Star, ArrowRight, Users, BookOpen } from "lucide-react"
 import Link from "next/link"
+import { CourseDetailsModal } from "@/components/CourseDetailsModal"
+import { useState } from "react"
 
 const courses = [
   { 
@@ -54,6 +56,14 @@ const courses = [
 ]
 
 export default function CoursesPage() {
+  const [selectedCourse, setSelectedCourse] = useState<typeof courses[0] | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleViewDetails = (course: typeof courses[0]) => {
+    setSelectedCourse(course)
+    setIsModalOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fef3e8] via-white to-[#fef3e8]">
       {/* Hero Section */}
@@ -102,29 +112,6 @@ export default function CoursesPage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-gray-900">15,000+</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Active Learners</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-gray-900">4</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Premium Courses</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-gray-900">95%</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Success Rate</div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-gray-900">100</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Cedis/Year</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Courses Grid */}
       <section id="courses" className="py-20 px-4 sm:px-6 lg:px-8">
@@ -188,26 +175,13 @@ export default function CoursesPage() {
                       </span>
                     </div>
                     
-                    <div className="flex gap-3">
-                      <Button 
-                        className="flex-1 bg-[#ed874a] hover:bg-[#d76f32] text-white font-medium py-3"
-                        asChild
-                      >
-                        <Link href={`/courses/${course.slug}`}>
-                          View Details
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </Link>
-                      </Button>
-                      <Button 
-                        variant="outline"
-                        className="border-2 border-[#ed874a] text-[#ed874a] hover:bg-[#fef3e8] px-6"
-                        asChild
-                      >
-                        <Link href={`/courses/${course.slug}#enroll`}>
-                          Enroll
-                        </Link>
-                      </Button>
-                    </div>
+                    <Button 
+                      className="w-full bg-[#ed874a] hover:bg-[#d76f32] text-white font-medium py-3"
+                      onClick={() => handleViewDetails(course)}
+                    >
+                      View Details
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -272,6 +246,13 @@ export default function CoursesPage() {
           </div>
         </div>
       </section>
+
+      {/* Course Details Modal */}
+      <CourseDetailsModal 
+        course={selectedCourse}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      />
     </div>
   )
 }

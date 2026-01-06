@@ -6,9 +6,10 @@ import AffiliateDashboardLayout from '@/components/dashboard/AffiliateDashboardL
 import AffiliateRequiresLearnerMembership from '@/components/AffiliateRequiresLearnerMembership';
 import { Loader2, Crown, Lock, TrendingUp, DollarSign, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { AffiliateDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
+import { useAuth } from '@/lib/supabase/auth';
 
 interface AffiliateLayoutProps {
   children: React.ReactNode;
@@ -16,9 +17,21 @@ interface AffiliateLayoutProps {
 
 const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const { user, loading: authLoading } = useAuth();
   const { hasLearnerMembership, hasAffiliateMembership, loading: membershipLoading } = useMembershipStatus();
   const { hasDCS, loading: dcsLoading } = useMembershipDetails();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      const redirectUrl = `/login?redirectTo=${encodeURIComponent(pathname)}`;
+      router.push(redirectUrl);
+    }
+  }, [user, authLoading, router, pathname]);
   const [affiliatePackageId, setAffiliatePackageId] = useState<string | null>(null);
+  const [learnerPackageWithDcsId, setLearnerPackageWithDcsId] = useState<string | null>(null);
+  const [dcsAddonPrice, setDcsAddonPrice] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [isReadyToGate, setIsReadyToGate] = useState(false);
 
@@ -45,6 +58,31 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
     fetchAffiliatePackages()
   }, [])
 
+  // Fetch the learner package with DCS addon (to get correct addon price)
+  useEffect(() => {
+    const fetchLearnerPackage = async () => {
+      try {
+        const response = await fetch('/api/memberships?member_type=learner')
+        if (response.ok) {
+          const data = await response.json()
+          const learnerPackage = data.packages?.find((pkg: any) =>
+            pkg.member_type === 'learner' &&
+            pkg.has_digital_cashflow === true
+          )
+
+          if (learnerPackage) {
+            setLearnerPackageWithDcsId(learnerPackage.id)
+            setDcsAddonPrice(learnerPackage.digital_cashflow_price || 0)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch learner package:', error)
+      }
+    }
+
+    fetchLearnerPackage()
+  }, [])
+
   useEffect(() => {
     // If any membership-related check is loading, disable gating to avoid flashing the gate UI
     if (membershipLoading || dcsLoading) {
@@ -57,13 +95,14 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
   }, [membershipLoading, dcsLoading])
 
   const handleUpgradeClick = () => {
-    if (affiliatePackageId) {
-      // Go directly to checkout for the $7 package
-      router.push(`/dashboard/learner/membership/checkout?membershipId=${affiliatePackageId}&upgrade=true`);
-    } else {
-      // Fallback to membership page if package not found
-      router.push('/dashboard/learner/membership');
+    if (learnerPackageWithDcsId) {
+      // Unify upgrade flow: use addon upgrade checkout
+      router.push(`/checkout/${learnerPackageWithDcsId}?addon=digital-cashflow&upgrade=true`)
+      return
     }
+
+    // Fallback to membership page if package not found
+    router.push('/dashboard/learner/membership')
   };
 
   // During route transitions / refetches, avoid flashing the gate UI.
@@ -160,7 +199,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
                       🎉 Special Upgrade Price
                     </div>
                     <div className="mb-2">
-                      <span className="text-5xl font-bold text-gray-900">$7</span>
+                      <span className="text-5xl font-bold text-gray-900">${dcsAddonPrice}</span>
                     </div>
                     <p className="text-gray-600 mb-6">
                       One-time payment • Lifetime access as long as membership is active
@@ -171,7 +210,7 @@ const AffiliateLayout: React.FC<AffiliateLayoutProps> = ({ children }) => {
                       className="bg-gradient-to-r from-[#ed874a] to-orange-500 hover:from-orange-600 hover:to-orange-600 text-white px-12 py-6 text-lg font-bold rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-200"
                     >
                       <Crown className="w-5 h-5 mr-2" />
-                      Upgrade to Digital Cashflow – $7
+                      Upgrade to Digital Cashflow – ${dcsAddonPrice}
                     </Button>
                   </div>
                 </div>

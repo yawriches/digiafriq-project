@@ -7,6 +7,12 @@ import { Menu, X, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/supabase/auth"
 import { useRouter } from "next/navigation"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const navigation = [
   { name: "Pricing", href: "/#pricing" },
@@ -64,14 +70,32 @@ export function Header() {
         {/* Right: Buttons */}
         <div className="hidden lg:flex items-center gap-4">
           {user ? (
-            <Button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              {isLoggingOut ? 'Logging out...' : 'Log Out'}
-            </Button>
+            <>
+              <Button
+                className="bg-[#ed874a] text-white hover:bg-[#d76f32]"
+                asChild
+              >
+                <Link href="/choose-role">Dashboard</Link>
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="border-gray-200 text-red-600 hover:text-red-700">
+                    Logout
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {isLoggingOut ? 'Logging out...' : 'Log Out'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <>
               <Button
@@ -116,14 +140,32 @@ export function Header() {
               </Link>
             ))}
             {user ? (
-              <Button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="bg-red-600 text-white w-full hover:bg-red-700 flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                {isLoggingOut ? 'Logging out...' : 'Log Out'}
-              </Button>
+              <>
+                <Button
+                  className="bg-[#ed874a] text-white w-full hover:bg-[#d76f32]"
+                  asChild
+                >
+                  <Link href="/choose-role">Dashboard</Link>
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full border-gray-200 text-red-600 hover:text-red-700">
+                      Logout
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="text-red-600"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      {isLoggingOut ? 'Logging out...' : 'Log Out'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <>
                 <Link href="/login" className="text-gray-700 text-sm hover:text-[#ed874a]">

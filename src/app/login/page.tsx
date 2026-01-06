@@ -185,13 +185,15 @@ const LoginPage = () => {
           {/* Logo */}
           <div className="text-center mb-6">
             <div className="flex justify-center mb-4">
-              <Image
-                src="/digiafriqlogo.png"
-                alt="DigiAfriq Logo"
-                width={80}
-                height={80}
-                className="rounded-lg shadow-lg"
-              />
+              <Link href="/" className="cursor-pointer">
+                <Image
+                  src="/digiafriqlogo.png"
+                  alt="DigiAfriq Logo"
+                  width={80}
+                  height={80}
+                  className="object-contain"
+                />
+              </Link>
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600">Sign in to your DigiAfriq account</p>

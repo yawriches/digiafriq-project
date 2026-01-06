@@ -22,7 +22,7 @@ interface PaymentVerification {
 function PaymentCallbackPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
 
   // Add unique instance ID for debugging
   const [instanceId] = useState(() => Math.random().toString(36).substr(2, 9));
@@ -111,6 +111,11 @@ function PaymentCallbackPageInner() {
           } else {
             toast.success('Payment verified successfully!');
           }
+
+          // Refresh user profile to update roles and available_roles
+          console.log('🔄 Refreshing user profile after successful payment...');
+          await refreshProfile();
+          console.log('✅ User profile refreshed with updated roles');
 
           // Redirect after 3 seconds
           setTimeout(() => {

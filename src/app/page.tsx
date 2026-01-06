@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, Monitor, Globe, Smartphone, Star, CheckCircle, ArrowRight, Users, Award, MapPin, Clock, BookOpen, Zap, Shield, Target, ChevronDown, HelpCircle, DollarSign, Check } from "lucide-react"
 import { useBlogPosts } from "@/lib/hooks/useBlogPosts"
+import { CourseDetailsModal } from "@/components/CourseDetailsModal"
+import { useState } from "react"
 
 const courses = [
   { title: "Graphic Design", description: "Master visual communication and design principles", icon: Star, duration: "8 weeks", level: "Beginner–Advanced", image: "/graphicdesigning.png" },
@@ -44,6 +46,13 @@ const stats = [
 
 export default function Home() {
   const { posts: blogPosts, loading: blogLoading } = useBlogPosts(3)
+  const [selectedCourse, setSelectedCourse] = useState<typeof courses[0] | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleViewDetails = (course: typeof courses[0]) => {
+    setSelectedCourse(course)
+    setIsModalOpen(true)
+  }
 
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-[#fef3e8] via-white to-[#fef3e8] overflow-hidden">
@@ -392,12 +401,10 @@ export default function Home() {
                     {/* View Details Button */}
                     <Button 
                       className="w-full bg-[#ed874a] hover:bg-[#d76f32] text-white font-medium"
-                      asChild
+                      onClick={() => handleViewDetails(course)}
                     >
-                      <Link href={`/courses/${course.title.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and')}`}>
-                        View Details
-                        <ArrowRight className="w-4 h-4 ml-2" />
-                      </Link>
+                      View Details
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   </CardContent>
                 </Card>
@@ -1003,6 +1010,13 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* Course Details Modal */}
+      <CourseDetailsModal 
+        course={selectedCourse}
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+      />
     </div>
   )
 }

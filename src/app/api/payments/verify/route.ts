@@ -1,22 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createCommission, completeReferral } from '@/lib/supabase/referrals'
-import { 
-  createAccountAfterPayment, 
-  checkExistingAccount, 
+import {
+  createAccountAfterPayment,
+  checkExistingAccount,
   sendMagicLinkToExistingUser,
-  type AccountCreationData 
+  ensurePasswordAccountForReferral,
+  type AccountCreationData
 } from '@/lib/auth/account-creation'
-import { 
-  generateWelcomeEmailHTML, 
-  generateWelcomeEmailText,
-  type WelcomeEmailData 
-} from '@/lib/email/templates'
+
+function generateTemporaryPassword(length = 10): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%'
+  let out = ''
+  for (let i = 0; i < length; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return out
+}
 
 // Use service role client for payment verification (bypasses RLS)
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 )
 
 async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
@@ -45,6 +56,59 @@ async function invokeEmailEvents(payload: Record<string, unknown>): Promise<bool
     })
     return false
   }
+}
+
+async function sendMembershipReceiptEmail(params: {
+  customerEmail: string
+  customerName: string
+  membershipPackageName: string
+  isUpgrade: boolean
+  oldMembershipPackageName?: string
+}): Promise<void> {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+  const dashboardUrl = appUrl ? `${appUrl}/dashboard` : ''
+  const communityUrl = 'https://t.me/digiafriq'
+
+  if (!params.customerEmail) return
+
+  if (params.isUpgrade) {
+    const payload = {
+      type: 'membership_upgrade',
+      to: params.customerEmail,
+      name: params.customerName,
+      oldPackageName: params.oldMembershipPackageName || 'your previous plan',
+      newPackageName: params.membershipPackageName,
+      dashboardUrl,
+      communityUrl,
+    }
+
+    console.log('📧 invoking email-events (membership_upgrade)', {
+      to: params.customerEmail,
+      newPackageName: params.membershipPackageName,
+      oldPackageName: params.oldMembershipPackageName,
+    })
+
+    const ok = await invokeEmailEvents(payload)
+    console.log('📧 email-events result (membership_upgrade)', { ok })
+    return
+  }
+
+  const payload = {
+    type: 'membership_purchase',
+    to: params.customerEmail,
+    name: params.customerName,
+    packageName: params.membershipPackageName,
+    dashboardUrl,
+    communityUrl,
+  }
+
+  console.log('📧 invoking email-events (membership_purchase)', {
+    to: params.customerEmail,
+    packageName: params.membershipPackageName,
+  })
+
+  const ok = await invokeEmailEvents(payload)
+  console.log('📧 email-events result (membership_purchase)', { ok })
 }
 
 // Payment provider interfaces
@@ -207,7 +271,7 @@ async function processReferralCommissions(payment: any, verificationData: any) {
 
     const { data: referrerProfile, error: referrerProfileError } = await supabase
       .from('profiles')
-      .select('email')
+      .select('email, full_name')
       .eq('id', referral.referrer_id)
       .maybeSingle() as any
 
@@ -216,6 +280,32 @@ async function processReferralCommissions(payment: any, verificationData: any) {
     }
 
     const referrerEmail = (referrerProfile as any)?.email as string | undefined
+
+    // Name is crucial for commission emails. Prefer profiles.full_name, fallback to auth user metadata.
+    let referrerName = (referrerProfile as any)?.full_name as string | undefined
+    if (!referrerName || !String(referrerName).trim()) {
+      try {
+        const { data: authUser, error: authUserErr } = await supabase.auth.admin.getUserById(
+          referral.referrer_id
+        ) as any
+        if (authUserErr) {
+          console.error('⚠️ Failed to load auth user for referrer name (verify):', authUserErr)
+        }
+        referrerName =
+          (authUser as any)?.user?.user_metadata?.full_name ||
+          (authUser as any)?.user?.user_metadata?.name ||
+          (authUser as any)?.user?.email?.split?.('@')?.[0]
+      } catch (e) {
+        console.error('⚠️ Exception loading auth user for referrer name (verify):', e)
+      }
+    }
+
+    if (!referrerName || !String(referrerName).trim()) {
+      console.error('❌ Missing referrer full_name; skipping commission email to avoid blank greeting', {
+        referrerId: referral.referrer_id,
+        referrerEmail,
+      })
+    }
 
     // Get membership package details to determine commission type
     const { data: membershipPackage, error: packageError } = await supabase
@@ -261,14 +351,14 @@ async function processReferralCommissions(payment: any, verificationData: any) {
     if (commission) {
       console.log('✅ Commission created successfully:', commission)
 
-      if (referrerEmail) {
+      if (referrerEmail && referrerName && String(referrerName).trim()) {
         await invokeEmailEvents({
           type: 'commission',
           to: referrerEmail,
-          amount: (commission as any)?.commission_amount,
-          currency: (commission as any)?.commission_currency || 'USD',
-          source: notes,
-          date: new Date().toISOString(),
+          name: referrerName,
+          productName: membershipPackage.name,
+          commissionAmount: (commission as any)?.commission_amount,
+          communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
         })
       }
 
@@ -298,14 +388,14 @@ async function processReferralCommissions(payment: any, verificationData: any) {
         } else {
           console.log('✅ $2 USD affiliate commission created successfully')
 
-          if (referrerEmail) {
+          if (referrerEmail && referrerName && String(referrerName).trim()) {
             await invokeEmailEvents({
               type: 'commission',
               to: referrerEmail,
-              amount: 2.0,
-              currency: 'USD',
-              source: '$2 USD bonus for affiliate referral upgrade',
-              date: new Date().toISOString(),
+              name: referrerName,
+              productName: membershipPackage.name,
+              commissionAmount: 2.0,
+              communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
             })
           }
         }
@@ -337,14 +427,14 @@ async function processReferralCommissions(payment: any, verificationData: any) {
         } else {
           console.log('✅ $2 USD DCS commission created successfully')
 
-          if (referrerEmail) {
+          if (referrerEmail && referrerName && String(referrerName).trim()) {
             await invokeEmailEvents({
               type: 'commission',
               to: referrerEmail,
-              amount: 2.0,
-              currency: 'USD',
-              source: '$2 USD DCS bonus - referral made via Digital Cashflow link',
-              date: new Date().toISOString(),
+              name: referrerName,
+              productName: membershipPackage.name,
+              commissionAmount: 2.0,
+              communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
             })
           }
         }
@@ -367,39 +457,6 @@ async function processReferralCommissions(payment: any, verificationData: any) {
   }
 }
 
-// Helper function to send welcome email
-async function sendWelcomeEmail(emailData: WelcomeEmailData): Promise<boolean> {
-  try {
-    console.log('📧 Sending welcome email to:', emailData.email)
-    
-    // Generate email content for magic link flow
-    const htmlContent = generateWelcomeEmailHTML(emailData)
-    const textContent = generateWelcomeEmailText(emailData)
-    
-    console.log('📧 Email HTML content generated (length):', htmlContent.length)
-    console.log('📧 Email text content generated (length):', textContent.length)
-    
-    // TODO: Integrate with actual email service
-    // Example with a hypothetical email service:
-    /*
-    const emailService = new EmailService(process.env.EMAIL_API_KEY)
-    await emailService.send({
-      to: emailData.email,
-      subject: `Welcome to DigiafrIQ - Check Your Email for Login Link!`,
-      html: htmlContent,
-      text: textContent
-    })
-    */
-    
-    console.log('✅ Welcome email prepared successfully (email service integration needed)')
-    return true
-    
-  } catch (error) {
-    console.error('❌ Error sending welcome email:', error)
-    return false
-  }
-}
-
 // Helper function to process membership creation
 async function processMembershipCreation(payment: any, verificationData: any) {
   console.log('🎉 PAYMENT VERIFICATION COMPLETED SUCCESSFULLY')
@@ -410,19 +467,43 @@ async function processMembershipCreation(payment: any, verificationData: any) {
     membership_package_id: payment.membership_package_id
   })
 
-  // Get customer email and name from verification data
+  // Get customer email from verification data
   const customerEmail = verificationData.data?.customer?.email
-  const customerName = verificationData.data?.customer?.first_name 
+  
+  // Fetch actual user name from profiles table if we have user_id
+  let customerName = verificationData.data?.customer?.first_name 
     ? `${verificationData.data.customer.first_name} ${verificationData.data.customer.last_name || ''}`.trim()
     : verificationData.data?.customer?.email?.split('@')[0] || 'User'
+  
+  if (payment.user_id) {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', payment.user_id)
+        .maybeSingle() as any
+      
+      if (profile?.full_name && profile.full_name.trim()) {
+        customerName = profile.full_name.trim()
+        console.log('✅ Fetched user name from profile:', customerName)
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to fetch user name from profile:', error)
+    }
+  }
 
   console.log('👤 Customer info:', { email: customerEmail, name: customerName })
 
   // Get referral data from payment metadata
-  const referralCode = verificationData.data?.metadata?.referral_code
-  const referralType = verificationData.data?.metadata?.referral_type as 'learner' | 'affiliate' | undefined
+  // IMPORTANT: Prioritize payment record metadata (Kora doesn't return metadata in verification)
+  const referralCode = payment.metadata?.referral_code || verificationData.data?.metadata?.referral_code
+  const referralType = (payment.metadata?.referral_type || verificationData.data?.metadata?.referral_type) as 'learner' | 'affiliate' | undefined
 
-  console.log('🔗 Referral info:', { referralCode, referralType })
+  console.log('🔗 Referral info:', { 
+    referralCode, 
+    referralType,
+    source: payment.metadata?.referral_code ? 'payment_record' : 'verification_data'
+  })
 
   // Get membership package details - prioritize payment record over verification metadata
   // This is important because Kora doesn't return metadata in verification response like Paystack does
@@ -472,6 +553,8 @@ async function processMembershipCreation(payment: any, verificationData: any) {
     let userId = payment.user_id
     let accountCreated = false
     let magicLinkSent = false
+    let oldMembershipPackageName: string | undefined = undefined
+    let temporaryPassword: string | undefined = undefined
 
     if (!userId && customerEmail) {
       console.log('🔍 No user_id in payment, checking if account exists for email:', customerEmail)
@@ -479,38 +562,69 @@ async function processMembershipCreation(payment: any, verificationData: any) {
       const accountExists = await checkExistingAccount(customerEmail)
       
       if (accountExists) {
-        console.log('✅ Account exists, sending magic link for membership upgrade')
-        
-        const magicLinkSuccess = await sendMagicLinkToExistingUser(
-          customerEmail,
-          membershipPackage.member_type,
-          referralCode,
-          referralType
-        )
-        
-        if (!magicLinkSuccess) {
-          console.error('❌ Failed to send magic link to existing user')
-          return NextResponse.json({
-            success: false,
-            message: 'Failed to send login link to existing account'
-          }, { status: 500 })
+        console.log('✅ Account exists for email; using existing account')
+
+        // Look up the user's current active membership package name (for upgrade email)
+        try {
+          // Resolve user id for this email (admin listUsers is not available here)
+          const { data: profileForEmail } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', customerEmail)
+            .maybeSingle() as any
+
+          const existingUserId = profileForEmail?.id
+
+          const { data: existingMembership } = await supabase
+            .from('user_memberships')
+            .select('membership_package_id, membership_packages(name)')
+            .eq('user_id', existingUserId)
+            .eq('is_active', true)
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle() as any
+
+          oldMembershipPackageName = existingMembership?.membership_packages?.name
+        } catch (e) {
+          console.error('❌ Failed to lookup old membership package name (non-critical):', e)
         }
-        
-        console.log('✅ Magic link sent to existing user')
-        magicLinkSent = true
-      } else {
-        console.log('🆕 Creating new account with magic link after payment')
-        
+
+        // Existing account: resolve userId from profiles (needed for membership updates)
+        try {
+          const { data: profileForEmail, error: profileErr } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', customerEmail)
+            .maybeSingle() as any
+
+          if (profileErr) {
+            console.error('❌ Failed to resolve existing user id from profiles:', profileErr)
+          }
+
+          userId = profileForEmail?.id || userId
+        } catch (e) {
+          console.error('❌ Exception resolving existing user id from profiles:', e)
+        }
+      }
+
+      if (!accountExists) {
+        console.log('🆕 Creating new account after payment (temporary password flow)')
+
+        temporaryPassword = generateTemporaryPassword()
+
         const accountData: AccountCreationData = {
           email: customerEmail,
           fullName: customerName,
           membershipType: membershipPackage.member_type,
           referralCode,
-          referralType
+          referralType,
         }
-        
-        const createdAccount = await createAccountAfterPayment(accountData)
-        
+
+        const createdAccount = await createAccountAfterPayment({
+          ...accountData,
+          temporaryPassword,
+        } as any)
+
         if (!createdAccount) {
           console.error('❌ Failed to create account after payment')
           return NextResponse.json({
@@ -518,17 +632,17 @@ async function processMembershipCreation(payment: any, verificationData: any) {
             message: 'Failed to create user account'
           }, { status: 500 })
         }
-        
+
         console.log('✅ Account created successfully:', {
           userId: createdAccount.userId,
           email: createdAccount.email,
-          magicLinkSent: createdAccount.magicLinkSent
+          magicLinkSent: createdAccount.magicLinkSent,
         })
-        
+
         userId = createdAccount.userId
         accountCreated = true
         magicLinkSent = createdAccount.magicLinkSent
-        
+
         // Update payment with user_id
         const { error: paymentUpdateError } = await supabase
           .from('payments')
@@ -569,6 +683,13 @@ async function processMembershipCreation(payment: any, verificationData: any) {
     const paymentMetadata = payment.metadata || {}
     const providerMetadata = verificationData.data?.metadata || {}
     const metadata = { ...providerMetadata, ...paymentMetadata } // Payment record takes precedence
+
+    // Upgrade detection for dashboard flow:
+    // - user upgrades membership package (not addon-only): metadata.is_upgrade === true
+    // - addon-only upgrade (digital cashflow): payment_type === 'addon_upgrade' or metadata.is_addon_upgrade
+    const isMembershipUpgrade =
+      metadata.is_upgrade === true ||
+      metadata.is_upgrade === 'true'
     
     // Also check payment_type column for addon_upgrade
     const isAddonUpgrade = payment.payment_type === 'addon_upgrade' || 
@@ -580,6 +701,7 @@ async function processMembershipCreation(payment: any, verificationData: any) {
     console.log('🔍 Addon detection:', { 
       isAddonUpgrade, 
       hasDCSAddon, 
+      isMembershipUpgrade,
       paymentType: payment.payment_type,
       paymentMetadata,
       providerMetadata 
@@ -602,6 +724,31 @@ async function processMembershipCreation(payment: any, verificationData: any) {
         console.error('❌ Full addon update error:', JSON.stringify(updateError, null, 2))
       } else {
         console.log('✅ DCS addon added to existing membership successfully')
+
+        // Send upgrade email for DCS addon unlock (affiliate access requirement)
+        // Note: we reuse membership_upgrade template for now.
+        try {
+          const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+          const dashboardUrl = appUrl ? `${appUrl}/dashboard` : ''
+          const communityUrl = 'https://t.me/digiafriq'
+
+          console.log('📧 invoking email-events (membership_upgrade: dcs_addon)', {
+            to: customerEmail,
+          })
+
+          const ok = await invokeEmailEvents({
+            type: 'membership_upgrade',
+            to: customerEmail,
+            name: customerName,
+            oldPackageName: 'your previous plan',
+            newPackageName: 'Digital Cashflow System',
+            dashboardUrl,
+            communityUrl,
+          })
+          console.log('📧 email-events result (membership_upgrade: dcs_addon)', { ok })
+        } catch (e) {
+          console.error('❌ Failed to invoke DCS addon upgrade email via email-events (non-critical):', e)
+        }
       }
     } else {
       // CREATE new membership
@@ -635,46 +782,194 @@ async function processMembershipCreation(payment: any, verificationData: any) {
       }
     }
 
-    // Update user role based on membership type (for existing users)
+    // Update user role and available_roles based on membership type (for existing users)
     if (membershipPackage.member_type === 'affiliate') {
-      console.log('👑 Affiliate membership detected, updating user role...')
+      console.log('👑 Affiliate membership detected, updating user role and available_roles...')
+      
+      // First, get current available_roles
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('available_roles')
+        .eq('id', userId)
+        .single() as any
+
+      const currentRoles = currentProfile?.available_roles || ['learner']
+      const updatedRoles = Array.from(new Set([...currentRoles, 'affiliate']))
       
       const { error: roleUpdateError } = await supabase
         .from('profiles')
-        .update({ role: 'affiliate' })
+        .update({ 
+          role: 'affiliate',
+          active_role: 'affiliate',
+          available_roles: updatedRoles
+        })
         .eq('id', userId) as any
 
       if (roleUpdateError) {
         console.error('❌ DATABASE ERROR: Failed to update user role:', roleUpdateError)
         console.error('❌ Full role update error:', JSON.stringify(roleUpdateError, null, 2))
       } else {
-        console.log('✅ User role updated to affiliate successfully')
+        console.log('✅ User role updated to affiliate with available_roles:', updatedRoles)
       }
     } else {
-      console.log('🎓 Learner membership detected, no role update needed')
+      console.log('🎓 Learner membership detected, ensuring learner in available_roles...')
+      
+      // Ensure learner is in available_roles
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('available_roles')
+        .eq('id', userId)
+        .single() as any
+
+      const currentRoles = currentProfile?.available_roles || []
+      if (!currentRoles.includes('learner')) {
+        const updatedRoles = [...currentRoles, 'learner']
+        await supabase
+          .from('profiles')
+          .update({ available_roles: updatedRoles })
+          .eq('id', userId)
+        console.log('✅ Added learner to available_roles:', updatedRoles)
+      }
     }
 
-    // Send welcome email if account was created
-    if (accountCreated && customerEmail) {
-      console.log('📧 Sending welcome email explaining magic link process')
-      
-      const emailData: WelcomeEmailData = {
-        fullName: customerName,
-        email: customerEmail,
-        membershipType: membershipPackage.member_type,
-        magicLinkSent: true
+    // Send referral signup email ONLY when this payment is via referral link.
+    // (Referral signup payments are created through the referral flow and require a temporary password.)
+    const isReferralSignupPayment =
+      payment.payment_type === 'referral_membership' ||
+      metadata.is_referral_signup === true ||
+      metadata.is_referral_signup === 'true' ||
+      Boolean(referralCode)
+
+    // For referral signups we require: a password-based account exists + we email the temporary password.
+    // If the email already exists, we reset the password to a new temporary one.
+    if (isReferralSignupPayment && customerEmail) {
+      try {
+        console.log('🔐 Ensuring password-based account for referral signup payment')
+
+        temporaryPassword = generateTemporaryPassword()
+
+        const ensured = await ensurePasswordAccountForReferral({
+          email: customerEmail,
+          fullName: customerName,
+          membershipType: membershipPackage.member_type,
+          referralCode,
+          referralType,
+          temporaryPassword,
+          supabaseAdmin: supabase, // Pass service role client for admin operations
+        })
+
+        if (ensured?.userId) {
+          if (!payment.user_id || payment.user_id !== ensured.userId) {
+            const { error: paymentUpdateError } = await supabase
+              .from('payments')
+              .update({ user_id: ensured.userId })
+              .eq('id', payment.id) as any
+
+            if (paymentUpdateError) {
+              console.error('❌ Failed to update payment with ensured user_id:', paymentUpdateError)
+            } else {
+              console.log('✅ Payment updated with ensured user_id')
+            }
+          }
+
+          userId = ensured.userId
+          accountCreated = ensured.created
+          console.log('✅ Password account ensured:', { userId, accountCreated, hasTemporaryPassword: Boolean(temporaryPassword) })
+        } else {
+          console.error('❌ Failed to ensure password-based account for referral signup', {
+            customerEmail,
+            customerName,
+            membershipType: membershipPackage?.member_type,
+            hasReferralCode: Boolean(referralCode),
+          })
+          // Set temporaryPassword to undefined to skip email
+          temporaryPassword = undefined
+        }
+      } catch (e) {
+        console.error('❌ Exception ensuring password-based account for referral signup:', e)
       }
-      
-      const emailSent = await sendWelcomeEmail(emailData)
-      if (emailSent) {
-        console.log('✅ Welcome email sent successfully')
+    }
+
+    if (isReferralSignupPayment) {
+      if (!customerEmail) {
+        console.error('❌ Referral signup detected but missing customerEmail; cannot send signup_referral email', {
+          paymentId: payment.id,
+          reference: payment.reference,
+        })
       } else {
-        console.error('❌ Failed to send welcome email (non-critical)')
+        console.log('📧 Preparing referral signup email', {
+          accountCreated,
+          hasTemporaryPassword: Boolean(temporaryPassword),
+          paymentType: payment.payment_type,
+          referralCode,
+        })
+
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+        const loginUrl = appUrl ? `${appUrl}/login` : ''
+
+        try {
+          // Referral signup requirement: always include a real temporary password.
+          const payload: Record<string, unknown> = {
+            type: 'signup_referral',
+            to: customerEmail,
+            name: customerName,
+            email: customerEmail,
+            packageName: membershipPackage?.name || membershipPackage?.member_type || 'selected',
+            loginUrl,
+          }
+
+          if (!temporaryPassword) {
+            console.error('❌ Referral signup email requires temporaryPassword but none was generated; skipping email (non-fatal)', {
+              paymentId: payment.id,
+              reference: payment.reference,
+              accountCreated,
+            })
+            // Don't block payment verification - just skip the email
+          } else {
+            payload.temporaryPassword = temporaryPassword
+            console.log('📧 Sending referral signup email with temporary password', { accountCreated })
+
+          console.log('📧 invoking email-events (signup_referral)', {
+            to: customerEmail,
+            packageName: payload.packageName,
+            accountCreated,
+          })
+
+            const ok = await invokeEmailEvents(payload)
+            console.log('📧 email-events result (signup_referral)', { ok })
+          }
+        } catch (welcomeEmailErr) {
+          console.error('❌ Failed to invoke referral signup email via email-events (non-critical):', welcomeEmailErr)
+        }
       }
+    } else {
+      console.log('ℹ️ Not a referral signup payment; skipping signup_referral email', {
+        paymentType: payment.payment_type,
+        hasReferralCode: Boolean(referralCode),
+        is_referral_signup: metadata.is_referral_signup,
+      })
     }
 
     // Process referral commissions
     await processReferralCommissions(payment, verificationData)
+
+    // Send dashboard membership purchase/upgrade emails (non-referral flow)
+    // - membership_purchase: user buys membership via dashboard
+    // - membership_upgrade: user upgrades membership via dashboard
+    // Skip addon upgrades and accounts created via referral (handled by signup_referral email above)
+    if (!accountCreated && customerEmail && !isAddonUpgrade && !isReferralSignupPayment) {
+      try {
+        await sendMembershipReceiptEmail({
+          customerEmail,
+          customerName,
+          membershipPackageName: membershipPackage?.name || 'your membership',
+          isUpgrade: Boolean(isMembershipUpgrade),
+          oldMembershipPackageName,
+        })
+      } catch (receiptErr) {
+        console.error('❌ Failed to invoke membership receipt email via email-events (non-critical):', receiptErr)
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -46,6 +46,64 @@ async function invokeEmailEvents(payload: Record<string, unknown>): Promise<bool
   }
 }
 
+async function sendReferralSignupEmail(params: {
+  email: string
+  fullName: string
+  temporaryPassword: string
+  packageName?: string
+}): Promise<boolean> {
+  try {
+    console.log('🔍 sendReferralSignupEmail called with:', {
+      email: params.email,
+      fullName: params.fullName,
+      hasPassword: Boolean(params.temporaryPassword),
+      passwordLength: params.temporaryPassword?.length,
+      packageName: params.packageName,
+    })
+
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const loginUrl = appUrl ? `${appUrl}/login` : 'https://digiafriq.com/login'
+
+    console.log('🌐 URL configuration:', {
+      appUrl,
+      loginUrl,
+      envVar: process.env.NEXT_PUBLIC_APP_URL,
+    })
+
+    const payload = {
+      type: 'signup_referral',
+      to: params.email,
+      name: params.fullName,
+      email: params.email,
+      temporaryPassword: params.temporaryPassword,
+      packageName: params.packageName || 'your membership',
+      loginUrl,
+    }
+
+    console.log('📧 Attempting to invoke email-events (signup_referral: guest-verify)', {
+      to: params.email,
+      packageName: payload.packageName,
+      loginUrl: payload.loginUrl,
+    })
+
+    const ok = await invokeEmailEvents(payload)
+    console.log('📧 email-events invocation completed (signup_referral: guest-verify)', { 
+      success: ok,
+      email: params.email,
+    })
+    
+    if (!ok) {
+      console.error('❌ invokeEmailEvents returned false for signup_referral')
+    }
+    
+    return ok
+  } catch (e) {
+    console.error('❌ Exception in sendReferralSignupEmail (guest-verify):', e)
+    console.error('❌ Exception details:', JSON.stringify(e, null, 2))
+    return false
+  }
+}
+
 // Payment provider interfaces (same as verify route)
 interface PaymentProvider {
   verifyTransaction(reference: string): Promise<any>
@@ -366,6 +424,20 @@ export async function POST(request: NextRequest) {
       console.log('📎 Found referral code in metadata:', referral_code)
     }
 
+    // Also check is_referral_signup flag
+    const isReferralSignupFlag = metadata.is_referral_signup === true || metadata.is_referral_signup === 'true'
+    const isReferralSignup = Boolean(referral_code) || isReferralSignupFlag
+
+    console.log('📋 Referral detection debug:', {
+      referral_code,
+      referral_type,
+      is_referral_signup_flag: metadata.is_referral_signup,
+      isReferralSignupFlag,
+      isReferralSignup,
+      hasMetadata: Object.keys(metadata).length > 0,
+      metadataKeys: Object.keys(metadata),
+    })
+
     if (!email) {
       console.error('❌ No email found in payment data or metadata')
       return NextResponse.json(
@@ -407,6 +479,13 @@ export async function POST(request: NextRequest) {
 
       const shouldIssueTempPassword = !passwordSet && isExpired
 
+      console.log('🔐 Temp password decision debug:', {
+        passwordSet,
+        expiresAt,
+        isExpired,
+        shouldIssueTempPassword,
+      })
+
       if (shouldIssueTempPassword) {
         tempPassword = generateTempPassword()
         const tempPasswordExpiresAt = getTempPasswordExpiryIso()
@@ -440,10 +519,37 @@ export async function POST(request: NextRequest) {
           .eq('id', userId)
 
         const nameForEmail = (existingProfile as any)?.full_name || fullName
-        tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+
+        // IMPORTANT: Always use signup_referral template for guest checkout
+        console.log('📧 Sending signup email for existing guest user with new password')
+        tempPasswordEmailSent = await sendReferralSignupEmail({
           email,
           fullName: nameForEmail,
           temporaryPassword: tempPassword,
+          packageName: metadata.membership_name || metadata.product_name || 'your membership',
+        })
+        
+        if (!tempPasswordEmailSent) {
+          console.error('❌ Failed to send signup-referral email, trying fallback guest email')
+          tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+            email,
+            fullName: nameForEmail,
+            temporaryPassword: tempPassword,
+          })
+        }
+      }
+
+      // IMPORTANT: Always send signup email for guest checkout,
+      // even if we didn't need to reset the password.
+      if (!tempPasswordEmailSent) {
+        console.log('📧 Guest checkout detected but no temp password was issued; generating one for the email')
+        tempPassword = generateTempPassword()
+        const nameForEmail = (existingProfile as any)?.full_name || fullName
+        tempPasswordEmailSent = await sendReferralSignupEmail({
+          email,
+          fullName: nameForEmail,
+          temporaryPassword: tempPassword,
+          packageName: metadata.membership_name || metadata.product_name || 'your membership',
         })
       }
       
@@ -522,12 +628,46 @@ export async function POST(request: NextRequest) {
         console.log('✅ Profile created successfully:', profileData?.id)
       }
 
-      // Send temp password via email ONLY (never returned)
-      tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+      // Send temp password via email.
+      // IMPORTANT: Always use signup_referral template for guest checkout to ensure proper logging
+      // and consistent email format with login credentials
+      console.log('📧 CRITICAL: About to send signup email for new guest user', {
         email,
         fullName,
-        temporaryPassword: tempPassword,
+        hasTempPassword: Boolean(tempPassword),
+        tempPasswordLength: tempPassword?.length,
       })
+      
+      try {
+        tempPasswordEmailSent = await sendReferralSignupEmail({
+          email,
+          fullName,
+          temporaryPassword: tempPassword,
+          packageName: metadata.membership_name || metadata.product_name || 'your membership',
+        })
+        
+        console.log('📧 CRITICAL: sendReferralSignupEmail completed', { 
+          success: tempPasswordEmailSent,
+          email,
+        })
+      } catch (emailError) {
+        console.error('❌ CRITICAL: Exception while sending signup email:', emailError)
+        tempPasswordEmailSent = false
+      }
+      
+      if (!tempPasswordEmailSent) {
+        console.error('❌ CRITICAL: Failed to send signup-referral email, trying fallback guest email')
+        try {
+          tempPasswordEmailSent = await sendGuestTempPasswordEmail({
+            email,
+            fullName,
+            temporaryPassword: tempPassword,
+          })
+          console.log('📧 Fallback guest email result:', { success: tempPasswordEmailSent })
+        } catch (fallbackError) {
+          console.error('❌ CRITICAL: Fallback email also failed:', fallbackError)
+        }
+      }
     }
 
     // Step 5: Create or update payment record
@@ -784,7 +924,7 @@ async function processReferral(
     // Resolve recipient email (affiliate user) from profiles table
     const { data: referrerProfile, error: referrerProfileError } = await supabaseAdmin
       .from('profiles')
-      .select('email')
+      .select('email, full_name')
       .eq('id', referrerId)
       .maybeSingle()
 
@@ -793,6 +933,32 @@ async function processReferral(
     }
 
     const referrerEmail = (referrerProfile as any)?.email as string | undefined
+
+    // Name is crucial for commission emails. Prefer profiles.full_name, fallback to auth user metadata.
+    let referrerName = (referrerProfile as any)?.full_name as string | undefined
+    if (!referrerName || !String(referrerName).trim()) {
+      try {
+        const { data: authUser, error: authUserErr } = await supabaseAdmin.auth.admin.getUserById(
+          referrerId
+        ) as any
+        if (authUserErr) {
+          console.error('⚠️ Failed to load auth user for referrer name (guest-verify):', authUserErr)
+        }
+        referrerName =
+          (authUser as any)?.user?.user_metadata?.full_name ||
+          (authUser as any)?.user?.user_metadata?.name ||
+          (authUser as any)?.user?.email?.split?.('@')?.[0]
+      } catch (e) {
+        console.error('⚠️ Exception loading auth user for referrer name (guest-verify):', e)
+      }
+    }
+
+    if (!referrerName || !String(referrerName).trim()) {
+      console.error('❌ Missing referrer full_name; skipping commission email to avoid blank greeting', {
+        referrerId,
+        referrerEmail,
+      })
+    }
 
     // Check if referrer is eligible (has active membership with DCS)
     const { data: referrerMembership, error: membershipError } = await supabaseAdmin
@@ -911,16 +1077,17 @@ async function processReferral(
     }
 
     // Fire-and-forget: send a single commission email after all commission inserts succeed
-    if (referrerEmail) {
+    if (referrerEmail && referrerName && String(referrerName).trim()) {
+      // Get product name from metadata or use default
+      const productName = metadata.product_name || metadata.membership_name || 'Digiafriq Membership'
+      
       await invokeEmailEvents({
         type: 'commission',
         to: referrerEmail,
-        amount: commissionAmount,
-        currency: 'USD',
-        source: linkType === 'dcs'
-          ? 'Learner referral commission + $2 DCS bonus'
-          : 'Learner referral commission',
-        date: new Date().toISOString(),
+        name: referrerName,
+        productName: productName,
+        commissionAmount: commissionAmount,
+        communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
       })
     } else {
       console.log('⚠️ Skipping commission email: missing referrer email')

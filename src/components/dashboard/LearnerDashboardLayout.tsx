@@ -168,7 +168,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
   const displayActiveRole = isOnLearnerDashboard ? 'learner' : activeRole
 
   const handleRoleSwitch = async (role: 'learner' | 'affiliate') => {
-    if (role === activeRole || switchingRole) return
+    if (switchingRole) return
 
     // If user doesn't have the role, redirect to affiliate dashboard
     if (!availableRoles.includes(role)) {
@@ -177,6 +177,9 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
       }
       return
     }
+
+    // If already on the selected role, don't switch
+    if (role === activeRole) return
 
     setSwitchingRole(true)
     try {

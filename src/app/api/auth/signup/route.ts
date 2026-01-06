@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,52 +40,23 @@ async function invokeEmailEvents(payload: Record<string, unknown>): Promise<bool
   }
 }
 
-function generateTempPassword(): string {
-  const randomBytes = crypto.randomBytes(12)
-  const base = randomBytes.toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12)
-
-  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
-  const lowercase = 'abcdefghjkmnpqrstuvwxyz'
-  const numbers = '23456789'
-  const special = '!@#$%'
-
-  const password =
-    uppercase[Math.floor(Math.random() * uppercase.length)] +
-    uppercase[Math.floor(Math.random() * uppercase.length)] +
-    lowercase[Math.floor(Math.random() * lowercase.length)] +
-    lowercase[Math.floor(Math.random() * lowercase.length)] +
-    lowercase[Math.floor(Math.random() * lowercase.length)] +
-    lowercase[Math.floor(Math.random() * lowercase.length)] +
-    numbers[Math.floor(Math.random() * numbers.length)] +
-    numbers[Math.floor(Math.random() * numbers.length)] +
-    numbers[Math.floor(Math.random() * numbers.length)] +
-    special[Math.floor(Math.random() * special.length)] +
-    base.slice(0, 2)
-
-  return password.split('').sort(() => Math.random() - 0.5).join('')
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { email, fullName } = await request.json()
+    const { email, fullName, password } = await request.json()
 
-    if (!email || !fullName) {
+    if (!email || !fullName || !password) {
       return NextResponse.json(
-        { success: false, message: 'Email and fullName are required' },
+        { success: false, message: 'Email, fullName and password are required' },
         { status: 400 }
       )
     }
 
-    const tempPassword = generateTempPassword()
-
     const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: tempPassword,
+      password,
       email_confirm: true,
       user_metadata: {
         full_name: fullName,
-        has_temp_password: true,
-        temp_password_issued_at: new Date().toISOString(),
       },
     })
 
@@ -108,8 +78,7 @@ export async function POST(request: NextRequest) {
         role: 'learner',
         active_role: 'learner',
         available_roles: ['learner'],
-        password_set: false,
-        temp_password_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        password_set: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -127,11 +96,10 @@ export async function POST(request: NextRequest) {
       type: 'signup',
       to: email,
       name: fullName,
-      temporaryPassword: tempPassword,
       loginUrl,
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, email })
   } catch (error) {
     console.error('Signup API error:', error)
     return NextResponse.json(

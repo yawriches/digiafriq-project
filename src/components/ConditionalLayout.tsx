@@ -8,7 +8,6 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === '/login' || pathname === '/signup'
   const isDashboardPage = pathname?.startsWith('/dashboard')
   const isCheckoutPage = pathname?.startsWith('/checkout')
-  const isDcsSalesPage = pathname?.startsWith('/join/dcs')
 
   if (isAuthPage || isDashboardPage || isCheckoutPage) {
     return <>{children}</>
@@ -16,7 +15,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {!isDcsSalesPage && <Header />}
+      <Header />
       <main className="flex-1">{children}</main>
       <Footer />
     </>

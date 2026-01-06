@@ -16,7 +16,15 @@ export default function LearnerLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { hasLearnerMembership, loading } = useMembershipStatus();
-  const { profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      const redirectUrl = `/login?redirectTo=${encodeURIComponent(pathname)}`;
+      router.push(redirectUrl);
+    }
+  }, [user, authLoading, router, pathname]);
 
   const isMembershipPage = pathname === '/dashboard/learner/membership';
   const isCheckoutPage = pathname?.startsWith('/dashboard/learner/membership/checkout');
