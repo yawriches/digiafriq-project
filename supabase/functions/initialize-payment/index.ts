@@ -1064,11 +1064,12 @@ serve(async (req) => {
     const customerEmail = isReferralPayment ? metadata?.email : user?.email
     
     // Determine callback URL based on whether this is a guest/referral payment
-    const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('NEXT_PUBLIC_SITE_URL') || 'http://localhost:3000'
+    // Always use production URL, never localhost
+    const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('NEXT_PUBLIC_SITE_URL') || 'https://www.digiafriq.com'
     const callbackPath = isReferralPayment ? '/payment/guest-callback' : '/payment/callback'
     const callbackUrl = `${siteUrl}${callbackPath}`
     
-    console.log('🔗 Callback URL:', { isReferralPayment, callbackUrl })
+    console.log('🔗 Callback URL:', { isReferralPayment, callbackUrl, siteUrl })
     
     const paymentResponse = await provider.initializePayment({
       email: customerEmail!,

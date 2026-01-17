@@ -71,14 +71,16 @@ export default function RoleSwitcher({ className = '' }: RoleSwitcherProps) {
       // Refresh profile to get updated role
       await refreshProfile()
 
-      // Redirect to appropriate dashboard
+      // Redirect to appropriate dashboard with full page reload
+      // This ensures the layout re-executes and properly loads the new role
       const dashboardMap: Record<UserRole, string> = {
         learner: '/dashboard/learner',
         affiliate: '/dashboard/affiliate',
         admin: '/dashboard/admin'
       }
 
-      router.push(dashboardMap[role])
+      // Use window.location.href for full page reload instead of router.push
+      window.location.href = dashboardMap[role]
     } catch (err) {
       console.error('Unexpected error switching role:', err)
       setError('An unexpected error occurred.')

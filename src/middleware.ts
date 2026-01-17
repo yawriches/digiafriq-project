@@ -58,7 +58,11 @@ export async function middleware(req: NextRequest) {
   // Protected routes require authentication
   if (!isPublicPath && !session) {
     const redirectUrl = new URL('/login', req.url)
-    redirectUrl.searchParams.set('redirectTo', path)
+    // Only add redirectTo if the user wasn't already trying to access /login
+    // This prevents redirect loops after logout
+    if (path !== '/login') {
+      redirectUrl.searchParams.set('redirectTo', path)
+    }
     return NextResponse.redirect(redirectUrl)
   }
 
