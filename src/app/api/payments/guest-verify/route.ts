@@ -794,6 +794,23 @@ export async function POST(request: NextRequest) {
       console.error('❌ Membership error details:', JSON.stringify(membershipError, null, 2))
     } else {
       console.log('✅ Membership created successfully')
+
+      // Send membership purchase confirmation email to the buyer
+      try {
+        const packageName = metadata.membership_name || metadata.product_name || 'Digiafriq Membership'
+        const communityUrl = 'https://t.me/digiafriq'
+
+        console.log('📧 Sending membership_purchase email to buyer (guest-verify)', { email, packageName })
+        await invokeEmailEvents({
+          type: 'membership_purchase',
+          to: email,
+          name: fullName,
+          packageName,
+          communityUrl,
+        })
+      } catch (membershipEmailErr) {
+        console.error('⚠️ Membership purchase email failed (non-blocking):', membershipEmailErr)
+      }
     }
 
     // Step 7: Process referral if present (for both new and existing users)

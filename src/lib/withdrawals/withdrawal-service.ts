@@ -192,6 +192,35 @@ export async function createWithdrawal(
     }
 
     console.log('Withdrawal created:', withdrawal)
+
+    // Send payout_request confirmation email to the user
+    try {
+      const { data: profile, error: profileError } = await (supabase as any)
+        .from('profiles')
+        .select('email, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('⚠️ Failed to load profile for payout_request email:', profileError)
+      }
+
+      const to = (profile as any)?.email as string | undefined
+      const name = (profile as any)?.full_name as string | undefined
+      if (to) {
+        await invokeEmailEvents({
+          type: 'payout_request',
+          to,
+          name: name || to.split('@')[0],
+          amount: amountLocal,
+          currency: currency,
+          referenceId: reference,
+        })
+      }
+    } catch (emailErr) {
+      console.error('⚠️ Payout request email send failed (non-blocking):', emailErr)
+    }
+
     return { data: withdrawal as Withdrawal, error: null }
   } catch (err: any) {
     console.error('Error in createWithdrawal:', err)
@@ -358,6 +387,17 @@ export async function approveWithdrawal(
   try {
     const user = (await supabase.auth.getUser()).data.user
 
+    // Fetch withdrawal details before RPC so we have data for the email
+    const { data: withdrawalForEmail, error: withdrawalFetchError } = await (supabase as any)
+      .from('withdrawals')
+      .select('id, user_id, amount_usd, amount_local, currency, reference')
+      .eq('id', withdrawalId)
+      .maybeSingle()
+
+    if (withdrawalFetchError) {
+      console.error('⚠️ Failed to load withdrawal for email:', withdrawalFetchError)
+    }
+
     const { error } = await (supabase as any).rpc('approve_withdrawal', {
       p_withdrawal_id: withdrawalId,
       p_admin_id: user?.id,
@@ -366,36 +406,6 @@ export async function approveWithdrawal(
 
     if (error) {
       return { success: false, error: error.message }
-    }
-
-    try {
-      const withdrawalUserId = (withdrawalForEmail as any)?.user_id as string | undefined
-      if (withdrawalUserId) {
-        const { data: profile, error: profileError } = await (supabase as any)
-          .from('profiles')
-          .select('email')
-          .eq('id', withdrawalUserId)
-          .maybeSingle()
-
-        if (profileError) {
-          console.error('⚠️ Failed to load affiliate email for payout:', profileError)
-        }
-
-        const to = (profile as any)?.email as string | undefined
-        if (to) {
-          await invokeEmailEvents({
-            type: 'payout',
-            to,
-            amount: (withdrawalForEmail as any)?.amount_usd,
-            currency: 'USD',
-            paymentMethod: 'Withdrawal',
-            referenceId: (withdrawalForEmail as any)?.reference || providerReference || withdrawalId,
-            date: new Date().toISOString(),
-          })
-        }
-      }
-    } catch (emailErr) {
-      console.error('⚠️ Payout email send failed (non-blocking):', emailErr)
     }
 
     return { success: true, error: null }
@@ -460,6 +470,37 @@ export async function markWithdrawalPaid(
 
     if (error) {
       return { success: false, error: error.message }
+    }
+
+    // Send payout confirmation email
+    try {
+      const withdrawalUserId = (withdrawalForEmail as any)?.user_id as string | undefined
+      if (withdrawalUserId) {
+        const { data: profile, error: profileError } = await (supabase as any)
+          .from('profiles')
+          .select('email, full_name')
+          .eq('id', withdrawalUserId)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('⚠️ Failed to load affiliate profile for payout email:', profileError)
+        }
+
+        const to = (profile as any)?.email as string | undefined
+        const name = (profile as any)?.full_name as string | undefined
+        if (to) {
+          await invokeEmailEvents({
+            type: 'payout',
+            to,
+            name: name || to.split('@')[0],
+            amount: (withdrawalForEmail as any)?.amount_local || (withdrawalForEmail as any)?.amount_usd,
+            currency: (withdrawalForEmail as any)?.currency || 'USD',
+            referenceId: (withdrawalForEmail as any)?.reference || providerReference || withdrawalId,
+          })
+        }
+      }
+    } catch (emailErr) {
+      console.error('⚠️ Payout email send failed (non-blocking):', emailErr)
     }
 
     return { success: true, error: null }
