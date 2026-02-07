@@ -174,14 +174,12 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
     try {
       console.log('🚪 Starting logout...')
       await signOut()
-      console.log('✅ Logout complete, waiting before redirect...')
-      // Wait a bit to ensure session is fully cleared
-      await new Promise(resolve => setTimeout(resolve, 500))
-      console.log('🔄 Redirecting to login...')
-      router.push('/login')
+      console.log('✅ Logout complete, redirecting...')
+      // Full page reload to ensure auth state is completely cleared
+      window.location.href = '/login'
     } catch (error) {
       console.error('❌ Logout error:', error)
-      router.push('/login')
+      window.location.href = '/login'
     }
   }
 
