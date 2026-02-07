@@ -229,11 +229,16 @@ export interface PaystackRecipient {
 // CSV EXPORT TYPES
 // ============================================================================
 
-// Paystack Bulk Transfer CSV Row
+// Paystack Bulk Transfer CSV Row (matches Paystack's upload template)
 export interface PaystackCSVRow {
-  amount: number // In lowest currency unit (pesewas/kobo)
-  recipient: string // recipient_code
-  reason: string // withdrawal reference
+  transfer_amount: number // Amount in main currency unit (GHS)
+  transfer_note: string // Description/reason
+  transfer_reference: string // Unique reference
+  recipient_code: string // Paystack recipient_code (overrides other fields if set)
+  bank_code_or_slug: string // e.g. mtn-mobile-money, vod-mobile-money, atl-mobile-money
+  account_number: string // Mobile number or bank account number
+  account_name: string // Name on the account
+  email_address: string // User email
 }
 
 // Kora Bulk Transfer CSV Row
@@ -322,6 +327,20 @@ export const GHANA_MOMO_CODES: Record<string, string> = {
   'mtn': 'MTN',
   'vodafone': 'VOD',
   'airteltigo': 'ATL'
+}
+
+// Paystack Bank Code or Slug for Ghana Mobile Money
+// These are the exact slugs Paystack expects in the bulk transfer CSV
+export const PAYSTACK_MOMO_SLUGS: Record<string, string> = {
+  'mtn': 'mtn-mobile-money',
+  'MTN': 'mtn-mobile-money',
+  'vodafone': 'vod-mobile-money',
+  'VOD': 'vod-mobile-money',
+  'airteltigo': 'atl-mobile-money',
+  'ATL': 'atl-mobile-money',
+  'mtn-mobile-money': 'mtn-mobile-money',
+  'vod-mobile-money': 'vod-mobile-money',
+  'atl-mobile-money': 'atl-mobile-money',
 }
 
 // ============================================================================

@@ -9,7 +9,8 @@ import {
   PayoutProvider,
   BankAccountDetails,
   MobileMoneyDetails,
-  PAYOUT_CHANNEL
+  PAYOUT_CHANNEL,
+  PAYSTACK_MOMO_SLUGS
 } from './types'
 
 // ============================================================================
@@ -17,43 +18,97 @@ import {
 // ============================================================================
 
 /**
- * Paystack Bulk Transfer CSV Format:
- * - amount: Amount in lowest currency unit (pesewas for GHS, kobo for NGN)
- * - recipient: Paystack recipient_code (must be pre-created)
- * - reason: Description/reference for the transfer
- * 
- * Note: Paystack requires recipient codes to be created beforehand via their API
+ * Paystack Bulk Transfer CSV Format (matches Paystack's upload template):
+ * - Transfer Amount: Amount in main currency unit (GHS, not pesewas)
+ * - Transfer Note (Optional): Description/reason
+ * - Transfer Reference (Optional): Unique reference
+ * - Recipient Code: Overrides all other details if provided
+ * - Bank Code or Slug: e.g. mtn-mobile-money, vod-mobile-money, atl-mobile-money
+ * - Account Number: Mobile number or bank account number
+ * - Account Name (Optional): Name on the account
+ * - Email Address (Optional): User email
+ *
+ * For Ghana mobile money, we use the Bank Code or Slug column with the
+ * Paystack mobile money slugs instead of requiring pre-created recipient codes.
  */
 export function generatePaystackCSV(
   withdrawals: WithdrawalWithUser[],
-  recipientCodes: Map<string, string> // user_id -> recipient_code
+  recipientCodes?: Map<string, string> // user_id -> recipient_code (optional)
 ): { csv: string; errors: string[] } {
   const rows: PaystackCSVRow[] = []
   const errors: string[] = []
 
   for (const withdrawal of withdrawals) {
-    const recipientCode = recipientCodes.get(withdrawal.user_id)
-    
-    if (!recipientCode) {
-      errors.push(`Missing recipient code for user ${withdrawal.user_id} (${withdrawal.reference})`)
-      continue
+    const amount = withdrawal.amount_local || withdrawal.amount_usd
+    const recipientCode = recipientCodes?.get(withdrawal.user_id) || ''
+
+    if (withdrawal.payout_channel === PAYOUT_CHANNEL.MOBILE_MONEY) {
+      const mobileDetails = withdrawal.account_details as MobileMoneyDetails
+
+      if (!mobileDetails.network_code || !mobileDetails.mobile_number) {
+        errors.push(`Missing mobile money details for withdrawal ${withdrawal.reference}`)
+        continue
+      }
+
+      // Map network code to Paystack slug
+      const slug = PAYSTACK_MOMO_SLUGS[mobileDetails.network_code] ||
+                   PAYSTACK_MOMO_SLUGS[mobileDetails.network] || ''
+
+      if (!slug) {
+        errors.push(`Unknown mobile money network "${mobileDetails.network_code}" for ${withdrawal.reference}`)
+        continue
+      }
+
+      rows.push({
+        transfer_amount: amount,
+        transfer_note: `Affiliate payout - ${withdrawal.reference}`,
+        transfer_reference: withdrawal.reference,
+        recipient_code: recipientCode,
+        bank_code_or_slug: slug,
+        account_number: mobileDetails.mobile_number,
+        account_name: mobileDetails.account_name || withdrawal.user_name,
+        email_address: withdrawal.user_email || '',
+      })
+    } else if (withdrawal.payout_channel === PAYOUT_CHANNEL.BANK) {
+      const bankDetails = withdrawal.account_details as BankAccountDetails
+
+      if (!bankDetails.bank_code || !bankDetails.account_number) {
+        errors.push(`Missing bank details for withdrawal ${withdrawal.reference}`)
+        continue
+      }
+
+      rows.push({
+        transfer_amount: amount,
+        transfer_note: `Affiliate payout - ${withdrawal.reference}`,
+        transfer_reference: withdrawal.reference,
+        recipient_code: recipientCode,
+        bank_code_or_slug: bankDetails.bank_code,
+        account_number: bankDetails.account_number,
+        account_name: bankDetails.account_name || withdrawal.user_name,
+        email_address: withdrawal.user_email || '',
+      })
+    } else {
+      errors.push(`Unknown payout channel for withdrawal ${withdrawal.reference}`)
     }
-
-    // Convert to lowest currency unit (pesewas/kobo)
-    const amountInLowestUnit = Math.round((withdrawal.amount_local || withdrawal.amount_usd) * 100)
-
-    rows.push({
-      amount: amountInLowestUnit,
-      recipient: recipientCode,
-      reason: `Withdrawal ${withdrawal.reference}`
-    })
   }
 
-  // Generate CSV string
-  const headers = ['amount', 'recipient', 'reason']
+  // Generate CSV string matching Paystack's exact header format
+  const headers = [
+    'Transfer Amount',
+    'Transfer Note (Optional)',
+    'Transfer Reference (Optional)',
+    'Recipient Code (This overrides all other details if available)',
+    'Bank Code or Slug',
+    'Account Number',
+    'Account Name (Optional)',
+    'Email Address (Optional)'
+  ]
+
   const csvRows = [
     headers.join(','),
-    ...rows.map(row => `${row.amount},${row.recipient},"${row.reason}"`)
+    ...rows.map(row =>
+      `${row.transfer_amount.toFixed(2)},"${escapeCSV(row.transfer_note)}",${row.transfer_reference},${row.recipient_code},${row.bank_code_or_slug},${row.account_number},"${escapeCSV(row.account_name)}",${row.email_address}`
+    )
   ]
 
   return {
@@ -163,14 +218,6 @@ export function generateProviderCSV(
   const timestamp = new Date().toISOString().split('T')[0]
   
   if (provider === 'PAYSTACK') {
-    if (!recipientCodes) {
-      return {
-        csv: '',
-        errors: ['Recipient codes are required for Paystack CSV generation'],
-        filename: ''
-      }
-    }
-    
     const result = generatePaystackCSV(withdrawals, recipientCodes)
     return {
       ...result,

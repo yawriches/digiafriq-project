@@ -194,12 +194,10 @@ export default function BatchDetailPage() {
       toast.warning(`Found ${duplicates.length} duplicate account(s). Review before processing.`)
     }
 
-    // Generate CSV
-    // Note: For Paystack, we'd need recipient codes. For now, generate Kora format
+    // Generate CSV (Paystack uses bank code slugs directly, no recipient codes needed)
     const { csv, errors, filename } = generateProviderCSV(
       batch.provider,
-      valid,
-      batch.provider === 'PAYSTACK' ? new Map() : undefined // Would need real recipient codes
+      valid
     )
 
     if (errors.length > 0) {
