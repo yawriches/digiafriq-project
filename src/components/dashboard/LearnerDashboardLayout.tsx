@@ -200,13 +200,13 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
     // If user doesn't have the role, redirect to affiliate dashboard
     if (!availableRoles.includes(role)) {
       if (role === 'affiliate') {
-        router.push('/dashboard/affiliate')
+        window.location.href = '/dashboard/affiliate'
       }
       return
     }
 
-    // If already on the selected role, don't switch
-    if (role === activeRole) return
+    // If already viewing the selected role's dashboard, don't switch
+    if (role === displayActiveRole) return
 
     setSwitchingRole(true)
     try {
@@ -223,7 +223,8 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
       }
 
       await refreshProfile()
-      router.push(role === 'learner' ? '/dashboard/learner' : '/dashboard/affiliate')
+      // Use full page reload to ensure layout re-initializes for the new role
+      window.location.href = role === 'learner' ? '/dashboard/learner' : '/dashboard/affiliate'
     } catch (err) {
       console.error('Unexpected error switching role:', err)
       setSwitchingRole(false)

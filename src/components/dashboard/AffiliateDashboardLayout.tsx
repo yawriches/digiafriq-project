@@ -190,9 +190,9 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
     // If user doesn't have the role, redirect appropriately
     if (!availableRoles.includes(role)) {
       if (role === 'affiliate') {
-        router.push('/dashboard/affiliate')
+        window.location.href = '/dashboard/affiliate'
       } else if (role === 'learner') {
-        router.push('/dashboard/learner')
+        window.location.href = '/dashboard/learner'
       }
       return
     }
@@ -212,7 +212,8 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
       }
 
       await refreshProfile()
-      router.push(role === 'learner' ? '/dashboard/learner' : '/dashboard/affiliate')
+      // Use full page reload to ensure layout re-initializes for the new role
+      window.location.href = role === 'learner' ? '/dashboard/learner' : '/dashboard/affiliate'
     } catch (err) {
       console.error('Unexpected error switching role:', err)
       setSwitchingRole(false)
