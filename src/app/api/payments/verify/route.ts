@@ -322,7 +322,7 @@ async function processReferralCommissions(payment: any, verificationData: any) {
 
     console.log('📦 Membership package:', membershipPackage)
 
-    // ── Centralized commission processor (idempotent, 60%) ─────────────
+    // ── Centralized commission processor (idempotent, 59.78%) ───────────
     const paymentAmountUSD = payment.base_currency_amount || payment.amount || 10
     const result = await processCommission({
       supabase,

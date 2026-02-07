@@ -1025,7 +1025,7 @@ async function processReferral(
 
     console.log('✅ Referral created:', referral.id)
 
-    // ── Centralized commission processor (idempotent, 60%) ─────────────
+    // ── Centralized commission processor (idempotent, 59.78%) ───────────
     const paymentAmountUSD = payment.base_currency_amount || 10
     const result = await processCommission({
       supabase: supabaseAdmin,

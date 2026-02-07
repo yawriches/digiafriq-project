@@ -29,7 +29,7 @@ export interface Commission {
   affiliate_id: string;
   referral_id: string | null;
   payment_id: string | null;
-  // Commission type: 60% of any referral purchase amount
+  // Commission type: 59.78% of any referral purchase amount
   commission_type: 'learner_referral' | 'affiliate_referral';
   commission_amount: number;
   commission_currency: string;

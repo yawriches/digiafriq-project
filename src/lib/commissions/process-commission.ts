@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 
-const COMMISSION_RATE = 0.60
+const COMMISSION_RATE = 0.5978
 
 interface CommissionInput {
   supabase: SupabaseClient
@@ -24,7 +24,7 @@ interface CommissionResult {
  *
  * Rules:
  *  - Only ONE commission per payment_id (idempotency).
- *  - Always 60 % of the USD base amount.
+ *  - Always 59.78 % of the USD base amount.
  *  - Works with any SupabaseClient (service-role or anon).
  */
 export async function processCommission({
