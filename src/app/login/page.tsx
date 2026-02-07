@@ -190,163 +190,179 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white px-4 py-8 overflow-auto">
-      <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
-        {/* Left Side - Login Form */}
-        <div className="flex-1 w-full lg:w-auto max-w-sm my-8">
-          {/* Logo */}
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-4">
-              <Link href="/" className="cursor-pointer">
-                <Image
-                  src="/digiafriqlogo.png"
-                  alt="DigiAfriq Logo"
-                  width={120}
-                  height={120}
-                  className="object-contain"
-                />
-              </Link>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your DigiAfriq account</p>
-          </div>
-
-        {/* Login Form */}
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-6">
-          <form onSubmit={resetMode ? handleResetPassword : handleLogin} className="space-y-5">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            {!resetMode && (
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-                    disabled={loading}
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50">
+      <div className="flex flex-col lg:flex-row min-h-screen">
+        {/* Left Section: Form */}
+        <div className="w-full flex items-center justify-center py-8 px-4 order-1 lg:order-1 overflow-y-auto lg:w-1/2">
+          <div className="max-w-xl w-full my-8">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-6">
+                <Link href="/" className="cursor-pointer">
+                  <Image
+                    src="/digiafriqlogo.png"
+                    alt="DigiAfriq Logo"
+                    width={120}
+                    height={120}
+                    className="object-contain"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                </Link>
+              </div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome Back</h1>
+              <p className="text-lg text-gray-600">Sign in to your DigiAfriq account</p>
+            </div>
+
+            {/* Form Container */}
+            <div className="max-w-md mx-auto">
+              <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
+                <form onSubmit={resetMode ? handleResetPassword : handleLogin} className="space-y-6">
+                  {/* Email Field */}
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition"
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Field */}
+                  {!resetMode && (
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition"
+                          disabled={loading}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                          disabled={loading}
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Forgot Password */}
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetMode(!resetMode)
+                        setError('')
+                        setResetSent(false)
+                      }}
+                      className="text-sm text-[#ed874a] hover:underline"
+                      disabled={loading}
+                    >
+                      {resetMode ? 'Back to sign in' : 'Forgot password?'}
+                    </button>
+                  </div>
+
+                  {resetMode && resetSent && (
+                    <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                      If an account exists for <strong>{email}</strong>, a password reset link has been sent.
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* Sign In Button */}
+                  <Button
+                    type="submit"
                     disabled={loading}
+                    className="w-full bg-[#ed874a] hover:bg-[#d76f32] text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                   >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {resetMode ? 'Sending reset link...' : 'Signing in...'}
+                      </>
+                    ) : (
+                      resetMode ? 'Send reset link' : 'Sign In'
+                    )}
+                  </Button>
+                </form>
+              </div>
+
+              {/* Footer Links */}
+              <div className="text-center mt-6 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-gradient-to-br from-orange-50 via-white to-amber-50 text-gray-500">
+                      Don&apos;t have an account?
+                    </span>
+                  </div>
                 </div>
+                <Link href="/signup">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-2 border-[#ed874a] text-[#ed874a] hover:bg-orange-50 font-semibold py-2 rounded-lg transition"
+                  >
+                    Create Account
+                  </Button>
+                </Link>
+
+                <p className="text-xs text-gray-500">
+                  By signing in, you agree to our{' '}
+                  <Link href="/legal-policies" className="text-gray-600 hover:underline">
+                    Terms & Policies
+                  </Link>
+                </p>
               </div>
-            )}
-
-            {/* Forgot Password */}
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setResetMode(!resetMode)
-                  setError('')
-                  setResetSent(false)
-                }}
-                className="text-sm text-[#ed874a] hover:underline"
-                disabled={loading}
-              >
-                {resetMode ? 'Back to sign in' : 'Forgot password?'}
-              </button>
-            </div>
-
-            {resetMode && resetSent && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-                If an account exists for <strong>{email}</strong>, a password reset link has been sent.
-              </div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Sign In Button */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#ed874a] to-[#ed874a] hover:from-[#d9773a] hover:to-[#d9773a] text-white font-semibold py-2.5 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {resetMode ? 'Sending reset link...' : 'Signing in...'}
-                </>
-              ) : (
-                resetMode ? 'Send reset link' : 'Sign In'
-              )}
-            </Button>
-          </form>
-
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Don't have an account?</span>
             </div>
           </div>
-
-          {/* Sign Up Link */}
-          <Link href="/signup">
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-2 border-[#ed874a] text-[#ed874a] hover:bg-[#ed874a] hover:bg-opacity-10 font-semibold py-2.5 rounded-lg transition"
-            >
-              Create Account
-            </Button>
-          </Link>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-gray-600 mt-4">
-          By signing in, you agree to our{' '}
-          <Link href="/legal-policies" className="text-[#ed874a] hover:underline">
-            Terms & Policies
-          </Link>
-        </p>
-        </div>
+        {/* Right Section: Branded Panel */}
+        <div className="hidden lg:flex w-full lg:w-1/2 bg-gradient-to-br from-[#ed874a] to-[#d76f32] items-center justify-center py-12 px-8 order-2 overflow-y-auto">
+          <div className="max-w-lg w-full text-center text-white my-8">
+            <h2 className="text-3xl font-bold mb-4">
+              Welcome back to DigiAfriq!
+            </h2>
+            <p className="text-lg mb-8 text-orange-100">
+              Continue your learning journey and grow your earnings. Your dashboard awaits.
+            </p>
 
-        {/* Right Side - Modern Illustration */}
-        <div className="hidden lg:flex flex-1 w-full lg:w-auto items-center justify-center lg:justify-end lg:pr-4">
-          {/* Image without card container */}
-          <img
-            src="/login-illustration.png"
-            alt="Digital Learning Platform"
-            className="w-full h-full object-contain max-w-md"
-          />
+            {/* Illustration */}
+            <div className="relative mb-8">
+              <img
+                src="/login-illustration.png"
+                alt="Digital Learning Platform"
+                className="w-full h-auto max-w-md mx-auto rounded-lg shadow-2xl"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
