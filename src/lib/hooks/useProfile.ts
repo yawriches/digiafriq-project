@@ -38,7 +38,7 @@ interface ProfileFormData {
   phone: string
   country: string
   city: string
-  gender: string
+  sex: string
   dateOfBirth: string
   bio: string
 }
@@ -74,7 +74,7 @@ export const useProfile = (): UseProfileReturn => {
     phone: '',
     country: '',
     city: '',
-    gender: '',
+    sex: '',
     dateOfBirth: '',
     bio: ''
   })
@@ -96,7 +96,7 @@ export const useProfile = (): UseProfileReturn => {
         phone: authProfile.phone || '',
         country: authProfile.country || '',
         city: (authProfile as any).city || '',
-        gender: (authProfile as any).gender || '',
+        sex: (authProfile as any).sex || '',
         dateOfBirth: (authProfile as any).date_of_birth || '',
         bio: (authProfile as any).bio || ''
       })
@@ -146,7 +146,7 @@ export const useProfile = (): UseProfileReturn => {
         phone: (data as any).phone || '',
         country: (data as any).country || '',
         city: (data as any).city || '',
-        gender: (data as any).gender || '',
+        sex: (data as any).sex || '',
         dateOfBirth: (data as any).date_of_birth || '',
         bio: (data as any).bio || ''
       })
@@ -188,7 +188,7 @@ export const useProfile = (): UseProfileReturn => {
         phone: profileForm.phone || null,
         country: profileForm.country || null,
         city: profileForm.city || null,
-        gender: profileForm.gender || null,
+        sex: profileForm.sex || null,
         date_of_birth: profileForm.dateOfBirth || null,
         bio: profileForm.bio || null,
         updated_at: new Date().toISOString()

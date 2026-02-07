@@ -4,10 +4,11 @@ import {
   DollarSign, 
   TrendingUp, 
   Activity,
-  GraduationCap,
+  Sparkles,
   Copy,
   UserPlus,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -36,8 +37,7 @@ const AffiliateDashboard = () => {
   const currentBalanceValue = getAvailableEarnings()
   
   // Use real-time sales counts from affiliateStats (fetched from database)
-  const totalMembershipSales = affiliateStats.totalSales
-  const totalDcsSales = affiliateStats.totalDcsSales
+  const totalSales = affiliateStats.totalSales
 
   const loading = affiliateLoading || currencyLoading
 
@@ -106,20 +106,12 @@ const AffiliateDashboard = () => {
       iconBg: "bg-blue-100"
     },
     {
-      title: "Total Sales",
-      value: totalMembershipSales.toString(),
-      icon: UserPlus,
+      title: "Number of Sales",
+      value: totalSales.toString(),
+      icon: Users,
       color: "text-orange-600",
       bgColor: "bg-orange-50",
       iconBg: "bg-orange-100"
-    },
-    {
-      title: "DCS Sales",
-      value: totalDcsSales.toString(),
-      icon: Activity,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-      iconBg: "bg-purple-100"
     }
   ]
 
@@ -185,7 +177,7 @@ const AffiliateDashboard = () => {
       </div>
 
       {/* Stats Grid - Mobile optimized */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" data-tooltip="earnings-tab">
         {statsCards.map((stat, index) => (
             <Card key={index} className="relative overflow-hidden">
               <CardContent className="p-6">
@@ -222,66 +214,32 @@ const AffiliateDashboard = () => {
         </Card>
       )}
 
-      {/* Referral Links Section - Mobile optimized */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
-        <Card className="border border-gray-200 hover:border-gray-300 transition-colors">
+      {/* AI Cashflow Referral Link Section */}
+      <div className="mb-8" data-tooltip="affiliate-link">
+        <Card className="border-2 border-[#ed874a]/20 bg-gradient-to-br from-orange-50/50 to-white">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
-              <GraduationCap className="w-5 h-5 mr-2 text-blue-600" />
-              Sell Learner Membership
+            <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
+              <Sparkles className="w-6 h-6 mr-2 text-[#ed874a]" />
+              Your Sales Link
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 lg:space-y-4">
+          <CardContent className="space-y-4">
             <p className="text-sm text-gray-600">
-              Earn 80% commission on learner memberships + 20% recurring on renewals.
+              Share this link to earn <span className="font-semibold text-[#ed874a]">60% commission</span> on every AI Cashflow Program sale.
             </p>
-            <div className="p-3 bg-gray-50 rounded-lg border">
-              <p className="text-xs font-medium text-gray-700 mb-1">Your Referral Link:</p>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                <code className="flex-1 text-xs bg-white p-2 rounded border text-gray-800 font-mono break-all">
-                  {urls.learnerUrl || 'Generating link...'}
+            <div className="p-4 bg-white rounded-xl border-2 border-gray-200">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <code className="flex-1 text-sm bg-gray-50 p-3 rounded-lg border text-gray-800 font-mono break-all">
+                  {urls.affiliateUrl || urls.learnerUrl || 'Generating link...'}
                 </code>
                 <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="border-gray-300 w-full sm:w-auto"
-                  onClick={() => urls.learnerUrl && copyToClipboard(urls.learnerUrl)}
-                  disabled={!urls.learnerUrl}
+                  size="lg" 
+                  className="bg-[#ed874a] hover:bg-[#d76f32] text-white w-full sm:w-auto"
+                  onClick={() => (urls.affiliateUrl || urls.learnerUrl) && copyToClipboard(urls.affiliateUrl || urls.learnerUrl)}
+                  disabled={!urls.affiliateUrl && !urls.learnerUrl}
                 >
-                  <Copy className="w-3 h-3 mr-1" />
-                  Copy
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:border-gray-300 transition-colors">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
-              <UserPlus className="w-5 h-5 mr-2 text-green-600" />
-              Sell Learner + Digital Cashflow System
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 lg:space-y-4">
-            <p className="text-sm text-gray-600">
-              Earn 80% on learner membership + $2 DCS addon bonus + 20% recurring.
-            </p>
-            <div className="p-3 bg-gray-50 rounded-lg border">
-              <p className="text-xs font-medium text-gray-700 mb-1">Your Affiliate Link:</p>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                <code className="flex-1 text-xs bg-white p-2 rounded border text-gray-800 font-mono break-all">
-                  {urls.affiliateUrl || 'Generating link...'}
-                </code>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="border-gray-300 w-full sm:w-auto"
-                  onClick={() => urls.affiliateUrl && copyToClipboard(urls.affiliateUrl)}
-                  disabled={!urls.affiliateUrl}
-                >
-                  <Copy className="w-3 h-3 mr-1" />
-                  Copy
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Link
                 </Button>
               </div>
             </div>
@@ -363,32 +321,17 @@ const AffiliateDashboard = () => {
                 <div className="space-y-3">
                   {activities.slice(0, 10).map((activity) => {
                     const isSale = activity.type === 'sale';
-                    // Check for DCS sales (dcs_addon or dcs type)
-                    const isDcsSale = isSale && (activity.subType === 'dcs_addon' || activity.subType === 'dcs');
-                    // Membership sales are learner_referral, affiliate_referral, or learner type
-                    const isLearnerSale = isSale && !isDcsSale;
                     const isWithdrawal = activity.type === 'withdrawal';
 
-                    // Determine colors and icons based on activity type
-                    const bgColor = isDcsSale ? 'bg-gray-50 hover:bg-gray-100' : 
-                                   isLearnerSale ? 'bg-gray-50 hover:bg-gray-100' : 
-                                   'bg-gray-50 hover:bg-gray-100';
-                    const iconBg = isDcsSale ? 'bg-gray-200' : 
-                                  isLearnerSale ? 'bg-gray-200' : 
-                                  'bg-gray-200';
-                    const iconColor = isDcsSale ? 'text-gray-600' : 
-                                     isLearnerSale ? 'text-gray-600' : 
-                                     'text-gray-600';
-                    const amountColor = isWithdrawal ? 'text-gray-700' : 'text-gray-800';
+                    // Simplified colors for AI Cashflow
+                    const bgColor = isSale ? 'bg-orange-50 hover:bg-orange-100' : 'bg-gray-50 hover:bg-gray-100';
+                    const iconBg = isSale ? 'bg-orange-100' : 'bg-gray-200';
+                    const iconColor = isSale ? 'text-[#ed874a]' : 'text-gray-600';
+                    const amountColor = isWithdrawal ? 'text-gray-700' : 'text-green-600';
                     const amountPrefix = isWithdrawal ? '-' : '+';
 
-                    const activityLabel = isDcsSale ? 'DCS Sale' : 
-                                         isLearnerSale ? 'Membership Sale' : 
-                                         'Withdrawal';
-
-                    const ActivityIcon = isDcsSale ? Activity : 
-                                        isLearnerSale ? GraduationCap : 
-                                        DollarSign;
+                    const activityLabel = isSale ? 'AI Cashflow Sale' : 'Withdrawal';
+                    const ActivityIcon = isSale ? Sparkles : DollarSign;
 
                     return (
                       <div 

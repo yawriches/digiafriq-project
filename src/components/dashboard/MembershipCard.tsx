@@ -1,13 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { formatPrice } from '@/lib/utils'
-import { Crown, Check } from 'lucide-react'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Check } from 'lucide-react'
 
 interface MembershipCardProps {
   membership: {
@@ -18,29 +13,14 @@ interface MembershipCardProps {
     currency: string
     duration_months: number
     features: string[]
-    has_digital_cashflow: boolean
-    digital_cashflow_price: number
   }
-  onSelect: (membershipId: string, withDigitalCashflow: boolean) => void
+  onSelect: (membershipId: string) => void
   selected?: boolean
-  withDigitalCashflow?: boolean
 }
 
 export function MembershipCard({ membership, onSelect, selected }: MembershipCardProps) {
-  // Default addon to selected (true) if addon is available
-  const [isAddonSelected, setIsAddonSelected] = useState(membership.has_digital_cashflow)
-  
-  // Use database values for pricing
-  const basePrice = membership.price
-  const addonPrice = membership.digital_cashflow_price || 0
-  const totalPrice = isAddonSelected && membership.has_digital_cashflow ? basePrice + addonPrice : basePrice
-  
-  const handleAddonToggle = (checked: boolean) => {
-    setIsAddonSelected(checked)
-  }
-  
   const handleSubscribe = () => {
-    onSelect(membership.id, isAddonSelected)
+    onSelect(membership.id)
   }
 
   return (
@@ -57,11 +37,11 @@ export function MembershipCard({ membership, onSelect, selected }: MembershipCar
         <div className="space-y-6">
           <div className="space-y-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold">${totalPrice}</span>
+              <span className="text-4xl font-bold">${membership.price}</span>
               <span className="text-muted-foreground">per year</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Renews at ${basePrice}/year
+              Full access to AI Cashflow Program
             </p>
           </div>
 
@@ -74,39 +54,6 @@ export function MembershipCard({ membership, onSelect, selected }: MembershipCar
               </div>
             ))}
           </div>
-
-          {/* Add-ons Section */}
-        {membership.has_digital_cashflow && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4">Add ons</h3>
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <Label className="font-medium">Digital Cashflow System</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Get the Digital Cashflow Program + lifetime promo tools. Earn 80% commission + 20% yearly recurring.
-                    </p>
-                  </div>
-                  <div className="shrink-0 ml-3">
-                    <Switch
-                      checked={isAddonSelected}
-                      onCheckedChange={handleAddonToggle}
-                    />
-                  </div>
-                </div>
-                {isAddonSelected && (
-                  <div className="pl-4 border-l-2 border-[#ed874a]/20">
-                    <p className="text-sm font-medium flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-[#ed874a]" />
-                      Unlock Affiliate Features
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
         </div>
       </CardContent>
 
@@ -115,7 +62,7 @@ export function MembershipCard({ membership, onSelect, selected }: MembershipCar
           className="w-full py-6 text-lg bg-[#ed874a] hover:bg-[#ed874a]/90 text-white" 
           onClick={handleSubscribe}
         >
-          Subscribe
+          Get Started
         </Button>
       </CardFooter>
     </Card>

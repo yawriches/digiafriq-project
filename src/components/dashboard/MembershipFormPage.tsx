@@ -26,11 +26,9 @@ interface MembershipPackage {
   price: number
   currency?: string
   duration_months: number
-  member_type: 'learner' | 'affiliate'
+  member_type: 'learner'
   is_active: boolean
   features: string[]
-  has_digital_cashflow?: boolean
-  digital_cashflow_price?: number
 }
 
 type MembershipInsert = {
@@ -39,11 +37,9 @@ type MembershipInsert = {
   price: number
   currency: string
   duration_months: number
-  member_type: 'learner' | 'affiliate'
+  member_type: 'learner'
   is_active: boolean
   features: string[]
-  has_digital_cashflow: boolean
-  digital_cashflow_price: number
 }
 
 interface MembershipFormPageProps {
@@ -77,7 +73,6 @@ export default function MembershipFormPage({
 }: MembershipFormPageProps) {
   const [loading, setLoading] = useState(false)
   const [courses, setCourses] = useState<Course[]>([])
-  const [learnerMemberships, setLearnerMemberships] = useState<MembershipPackage[]>([])
 
   interface MembershipFormData {
     name: string
@@ -85,13 +80,10 @@ export default function MembershipFormPage({
     price: string
     currency: string
     duration_months: string
-    member_type: 'learner' | 'affiliate'
+    member_type?: 'learner' // Optional since it's always set to 'learner'
     is_active: boolean
     features: string[]
     selectedCourses: string[]
-    selectedPromotions: string[]
-    has_digital_cashflow: boolean
-    digital_cashflow_price: number
   }
 
   type MembershipInsert = {
@@ -100,26 +92,29 @@ export default function MembershipFormPage({
     price: number
     currency: string
     duration_months: number
-    member_type: 'learner' | 'affiliate'
+    member_type: 'member'
     is_active: boolean
     features: string[]
-    has_digital_cashflow: boolean
-    digital_cashflow_price: number
   }
 
   const [formData, setFormData] = useState<MembershipFormData>({
-    name: '',
-    description: '',
-    price: '',
+    name: 'Digiafriq AI Cashflow Access',
+    description: 'Complete access to Digiafriq AI learning platform and affiliate program. Learn AI skills and monetize them through our comprehensive ecosystem.',
+    price: '18',
     currency: 'USD',
-    duration_months: '',
-    member_type: 'learner' as 'learner' | 'affiliate',
+    duration_months: '12',
+    member_type: 'learner',
     is_active: true,
-    features: [] as string[],
+    features: [
+      'Access to all AI courses and training materials',
+      'Learner dashboard with progress tracking',
+      'Community access and support',
+      'Affiliate program access (after completing affiliate course)',
+      'AI tools and resources',
+      'Certificate of completion',
+      'Priority support',
+    ],
     selectedCourses: [] as string[],
-    selectedPromotions: [] as string[],
-    has_digital_cashflow: false,
-    digital_cashflow_price: 7,
   })
 
   const [newFeature, setNewFeature] = useState('')
@@ -141,21 +136,17 @@ export default function MembershipFormPage({
 
   useEffect(() => {
     fetchCourses()
-    fetchLearnerMemberships()
     if (membership && !isRestoredRef.current) {
       setFormData({
         name: membership.name,
         description: membership.description || '',
         price: membership.price.toString(),
-        currency: membership.currency || 'GHS',
+        currency: membership.currency || 'USD',
         duration_months: membership.duration_months.toString(),
-        member_type: membership.member_type,
+        member_type: (membership as any).member_type || 'learner',
         is_active: membership.is_active,
         features: membership.features || [],
         selectedCourses: [],
-        selectedPromotions: [],
-        has_digital_cashflow: membership.has_digital_cashflow ?? false,
-        digital_cashflow_price: membership.digital_cashflow_price ?? 7
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,21 +233,7 @@ export default function MembershipFormPage({
     }
   }
 
-  const fetchLearnerMemberships = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('membership_packages')
-        .select('id, name, price, currency, member_type')
-        .eq('member_type', 'learner')
-        .eq('is_active', true)
-        .order('name')
-      if (error) throw error
-      setLearnerMemberships(data || [])
-    } catch (error) {
-      console.error('Error fetching learner memberships:', error)
-    }
-  }
-
+  
   // -----------------------
   // Form helpers
   // -----------------------
@@ -290,15 +267,7 @@ export default function MembershipFormPage({
     }))
   }
 
-  const handlePromotionToggle = (membershipId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      selectedPromotions: prev.selectedPromotions.includes(membershipId)
-        ? prev.selectedPromotions.filter((id) => id !== membershipId)
-        : [...prev.selectedPromotions, membershipId],
-    }))
-  }
-
+  
   const validateForm = () => {
     if (!formData.name.trim()) {
       toast.error('Membership name is required')
@@ -312,15 +281,7 @@ export default function MembershipFormPage({
       toast.error('Valid duration is required')
       return false
     }
-    if (!formData.member_type || !['learner', 'affiliate'].includes(formData.member_type)) {
-      toast.error('Valid member type is required')
-      return false
-    }
-    // Validate digital cashflow price if enabled
-    if (formData.has_digital_cashflow && (!formData.digital_cashflow_price || formData.digital_cashflow_price < 0)) {
-      toast.error('Valid digital cashflow price is required')
-      return false
-    }
+    // Member type validation removed - using single 'learner' type for all memberships
 
     return true
   }
@@ -337,62 +298,41 @@ export default function MembershipFormPage({
         price: parseFloat(formData.price),
         currency: formData.currency,
         duration_months: parseInt(formData.duration_months),
-        member_type: formData.member_type || 'learner', // Ensure member_type is never empty
+        member_type: 'learner', // Always use 'learner' for simplified membership
         is_active: formData.is_active,
         features: formData.features,
-        has_digital_cashflow: formData.has_digital_cashflow,
-        digital_cashflow_price: formData.digital_cashflow_price
       }
 
       let membershipId: string
       if (membership) {
-        const { error } = await supabase
+        const { error } = await (supabase
           .from('membership_packages')
-          .update(membershipData)
-          .eq('id', membership.id)
+          .update(membershipData as any)
+          .eq('id', membership.id) as any)
         if (error) throw error
         membershipId = membership.id
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase
           .from('membership_packages')
-          .insert(membershipData)
+          .insert(membershipData as any)
           .select('id')
-          .single()
+          .single() as any)
         if (error) throw error
-        membershipId = data.id
+        membershipId = (data as any).id
       }
 
-      // courses
-      if (formData.member_type === 'learner') {
-        await supabase
-          .from('membership_course_access')
-          .delete()
-          .eq('membership_package_id', membershipId)
-        if (formData.selectedCourses.length > 0) {
-          const courseAccess = formData.selectedCourses.map((courseId) => ({
-            membership_package_id: membershipId,
-            course_id: courseId,
-          }))
-          const { error } = await supabase.from('membership_course_access').insert(courseAccess)
-          if (error) throw error
-        }
-      }
-
-      // promotions
-      if (formData.member_type === 'affiliate') {
-        await supabase
-          .from('membership_promotion_rights')
-          .delete()
-          .eq('membership_package_id', membershipId)
-        if (formData.selectedPromotions.length > 0) {
-          const promotionRights = formData.selectedPromotions.map((promotableId) => ({
-            membership_package_id: membershipId,
-            promotable_membership_id: promotableId,
-            commission_rate: 100,
-          }))
-          const { error } = await supabase.from('membership_promotion_rights').insert(promotionRights)
-          if (error) throw error
-        }
+      // courses - all members get access to all courses
+      await (supabase
+        .from('membership_course_access')
+        .delete()
+        .eq('membership_package_id', membershipId) as any)
+      if (formData.selectedCourses.length > 0) {
+        const courseAccess = formData.selectedCourses.map((courseId) => ({
+          membership_package_id: membershipId,
+          course_id: courseId,
+        }))
+        const { error } = await (supabase.from('membership_course_access').insert(courseAccess as any) as any)
+        if (error) throw error
       }
 
       toast.success(`Membership ${membership ? 'updated' : 'created'} successfully`)
@@ -424,43 +364,16 @@ export default function MembershipFormPage({
             <CardTitle className="text-lg">Basic Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Membership Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="e.g., Premium Learner, Pro Affiliate"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="member_type">Member Type *</Label>
-                <Select
-                  value={formData.member_type}
-                  onValueChange={(value) => handleInputChange('member_type', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="learner">
-                      <div className="flex items-center">
-                        <Users className="h-4 w-4 mr-2" />
-                        Learner
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="affiliate">
-                      <div className="flex items-center">
-                        <Crown className="h-4 w-4 mr-2" />
-                        Affiliate
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div>
+              <Label htmlFor="name">Membership Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Digiafriq AI Cashflow Access"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">This is the single membership package for all users</p>
             </div>
 
             <div>
@@ -517,19 +430,14 @@ export default function MembershipFormPage({
               <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Total Price (displayed to users)</p>
+                    <p className="text-sm font-medium text-gray-700">Annual Price (displayed to users)</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {formData.has_digital_cashflow 
-                        ? `Base (${formatPrice(parseFloat(formData.price) || 0, formData.currency)}) + DCS Add-on (${formatPrice(formData.digital_cashflow_price || 0, formData.currency)})`
-                        : 'Base price only'}
+                      Complete access to all features and courses
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-[#ed874a]">
-                      {formatPrice(
-                        (parseFloat(formData.price) || 0) + (formData.has_digital_cashflow ? (formData.digital_cashflow_price || 0) : 0),
-                        formData.currency
-                      )}
+                      {formatPrice(parseFloat(formData.price) || 0, formData.currency)}
                     </p>
                     <p className="text-xs text-gray-500">
                       {formData.duration_months ? `for ${formData.duration_months} month${parseInt(formData.duration_months) !== 1 ? 's' : ''}` : ''}
@@ -554,39 +462,7 @@ export default function MembershipFormPage({
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Features & Benefits</CardTitle>
-            {formData.member_type === 'learner' && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="has_digital_cashflow"
-                    checked={formData.has_digital_cashflow}
-                    onCheckedChange={(checked) => handleInputChange('has_digital_cashflow', checked)}
-                  />
-                  <div className="space-y-1">
-                    <Label htmlFor="has_digital_cashflow" className="font-medium">Digital Cashflow System Add-on</Label>
-                    <p className="text-sm text-gray-500">Unlock affiliate features and earn 80% commission + 20% recurring yearly commission on learner renewals</p>
-                  </div>
-                </div>
-                {formData.has_digital_cashflow && (
-                  <div className="ml-6">
-                    <Label htmlFor="digital_cashflow_price">Add-on Price</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="digital_cashflow_price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.digital_cashflow_price}
-                        onChange={(e) => handleInputChange('digital_cashflow_price', parseFloat(e.target.value))}
-                        placeholder="0.00"
-                        className="w-32"
-                      />
-                      <span className="text-sm text-gray-500">{formData.currency}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <p className="text-sm text-gray-500">Define what's included in the Digiafriq AI Cashflow Access membership</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -620,71 +496,36 @@ export default function MembershipFormPage({
           </CardContent>
         </Card>
 
-        {/* Course Access / Promotion Rights */}
-        {formData.member_type === 'learner' ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Course Access</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {courses.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No published courses available</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {courses.map((course) => (
-                    <div
-                      key={course.id}
-                      className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <Checkbox
-                        checked={formData.selectedCourses.includes(course.id)}
-                        onCheckedChange={() => handleCourseToggle(course.id)}
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{course.title}</p>
-                        <p className="text-xs text-gray-500">{formatPrice(course.price, 'GHS')}</p>
-                      </div>
+        {/* Course Access */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Course Access</CardTitle>
+            <p className="text-sm text-gray-500">Select which courses are included in this membership</p>
+          </CardHeader>
+          <CardContent>
+            {courses.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No published courses available</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {courses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50"
+                  >
+                    <Checkbox
+                      checked={formData.selectedCourses.includes(course.id)}
+                      onCheckedChange={() => handleCourseToggle(course.id)}
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{course.title}</p>
+                      <p className="text-xs text-gray-500">{formatPrice(course.price, 'USD')}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Promotion Rights</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {learnerMemberships.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No learner memberships available</p>
-              ) : (
-                <div className="space-y-3">
-                  {learnerMemberships.map((learnerMembership) => (
-                    <div
-                      key={learnerMembership.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <div>
-                        <p className="font-medium text-sm">{learnerMembership.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatPrice(
-                            learnerMembership.price,
-                            learnerMembership.currency
-                          )}
-                        </p>
-                      </div>
-                      <Checkbox
-                        checked={formData.selectedPromotions.includes(learnerMembership.id)}
-                        onCheckedChange={() => handlePromotionToggle(learnerMembership.id)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onCancel}>

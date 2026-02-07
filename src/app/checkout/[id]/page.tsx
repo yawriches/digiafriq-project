@@ -98,10 +98,6 @@ function CheckoutContent() {
 
   const membershipId = params.id as string;
   const isUpgradeFlow = searchParams.get('upgrade') === 'true';
-  const hasAddonParam = searchParams.get('addon') === 'digital-cashflow';
-  
-  // Addon state - can be toggled by user, defaults to URL param
-  const [hasAddon, setHasAddon] = useState(hasAddonParam);
 
   // State
   const [membershipData, setMembershipData] = useState<any>(null);
@@ -218,11 +214,9 @@ function CheckoutContent() {
     };
   }, [membershipData, hasLearnerMembership, allMemberships, isUpgradeFlow]);
 
-  // Calculate total price including addon - use database value for DCS addon price
-  const dcsAddonPrice = membershipData?.digital_cashflow_price || 0;
+  // AI Cashflow is the single program - no add-ons needed
   const basePrice = upgradePricing?.isUpgrade ? upgradePricing.upgradePrice : membershipData?.price || 0;
-  const addonPrice = hasAddon ? dcsAddonPrice : 0;
-  const actualPrice = isUpgradeFlow && hasAddon ? dcsAddonPrice : basePrice + addonPrice; // For upgrade-only addon purchase
+  const actualPrice = basePrice;
   const convertedPrice = actualPrice * CURRENCY_RATES[currency].rate;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,12 +257,10 @@ function CheckoutContent() {
         timestamp: Date.now()
       });
 
-      // Determine if this is an addon-only upgrade (user already has membership, just adding DCS)
-      const isAddonOnlyUpgrade = isUpgradeFlow && hasAddon;
-      
+      // All purchases are for AI Cashflow program
       const paymentData = {
         membership_package_id: membershipId,
-        payment_type: isAddonOnlyUpgrade ? 'addon_upgrade' : 'membership',
+        payment_type: 'membership',
         payment_provider: selectedProvider,
         metadata: {
           full_name: formData.fullName,
@@ -277,9 +269,7 @@ function CheckoutContent() {
           usd_price: actualPrice,
           original_price: membershipData?.price || 0,
           is_upgrade: upgradePricing?.isUpgrade || false,
-          is_addon_upgrade: isAddonOnlyUpgrade, // Critical flag for verification API
-          upgrade_savings: upgradePricing?.savings || 0,
-          has_digital_cashflow_addon: hasAddon,
+          has_digital_cashflow_addon: true,
           payment_hash: paymentHash,
           timestamp: Date.now(),
         },
@@ -503,50 +493,7 @@ function CheckoutContent() {
                 </ul>
               </div>
 
-              {/* Digital Cashflow Addon - Show for learner memberships or upgrade flow */}
-              {(membershipData.has_digital_cashflow || isUpgradeFlow) && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 rounded-xl border border-orange-200">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-lg font-semibold text-gray-900">Digital Cashflow System</span>
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">
-                          +${dcsAddonPrice}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Get the Digital Cashflow Program + lifetime promo tools. Earn 80% commission + 20% yearly recurring.
-                      </p>
-                      <ul className="space-y-1">
-                        <li className="flex items-center gap-2 text-sm text-gray-600">
-                          <Check className="w-4 h-4 text-green-500" />
-                          Unlock Affiliate Features
-                        </li>
-                        <li className="flex items-center gap-2 text-sm text-gray-600">
-                          <Check className="w-4 h-4 text-green-500" />
-                          Earn commissions on referrals
-                        </li>
-                        <li className="flex items-center gap-2 text-sm text-gray-600">
-                          <Check className="w-4 h-4 text-green-500" />
-                          Access promotional materials
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="shrink-0">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={hasAddon}
-                          onChange={(e) => setHasAddon(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#ed874a]"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              
               {/* Pricing */}
               <div className="border-t pt-6 mb-6 space-y-2">
                 {/* Show upgrade pricing if applicable */}
@@ -562,34 +509,9 @@ function CheckoutContent() {
                     </div>
                   </>
                 )}
-                
-                {/* For addon-only upgrade */}
-                {isUpgradeFlow && hasAddon && (
-                  <div className="flex justify-between text-gray-700">
-                    <span>Digital Cashflow Addon</span>
-                    <span>${dcsAddonPrice}</span>
-                  </div>
-                )}
-                
-                {/* Regular pricing with addon breakdown */}
-                {!isUpgradeFlow && (
-                  <>
-                    <div className="flex justify-between text-gray-700">
-                      <span>Membership Price</span>
-                      <span>${basePrice}</span>
-                    </div>
-                    {hasAddon && (
-                      <div className="flex justify-between text-gray-700">
-                        <span>Digital Cashflow Addon</span>
-                        <span>+${dcsAddonPrice}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                
-                <div className="flex justify-between text-gray-500 text-sm">
-                  <span>Local Currency</span>
-                  <span>{CURRENCY_RATES[currency].symbol}{convertedPrice.toLocaleString()}</span>
+                <div className="flex justify-between text-gray-700">
+                  <span>AI Cashflow Program</span>
+                  <span>${actualPrice}</span>
                 </div>
               </div>
 

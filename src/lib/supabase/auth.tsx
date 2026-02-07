@@ -36,6 +36,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔍 Fetching profile for user ID:', userId)
       
+      // First validate session is still valid
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session) {
+        console.warn('⚠️ Session invalid or expired during profile fetch:', sessionError?.message)
+        // Clear auth state and let middleware handle redirect
+        await supabase.auth.signOut()
+        return null
+      }
+      
       const { data, error } = await supabase
         .from('profiles')
         .select()
@@ -58,6 +67,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return data
     } catch (error) {
       console.error('💥 Unexpected error fetching profile:', error)
+      // Check if it's a network/session error
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('Invalid session') || 
+          errorMessage.includes('JWT') ||
+          errorMessage.includes('401')) {
+        console.warn('🔐 Session expired, signing out...')
+        await supabase.auth.signOut()
+      }
       return null
     }
   }
@@ -462,6 +479,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailConfirmed: session?.user?.email_confirmed_at
         })
         
+        // Handle session expiration events
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          console.warn('⚠️ Token refresh failed, session expired')
+          // Clear state and let middleware handle redirect
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+        
+        if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+          console.log('🚪 User signed out or session expired')
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+        
         setSession(session)
         setUser(session?.user ?? null)
 
@@ -582,25 +619,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Handle bfcache restoration - refresh auth state when page is restored from back/forward cache
+  // Handle bfcache restoration and session recovery
   useEffect(() => {
     const handlePageShow = async (event: PageTransitionEvent) => {
       if (event.persisted) {
         console.log('🔄 Page restored from bfcache, refreshing auth state...')
-        const { data: { session } } = await supabase.auth.getSession()
+        await recoverSession()
+      }
+    }
+
+    // Handle visibility change (user returns to tab after being away)
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log('👁️ Tab became visible, checking session...')
+        await recoverSession()
+      }
+    }
+
+    const recoverSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.warn('⚠️ Session check failed:', error.message)
+          // Clear state and let middleware handle redirect
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+          return
+        }
+        
         if (session) {
+          console.log('✅ Session is valid, updating state')
           setSession(session)
           setUser(session.user)
-          const profileData = await fetchProfile(session.user.id)
-          if (profileData) {
-            setProfile(profileData)
+          
+          // Only fetch profile if we don't have one or if user ID changed
+          if (!profile || profile.id !== session.user.id) {
+            const profileData = await fetchProfile(session.user.id)
+            if (profileData) {
+              setProfile(profileData)
+            }
           }
+        } else {
+          console.log('🚪 No session found, clearing state')
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
         }
+      } catch (error) {
+        console.error('💥 Session recovery error:', error)
+        // Clear state on any error to prevent infinite loading
+        setSession(null)
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
       }
     }
 
     window.addEventListener('pageshow', handlePageShow)
-    return () => window.removeEventListener('pageshow', handlePageShow)
+    window.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const value = {

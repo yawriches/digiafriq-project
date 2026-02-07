@@ -12,7 +12,6 @@ import {
   Download,
   User,
   LogOut,
-  ShoppingCart,
   Users,
   Settings,
   HelpCircle,
@@ -28,6 +27,8 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/supabase/auth'
 import MembershipActivatedBanner from '@/components/MembershipActivatedBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import ProfileCompletionModal from '@/components/dashboard/ProfileCompletionModal'
+import { supabase } from '@/lib/supabase/client'
 
 interface SidebarItem {
   title: string
@@ -47,11 +48,42 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [switchingRole, setSwitchingRole] = useState(false)
   const [userAvatar, setUserAvatar] = useState('')
+  const [showProfileModal, setShowProfileModal] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const mobileDropdownRef = useRef<HTMLDivElement>(null)
   const desktopDropdownRef = useRef<HTMLDivElement>(null)
   const { user, profile, signOut, refreshProfile } = useAuth()
+
+  // Check if profile needs completion (sex, date_of_birth, city are required)
+  useEffect(() => {
+    if (profile) {
+      const profileData = profile as any
+      const needsCompletion = !profileData.sex || !profileData.date_of_birth || !profileData.city
+      setShowProfileModal(needsCompletion)
+    }
+  }, [profile])
+
+  // Handle profile completion
+  const handleProfileComplete = async (data: { sex: string; date_of_birth: string; city: string }) => {
+    if (!profile?.id) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        sex: data.sex,
+        date_of_birth: data.date_of_birth,
+        city: data.city
+      })
+      .eq('id', profile.id)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    await refreshProfile()
+    setShowProfileModal(false)
+  }
 
   // Generate a random avatar for the user
   useEffect(() => {
@@ -100,11 +132,6 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
       title: "My Courses", 
       icon: BookOpen,
       href: "/dashboard/learner/courses"
-    },
-    { 
-      title: "Browse Courses", 
-      icon: ShoppingCart,
-      href: "/dashboard/learner/browse"
     },
     { 
       title: "Membership", 
@@ -359,13 +386,13 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                   <ChevronDown className="w-3 h-3 text-gray-500 flex-shrink-0" />
                 </div>
 
-                {/* Mobile Dark Profile Dropdown */}
+                {/* Mobile Profile Dropdown */}
                 {profileDropdownOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
                     <div className="py-2">
                       <Link
                         href="/dashboard/profile"
-                        className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-orange-600/20 hover:to-amber-600/20 hover:text-white transition-all duration-200"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <User className="w-4 h-4 mr-3" />
@@ -373,7 +400,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                       </Link>
                       <Link
                         href="/dashboard/learner/settings"
-                        className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-orange-600/20 hover:to-amber-600/20 hover:text-white transition-all duration-200"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <Settings className="w-4 h-4 mr-3" />
@@ -381,7 +408,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                       </Link>
                       <Link
                         href="/dashboard/learner/help"
-                        className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-orange-600/20 hover:to-amber-600/20 hover:text-white transition-all duration-200"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                         onClick={() => setProfileDropdownOpen(false)}
                       >
                         <HelpCircle className="w-4 h-4 mr-3" />
@@ -392,7 +419,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                           setProfileDropdownOpen(false)
                           handleLogout()
                         }}
-                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-all duration-200"
+                        className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
                       >
                         <LogOut className="w-4 h-4 mr-3" />
                         Logout
@@ -432,13 +459,13 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </div>
 
-              {/* Desktop Dark Profile Dropdown */}
+              {/* Desktop Profile Dropdown */}
               {profileDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl shadow-2xl border border-gray-700/50 z-50 backdrop-blur-sm">
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
                   <div className="py-2">
                     <Link
                       href="/dashboard/profile"
-                      className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-blue-600/20 hover:text-white transition-all duration-200"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                       onClick={() => setProfileDropdownOpen(false)}
                     >
                       <User className="w-4 h-4 mr-3" />
@@ -446,7 +473,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                     </Link>
                     <Link
                       href="/dashboard/learner/settings"
-                      className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-blue-600/20 hover:text-white transition-all duration-200"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                       onClick={() => setProfileDropdownOpen(false)}
                     >
                       <Settings className="w-4 h-4 mr-3" />
@@ -454,7 +481,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                     </Link>
                     <Link
                       href="/dashboard/learner/help"
-                      className="flex items-center px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-purple-600/20 hover:to-blue-600/20 hover:text-white transition-all duration-200"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#ed874a] transition-all duration-200"
                       onClick={() => setProfileDropdownOpen(false)}
                     >
                       <HelpCircle className="w-4 h-4 mr-3" />
@@ -465,7 +492,7 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
                         setProfileDropdownOpen(false)
                         handleLogout()
                       }}
-                      className="flex items-center w-full px-4 py-3 text-sm text-gray-300 hover:bg-gradient-to-r hover:from-red-600/20 hover:to-pink-600/20 hover:text-red-300 transition-all duration-200"
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       Logout
@@ -493,6 +520,11 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
       
       {/* Membership Activation Banner */}
       <MembershipActivatedBanner />
+
+      {/* Profile Completion Modal - Blocks access until completed */}
+      {showProfileModal && (
+        <ProfileCompletionModal onComplete={handleProfileComplete} />
+      )}
     </div>
   )
 }

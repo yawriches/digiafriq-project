@@ -19,16 +19,16 @@ const AffiliatePromoSection = () => {
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-[#ed874a]" />
               <span className="bg-[#ed874a] text-white text-xs font-semibold px-2 py-1 rounded-full">
-                80% COMMISSION
+                60% COMMISSION
               </span>
             </div>
             
             <h3 className="text-lg font-bold text-gray-900">
-              Earn Up To <span className="text-[#ed874a]">80% Commission</span>
+              Earn Up To <span className="text-[#ed874a]">60% Commission</span>
             </h3>
             
             <p className="text-sm text-gray-700 max-w-md">
-              Turn your network into income! Refer learners and <strong>keep 80% of every sale</strong> you generate.
+              Turn your network into income! Promote the AI Cashflow program and <strong>keep 60% of every sale</strong> you generate.
             </p>
           </div>
           

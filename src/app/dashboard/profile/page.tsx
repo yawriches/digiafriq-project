@@ -376,19 +376,17 @@ const UnifiedProfilePage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gender
+                    Sex
                   </label>
                   <select 
                     className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-500"
-                    value={profileForm.gender}
-                    onChange={(e) => updateProfileForm('gender', e.target.value)}
+                    value={profileForm.sex}
+                    onChange={(e) => updateProfileForm('sex', e.target.value)}
                     disabled={!isEditing}
                   >
-                    <option value="">Select Gender</option>
+                    <option value="">Select Sex</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                    <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
                 <div>

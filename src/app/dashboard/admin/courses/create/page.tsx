@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Plus,
   Loader2,
@@ -10,8 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import CourseFormTabs from '@/components/admin/CourseFormTabs'
-import { supabase } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 
 interface Lesson {
@@ -49,8 +48,17 @@ interface CourseForm {
 
 export default function CreateCoursePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Get category from URL params (for AI Cashflow Program integration)
+  const categoryFromUrl = searchParams.get('category')
+  const validCategories = ['marketing', 'design', 'development', 'business', 'skills', 'monetization']
+  const initialCategory = categoryFromUrl && validCategories.includes(categoryFromUrl) 
+    ? categoryFromUrl 
+    : 'marketing'
+  
   const [form, setForm] = useState<CourseForm>({
     title: '',
     description: '',
@@ -58,11 +66,18 @@ export default function CreateCoursePage() {
     instructor: '',
     thumbnail_url: null,
     status: 'draft',
-    category: 'marketing',
+    category: initialCategory,
     level: 'Beginner',
     duration: '',
     modules: []
   })
+  
+  // Update category if URL param changes
+  useEffect(() => {
+    if (categoryFromUrl && validCategories.includes(categoryFromUrl)) {
+      setForm(prev => ({ ...prev, category: categoryFromUrl }))
+    }
+  }, [categoryFromUrl])
 
   const handleSave = async () => {
     if (!form.title.trim()) {
@@ -74,10 +89,11 @@ export default function CreateCoursePage() {
     setError(null)
 
     try {
-      // Create course
-      const { data: course, error: courseError } = await (supabase as any)
-        .from('courses')
-        .insert({
+      // Use API endpoint to create course (bypasses RLS with service role)
+      const response = await fetch('/api/admin/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           title: form.title,
           description: form.description,
           price: form.price,
@@ -86,55 +102,26 @@ export default function CreateCoursePage() {
           is_published: form.status === 'published',
           category: form.category,
           level: form.level,
-          duration: form.duration
+          duration: form.duration,
+          modules: form.modules
         })
-        .select()
-        .single()
+      })
 
-      if (courseError) throw courseError
+      const data = await response.json()
+      console.log('API response:', response.status, data)
 
-      // Create modules and lessons
-      for (let i = 0; i < form.modules.length; i++) {
-        const mod = form.modules[i]
-        const { data: moduleData, error: moduleError } = await (supabase as any)
-          .from('modules')
-          .insert({
-            course_id: course.id,
-            title: mod.title,
-            description: mod.description,
-            order_index: i
-          })
-          .select()
-          .single()
-
-        if (moduleError) throw moduleError
-
-        // Create lessons for this module
-        for (let j = 0; j < mod.lessons.length; j++) {
-          const lesson = mod.lessons[j]
-          const { error: lessonError } = await (supabase as any)
-            .from('lessons')
-            .insert({
-              module_id: moduleData.id,
-              title: lesson.title,
-              description: lesson.description,
-              type: lesson.type || 'video',
-              content_url: lesson.content_url,
-              video_url: lesson.video_url,
-              instructor_notes: lesson.instructor_notes,
-              duration: lesson.duration,
-              order_index: j
-            })
-
-          if (lessonError) throw lessonError
-        }
+      if (!response.ok) {
+        const errorMsg = data.details || data.error || 'Failed to create course'
+        throw new Error(errorMsg)
       }
 
       toast.success('Course created successfully!')
       router.push('/dashboard/admin/courses')
     } catch (err: any) {
-      setError(err.message || 'Failed to create course')
+      const errorMsg = err.message || 'Failed to create course'
+      setError(errorMsg)
       console.error('Error creating course:', err)
+      toast.error(errorMsg)
     } finally {
       setSaving(false)
     }

@@ -52,109 +52,77 @@ export const useLeaderboard = (): LeaderboardData => {
         setLoading(true)
         setError(null)
 
-        // NEW APPROACH: Direct JOIN query to get affiliate profiles with names
-        console.log('🔄 Using direct JOIN approach...')
-        
-        const { data: leaderboardData, error: leaderboardError } = await supabase
+        // Fetch affiliate profiles ordered by earnings
+        const { data: affiliateProfiles, error: profilesError } = await supabase
           .from('affiliate_profiles')
-          .select(`
-            id,
-            total_earnings,
-            profiles!inner (
-              full_name,
-              email
-            )
-          `)
+          .select('id, total_earnings')
           .order('total_earnings', { ascending: false })
           .limit(50)
 
-        if (leaderboardError) {
-          console.error('❌ Failed to fetch leaderboard with JOIN:', leaderboardError.message)
-          // Fallback to separate queries
-          console.log('🔄 Falling back to separate queries...')
-          const { data: affiliateProfiles, error: profilesError } = await supabase
-            .from('affiliate_profiles')
-            .select('id, total_earnings')
-            .order('total_earnings', { ascending: false })
-            .limit(50)
-
-          if (profilesError) {
-            console.error('Failed to fetch affiliate profiles:', profilesError.message)
-            setLeaderboard([])
-            return
-          }
-
-          console.log('✅ Affiliate profiles fetched:', affiliateProfiles?.length || 0)
-
-          // Simple approach: Get names individually
-          const leaderboardWithNames = []
-          for (const affiliate of (affiliateProfiles || []).slice(0, 10)) {
-            console.log(`🔍 Getting profile for affiliate ID: ${(affiliate as any).id}`)
-            
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', (affiliate as any).id)
-              .maybeSingle() // Use maybeSingle instead of single
-            
-            if (profileError) {
-              console.error(`❌ Failed to get profile for ${(affiliate as any).id}:`, profileError.message)
-            } else if (!profile) {
-              console.warn(`⚠️ No profile found for ${(affiliate as any).id}`)
-            } else {
-              console.log(`✅ Profile found for ${(affiliate as any).id}:`, { full_name: (profile as any).full_name, email: (profile as any).email })
-            }
-            
-            const name = (profile as any)?.full_name || (profile as any)?.email?.split('@')[0] || 'Anonymous Affiliate'
-            
-            console.log(`📝 Name resolved for ${(affiliate as any).id}:`, name)
-            
-            leaderboardWithNames.push({
-              rank: leaderboardWithNames.length + 1,
-              user_id: (affiliate as any).id,
-              name,
-              level: getAffiliateLevel(leaderboardWithNames.length + 1),
-              total_earnings: (affiliate as any).total_earnings || 0,
-              total_referrals: 0,
-              award: getAwardEmoji(leaderboardWithNames.length + 1),
-              isCurrentUser: user ? (affiliate as any).id === user.id : false
-            })
-          }
-
-          console.log('✅ Final leaderboard with names:', leaderboardWithNames.length)
-          setLeaderboard(leaderboardWithNames)
+        if (profilesError) {
+          console.error('Failed to fetch affiliate profiles:', profilesError.message)
+          setLeaderboard([])
           return
         }
 
-        // Transform JOIN data
-        const transformedData: LeaderboardEntry[] = (leaderboardData || []).map((item: any, index: number) => {
-          const rank = index + 1
-          const profileData = item.profiles
-          
-          console.log(`🔍 Processing rank ${rank}:`, {
-            affiliateId: item.id,
-            profileData,
-            fullName: profileData?.full_name,
-            email: profileData?.email
+        if (!affiliateProfiles || affiliateProfiles.length === 0) {
+          setLeaderboard([])
+          return
+        }
+
+        // Get all profile IDs
+        const profileIds = affiliateProfiles.map((ap: any) => ap.id)
+
+        // Fetch all profiles in one query
+        const { data: profiles, error: profilesFetchError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', profileIds)
+
+        if (profilesFetchError) {
+          console.error('Failed to fetch profiles:', profilesFetchError.message)
+        }
+
+        // Create a map of profile data for quick lookup
+        const profileMap = new Map<string, { full_name: string | null; email: string | null }>()
+        if (profiles) {
+          profiles.forEach((p: any) => {
+            profileMap.set(p.id, { full_name: p.full_name, email: p.email })
           })
+        }
+
+        // Build leaderboard with names, filtering out entries without valid profiles
+        const leaderboardWithNames: LeaderboardEntry[] = []
+        let rank = 0
+        
+        for (const affiliate of affiliateProfiles) {
+          const profileData = profileMap.get((affiliate as any).id)
           
-          return {
+          // Skip affiliates without a matching profile (test/sample data)
+          if (!profileData || (!profileData.full_name && !profileData.email)) {
+            continue
+          }
+          
+          rank++
+          const name = profileData.full_name || profileData.email?.split('@')[0] || 'Affiliate'
+          
+          leaderboardWithNames.push({
             rank,
-            user_id: item.id,
-            name: profileData?.full_name || profileData?.email?.split('@')[0] || 'Anonymous Affiliate',
+            user_id: (affiliate as any).id,
+            name,
             level: getAffiliateLevel(rank),
-            total_earnings: item.total_earnings || 0,
+            total_earnings: (affiliate as any).total_earnings || 0,
             total_referrals: 0,
             award: getAwardEmoji(rank),
-            isCurrentUser: user ? item.id === user.id : false
-          }
-        })
+            isCurrentUser: user ? (affiliate as any).id === user.id : false
+          })
+        }
 
-        setLeaderboard(transformedData)
+        setLeaderboard(leaderboardWithNames)
 
         // Find current user's rank
         if (user) {
-          const userEntry = transformedData.find(entry => entry.user_id === user.id)
+          const userEntry = leaderboardWithNames.find(entry => entry.user_id === user.id)
           setCurrentUserRank(userEntry?.rank || null)
         }
 

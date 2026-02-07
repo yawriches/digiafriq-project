@@ -22,6 +22,7 @@ interface CourseProgress {
 }
 
 interface LearnerStats {
+  totalPrograms: number
   totalEnrolled: number
   totalCompleted: number
   totalInProgress: number
@@ -45,6 +46,7 @@ export const useLearnerData = (): LearnerDashboardData => {
     if (!user || !profile) {
       return {
         stats: {
+          totalPrograms: 0,
           totalEnrolled: 0,
           totalCompleted: 0,
           totalInProgress: 0,
@@ -66,6 +68,7 @@ export const useLearnerData = (): LearnerDashboardData => {
         console.warn('Failed to fetch enrollments, using fallback data:', enrollmentsError.message)
         return {
           stats: {
+            totalPrograms: 0,
             totalEnrolled: 0,
             totalCompleted: 0,
             totalInProgress: 0,
@@ -75,6 +78,13 @@ export const useLearnerData = (): LearnerDashboardData => {
         }
       }
 
+      // Fetch programs count
+      const { data: programs, error: programsError } = await (supabase as any)
+        .from('programs')
+        .select('id')
+        .eq('is_active', true)
+
+      const totalPrograms = programs?.length || 0
       const totalEnrolled = enrollments?.length || 0
       const totalCompleted = enrollments?.filter((e: any) => e.completed_at).length || 0
       const totalInProgress = totalEnrolled - totalCompleted
@@ -86,6 +96,7 @@ export const useLearnerData = (): LearnerDashboardData => {
 
       return {
         stats: {
+          totalPrograms,
           totalEnrolled,
           totalCompleted,
           totalInProgress,
@@ -108,6 +119,7 @@ export const useLearnerData = (): LearnerDashboardData => {
 
   return {
     stats: data?.stats ?? {
+      totalPrograms: 0,
       totalEnrolled: 0,
       totalCompleted: 0,
       totalInProgress: 0,

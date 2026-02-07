@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
-import { Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, CheckCircle, Users } from 'lucide-react'
+import { Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, CheckCircle, Users, Phone, Globe } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -13,17 +13,14 @@ const SignupPage = () => {
   const router = useRouter()
   const { signUp, user, profile, loading: authLoading } = useAuth()
   
-  // Step management
-  const [currentStep, setCurrentStep] = useState(1)
-  const totalSteps = 3
-  
   // Form data
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    selectedRole: '' as 'learner' | 'affiliate' | ''
+    phoneNumber: '',
+    country: ''
   })
   
   // UI state
@@ -37,45 +34,10 @@ const SignupPage = () => {
   // Redirect if already logged in (but not during signup process)
   useEffect(() => {
     if (!authLoading && user && profile && !isSigningUp) {
-      // If user is already logged in, redirect to appropriate dashboard
-      const checkMembershipAndRedirect = async () => {
-        try {
-          const { data: memberships } = await supabase
-            .from('user_memberships')
-            .select(`
-              is_active,
-              expires_at,
-              membership_packages (
-                member_type
-              )
-            `)
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .gt('expires_at', new Date().toISOString()) as any
-
-          const hasLearnerMembership = memberships?.some((m: any) => m.membership_packages?.member_type === 'learner')
-          const userRole = profile.active_role || profile.role
-
-          if (userRole === 'learner' && hasLearnerMembership) {
-            router.push('/dashboard/learner')
-          } else if (userRole === 'learner' && !hasLearnerMembership) {
-            router.push('/dashboard/learner/membership')
-          } else if (userRole === 'affiliate') {
-            router.push('/dashboard/affiliate')
-          } else if (userRole === 'admin') {
-            router.push('/dashboard/admin')
-          } else {
-            router.push('/choose-role')
-          }
-        } catch (error) {
-          console.error('Error checking membership during signup:', error)
-          router.push('/choose-role')
-        }
-      }
-
-      checkMembershipAndRedirect()
+      // All users go to learner dashboard
+      router.push('/dashboard/learner')
     }
-  }, [user, profile, authLoading, router])
+  }, [user, profile, authLoading, router, isSigningUp])
   
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {
@@ -91,6 +53,14 @@ const SignupPage = () => {
     }
     if (!formData.email.trim()) {
       setError('Email is required')
+      return false
+    }
+    if (!formData.phoneNumber.trim()) {
+      setError('Phone number is required')
+      return false
+    }
+    if (!formData.country.trim()) {
+      setError('Country is required')
       return false
     }
     if (!formData.password) {
@@ -135,34 +105,7 @@ const SignupPage = () => {
     setError('')
 
     // Validation
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError('Please fill in all fields')
-      return
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
-      return
-    }
-    if (!/[A-Z]/.test(formData.password)) {
-      setError('Password must contain at least one uppercase letter')
-      return
-    }
-    if (!/[a-z]/.test(formData.password)) {
-      setError('Password must contain at least one lowercase letter')
-      return
-    }
-    if (!/[0-9]/.test(formData.password)) {
-      setError('Password must contain at least one number')
-      return
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password)) {
-      setError('Password must contain at least one special character')
+    if (!validateStep1()) {
       return
     }
 
@@ -180,6 +123,8 @@ const SignupPage = () => {
           email: formData.email,
           fullName: formData.fullName,
           password: formData.password,
+          phoneNumber: formData.phoneNumber,
+          country: formData.country,
         })
       })
 
@@ -188,7 +133,7 @@ const SignupPage = () => {
         throw new Error(result?.message || 'Failed to create account')
       }
 
-      // Sign in immediately so user is authenticated on /choose-role
+      // Sign in immediately so user is authenticated
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
@@ -201,8 +146,8 @@ const SignupPage = () => {
       // Small delay to ensure auth state is updated
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // Redirect to choose role page
-      router.push('/choose-role')
+      // Redirect directly to learner dashboard
+      router.push('/dashboard/learner')
       
     } catch (err: any) {
       console.error('Signup error:', err)
@@ -238,8 +183,8 @@ const SignupPage = () => {
                   <Image
                     src="/digiafriqlogo.png"
                     alt="DigiAfriq Logo"
-                    width={80}
-                    height={80}
+                    width={120}
+                    height={120}
                     className="object-contain"
                   />
                 </Link>
@@ -252,30 +197,10 @@ const SignupPage = () => {
               </p>
             </div>
 
-            {/* Progress Line Indicator */}
-            <div className="max-w-md mx-auto mb-8">
-              <div className="flex items-center justify-center mb-2">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-full bg-[#ed874a] text-white flex items-center justify-center text-sm font-semibold">
-                    1
-                  </div>
-                  <div className="w-16 h-1 bg-gray-300"></div>
-                  <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center text-sm font-semibold">
-                    2
-                  </div>
-                  <div className="w-16 h-1 bg-gray-300"></div>
-                  <div className="w-8 h-8 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center text-sm font-semibold">
-                    3
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Form Container */}
             <div className="max-w-md mx-auto">
               <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
                 
-                {/* Only show Step 1: Personal Information */}
                 <form onSubmit={handleStep1Submit} className="space-y-6">
                     <div>
                       <label htmlFor="fullName" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -310,6 +235,52 @@ const SignupPage = () => {
                           className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition"
                           disabled={loading}
                         />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="phoneNumber" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Phone Number
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <input
+                          id="phoneNumber"
+                          type="tel"
+                          value={formData.phoneNumber}
+                          onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                          placeholder="+1234567890"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition"
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="country" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Country
+                      </label>
+                      <div className="relative">
+                        <Globe className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                        <select
+                          id="country"
+                          value={formData.country}
+                          onChange={(e) => handleInputChange('country', e.target.value)}
+                          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition appearance-none"
+                          disabled={loading}
+                        >
+                          <option value="">Select your country</option>
+                          <option value="Nigeria">Nigeria</option>
+                          <option value="Ghana">Ghana</option>
+                          <option value="Kenya">Kenya</option>
+                          <option value="South Africa">South Africa</option>
+                          <option value="Egypt">Egypt</option>
+                          <option value="Morocco">Morocco</option>
+                          <option value="Ethiopia">Ethiopia</option>
+                          <option value="Tanzania">Tanzania</option>
+                          <option value="Uganda">Uganda</option>
+                          <option value="Other">Other</option>
+                        </select>
                       </div>
                     </div>
 
@@ -379,8 +350,17 @@ const SignupPage = () => {
                       disabled={loading}
                       className="w-full bg-[#ed874a] hover:bg-[#d76f32] text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
                     >
-                      Continue
-                      <ArrowRight className="w-5 h-5" />
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Creating Account...
+                        </>
+                      ) : (
+                        <>
+                          Create Account
+                          <ArrowRight className="w-5 h-5" />
+                        </>
+                      )}
                     </Button>
                   </form>
               </div>

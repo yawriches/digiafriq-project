@@ -29,12 +29,8 @@ const SalesActivityPage = () => {
     const amount = (anyCommission.amount ?? anyCommission.commission_amount ?? 0) as number
     const type = (anyCommission.commission_type as string | undefined) || undefined
 
-    const tier =
-      type === 'dcs_addon' || type === 'dcs'
-        ? 'DCS'
-        : type === 'learner_renewal'
-        ? 'Renewal'
-        : 'Learner'
+    // Simplified for AI Cashflow - all sales are AI Cashflow Program sales
+    const tier = type === 'learner_renewal' ? 'Renewal' : 'AI Cashflow'
 
     const rawStatus = (anyCommission.status as string) || ''
     const status =

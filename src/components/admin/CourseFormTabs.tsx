@@ -239,6 +239,8 @@ export default function CourseFormTabs({ form, setForm, error }: CourseFormTabsP
               <option value="design">Design</option>
               <option value="development">Development</option>
               <option value="business">Business</option>
+              <option value="skills">🧠 AI Skills</option>
+              <option value="monetization">💰 AI Monetization</option>
             </select>
           </div>
 

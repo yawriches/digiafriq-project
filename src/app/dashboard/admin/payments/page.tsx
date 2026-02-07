@@ -67,14 +67,11 @@ interface Payment {
 interface RevenueByType {
   course: number
   membership: number
-  digital_cashflow: number
 }
 
 interface RevenueByCurrency {
   [key: string]: number
 }
-
-const DCS_PRICE_USD = 8 // Digital Cashflow System price in USD
 
 const PaymentsManagement = () => {
   const [payments, setPayments] = useState<Payment[]>([])
@@ -85,7 +82,6 @@ const PaymentsManagement = () => {
   const [typeFilter, setTypeFilter] = useState('all')
   const [providerFilter, setProviderFilter] = useState('all')
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
-  const [dcsCount, setDcsCount] = useState(0) // Count of Digital Cashflow addon purchases
   const [dateRange, setDateRange] = useState<{ startDate: Date | null; endDate: Date | null }>({
     startDate: null,
     endDate: null
@@ -93,23 +89,7 @@ const PaymentsManagement = () => {
 
   useEffect(() => {
     fetchPayments()
-    fetchDCSCount()
   }, [])
-  
-  const fetchDCSCount = async () => {
-    try {
-      // Count users with Digital Cashflow addon
-      const { count, error } = await supabase
-        .from('user_memberships')
-        .select('*', { count: 'exact', head: true })
-        .eq('has_digital_cashflow_addon', true)
-      
-      if (error) throw error
-      setDcsCount(count || 0)
-    } catch (error: any) {
-      console.error('Error fetching DCS count:', error)
-    }
-  }
 
   useEffect(() => {
     filterPayments()
@@ -255,8 +235,6 @@ const PaymentsManagement = () => {
     switch (type) {
       case 'course': return <ShoppingCart className="w-4 h-4 text-blue-600" />
       case 'membership': return <Users className="w-4 h-4 text-purple-600" />
-      case 'digital_cashflow': return <Award className="w-4 h-4 text-orange-600" />
-      case 'dcs_addon': return <Award className="w-4 h-4 text-orange-600" />
       default: return <CreditCard className="w-4 h-4 text-gray-600" />
     }
   }
@@ -265,8 +243,6 @@ const PaymentsManagement = () => {
     switch (type) {
       case 'course': return 'bg-blue-100 text-blue-700'
       case 'membership': return 'bg-purple-100 text-purple-700'
-      case 'digital_cashflow': return 'bg-orange-100 text-orange-700'
-      case 'dcs_addon': return 'bg-orange-100 text-orange-700'
       default: return 'bg-gray-100 text-gray-700'
     }
   }
@@ -299,11 +275,8 @@ const PaymentsManagement = () => {
     return sum + usdAmount
   }, 0)
   
-  // Digital Cashflow revenue (calculated separately from user_memberships)
-  const dcsRevenueUSD = dcsCount * DCS_PRICE_USD
-  
-  // Total revenue = payments + DCS addon sales
-  const totalRevenueUSD = paymentsRevenueUSD + dcsRevenueUSD
+  // Total revenue from payments
+  const totalRevenueUSD = paymentsRevenueUSD
   
   const pendingPayments = payments.filter(p => p.status === 'pending')
   const pendingAmountUSD = pendingPayments.reduce((sum, p) => {
@@ -319,7 +292,6 @@ const PaymentsManagement = () => {
   const revenueByType: RevenueByType = {
     course: completedPayments.filter(p => p.payment_type === 'course' || (!p.payment_type && p.course_id)).reduce((sum, p) => sum + getAmountUSD(p), 0),
     membership: completedPayments.filter(p => p.payment_type === 'membership').reduce((sum, p) => sum + getAmountUSD(p), 0),
-    digital_cashflow: dcsRevenueUSD
   }
 
   // Revenue by currency
@@ -422,19 +394,7 @@ const PaymentsManagement = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Digital Cashflow Sales</p>
-                <p className="text-xl font-bold text-orange-600">{formatCurrency(revenueByType.digital_cashflow, 'USD')}</p>
-                <p className="text-xs text-gray-500">{dcsCount} addon{dcsCount !== 1 ? 's' : ''} × ${DCS_PRICE_USD}</p>
               </div>
-              <Award className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Revenue by Currency */}
       {Object.keys(revenueByCurrency).length > 0 && (
@@ -487,7 +447,6 @@ const PaymentsManagement = () => {
               <option value="all">All Types</option>
               <option value="course">Course</option>
               <option value="membership">Membership</option>
-              <option value="digital_cashflow">Digital Cashflow</option>
             </select>
             <select
               value={providerFilter}

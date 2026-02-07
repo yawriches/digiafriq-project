@@ -42,11 +42,11 @@ async function invokeEmailEvents(payload: Record<string, unknown>): Promise<bool
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, fullName, password } = await request.json()
+    const { email, fullName, password, phoneNumber, country } = await request.json()
 
-    if (!email || !fullName || !password) {
+    if (!email || !fullName || !password || !phoneNumber || !country) {
       return NextResponse.json(
-        { success: false, message: 'Email, fullName and password are required' },
+        { success: false, message: 'Email, fullName, password, phone number and country are required' },
         { status: 400 }
       )
     }
@@ -75,9 +75,12 @@ export async function POST(request: NextRequest) {
         id: userId,
         email,
         full_name: fullName,
-        role: 'learner',
-        active_role: 'learner',
-        available_roles: ['learner'],
+        phone: phoneNumber, // Fixed: use 'phone' instead of 'phone_number'
+        country: country,
+        role: 'learner', // Fixed: use 'learner' instead of 'member'
+        active_role: 'learner', // Start as learner
+        available_roles: ['learner', 'affiliate'], // Can access both
+        affiliate_unlocked: false, // Will be unlocked after affiliate course
         password_set: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

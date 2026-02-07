@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { sendEmail } from '@/../lib/email'
+import { processCommission } from '@/lib/commissions/process-commission'
 
 // Create Supabase admin client with service role
 const supabaseAdmin = createClient(
@@ -610,7 +611,7 @@ export async function POST(request: NextRequest) {
           phone,
           country,
           active_role: 'learner',
-          available_roles: ['learner'],
+          available_roles: ['learner', 'affiliate'],
           payment_status: 'paid',
           password_set: false,
           temp_password_expires_at: tempPasswordExpiresAt,
@@ -1007,111 +1008,42 @@ async function processReferral(
 
     console.log('✅ Referral created:', referral.id)
 
-    // Use base_currency_amount directly (already in USD from payment initialization)
-    const paymentAmountUSD = payment.base_currency_amount || 10 // Default to $10 if not set
-    console.log('💰 Commission base amount (USD):', paymentAmountUSD)
-    
-    let commissionAmount = 0
-    // Commission logic:
-    // - Learner link referral: 80% of $10 = $8
-    // - DCS link referral: 80% of $10 + $2 DCS bonus = $10
-    // The $2 bonus is ONLY based on link_type, NOT what the buyer purchased
+    // ── Centralized commission processor (idempotent, 60%) ─────────────
+    const paymentAmountUSD = payment.base_currency_amount || 10
+    const result = await processCommission({
+      supabase: supabaseAdmin,
+      affiliateId: referrerId,
+      referralId: referral.id,
+      paymentId: payment.id,
+      paymentAmountUSD,
+      source: 'guest-verify',
+    })
 
-    // 1. Always create learner commission (80% of $10 = $8)
-    const learnerBaseAmountUSD = 10
-    const learnerCommission = 8
-    const { error: learnerCommissionError } = await supabaseAdmin
-      .from('commissions')
-      .insert({
-        affiliate_id: referrerId,
-        referral_id: referral.id,
-        payment_id: payment.id,
-        commission_type: 'learner_initial',
-        base_amount: learnerBaseAmountUSD, // Base learner price
-        base_currency: 'USD',
-        commission_rate: 0.80,
-        commission_amount: learnerCommission,
-        commission_currency: 'USD',
-        status: 'available',
-        notes: 'Learner referral commission (80% of $10)'
-      })
-
-    if (learnerCommissionError) {
-      console.error('❌ Learner commission creation error:', learnerCommissionError)
-      console.error('❌ Learner commission error details:', JSON.stringify(learnerCommissionError, null, 2))
-      // Critical: do not update affiliate balances if we failed to create the accounting row
+    if (result.skipped) {
+      console.log('⚠️ [guest-verify] Commission already existed, skipping rest of referral processing')
       return
     }
 
-    console.log('✅ Learner commission created: $', learnerCommission)
-    commissionAmount = learnerCommission
-
-    // 2. DCS Link Bonus: If referral was made via DCS link (linkType === 'dcs'), 
-    // add extra $2 commission for the Digital Cashflow System bonus
-    if (linkType === 'dcs') {
-      console.log('💰 Creating $2 USD DCS bonus commission (referral via DCS link)')
-      
-      const dcsBonus = 2
-      const { error: dcsLinkBonusError } = await supabaseAdmin
-        .from('commissions')
-        .insert({
-          affiliate_id: referrerId,
-          referral_id: referral.id,
-          payment_id: payment.id,
-          commission_type: 'dcs_addon',
-          commission_amount: dcsBonus,
-          commission_currency: 'USD',
-          commission_rate: 0,
-          base_amount: dcsBonus,
-          base_currency: 'USD',
-          status: 'available',
-          notes: '$2 USD DCS bonus - referral made via Digital Cashflow link'
-        })
-
-      if (dcsLinkBonusError) {
-        console.error('❌ Failed to create $2 DCS link bonus:', dcsLinkBonusError)
-      } else {
-        console.log('✅ $2 USD DCS link bonus created successfully')
-        commissionAmount += dcsBonus
-      }
+    if (result.error) {
+      console.error('❌ [guest-verify] Commission failed:', result.error)
+      return
     }
 
-    // Fire-and-forget: send a single commission email after all commission inserts succeed
+    const commissionAmount = result.commissionAmount ?? 0
+
+    // Send commission email
     if (referrerEmail && referrerName && String(referrerName).trim()) {
-      // Get product name from metadata or use default
       const productName = metadata.product_name || metadata.membership_name || 'Digiafriq Membership'
-      
       await invokeEmailEvents({
         type: 'commission',
         to: referrerEmail,
         name: referrerName,
-        productName: productName,
-        commissionAmount: commissionAmount,
+        productName,
+        commissionAmount,
         communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
       })
     } else {
       console.log('⚠️ Skipping commission email: missing referrer email')
-    }
-
-    // Update affiliate_profiles stats
-    if (affiliateProfile) {
-      const { error: updateError } = await supabaseAdmin
-        .from('affiliate_profiles')
-        .update({
-          total_earnings: (affiliateProfile.total_earnings || 0) + commissionAmount,
-          available_balance: (affiliateProfile.available_balance || 0) + commissionAmount,
-          lifetime_referrals: (affiliateProfile.lifetime_referrals || 0) + 1,
-          active_referrals: ((affiliateProfile as any).active_referrals || 0) + 1,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', referrerId)
-
-      if (updateError) {
-        console.error('❌ Error updating affiliate profile stats:', updateError)
-        console.error('❌ Affiliate profile update error details:', JSON.stringify(updateError, null, 2))
-      } else {
-        console.log('✅ Affiliate profile stats updated successfully')
-      }
     }
 
     const { error: linkConvertError } = await supabaseAdmin

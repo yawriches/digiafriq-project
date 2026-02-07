@@ -26,6 +26,21 @@ const LoginPage = () => {
       // Check user's existing role and redirect appropriately
       const checkMembershipAndRedirect = async () => {
         try {
+          const userRole = profile.active_role || profile.role
+
+          console.log('Login redirect check:', { 
+            userRole, 
+            hasActiveRole: !!profile.active_role,
+            profileRole: profile.role
+          })
+
+          // If user doesn't have an active_role set, always redirect to choose-role
+          if (!profile.active_role) {
+            console.log('No active_role found, redirecting to choose-role')
+            router.push('/choose-role')
+            return
+          }
+
           // Get active memberships for the user
           const { data: memberships } = await supabase
             .from('user_memberships')
@@ -41,9 +56,6 @@ const LoginPage = () => {
             .gt('expires_at', new Date().toISOString()) as any
 
           const hasLearnerMembership = memberships?.some((m: any) => m.membership_packages?.member_type === 'learner')
-          const userRole = profile.active_role || profile.role
-
-          console.log('Login redirect check:', { userRole, hasLearnerMembership, membershipsCount: memberships?.length })
 
           if (userRole === 'learner' && hasLearnerMembership) {
             // Learner with active membership - go directly to dashboard
@@ -178,10 +190,10 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-white px-4 py-8 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-white px-4 py-8 overflow-auto">
       <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
         {/* Left Side - Login Form */}
-        <div className="flex-1 w-full lg:w-auto max-w-sm">
+        <div className="flex-1 w-full lg:w-auto max-w-sm my-8">
           {/* Logo */}
           <div className="text-center mb-6">
             <div className="flex justify-center mb-4">
@@ -189,8 +201,8 @@ const LoginPage = () => {
                 <Image
                   src="/digiafriqlogo.png"
                   alt="DigiAfriq Logo"
-                  width={80}
-                  height={80}
+                  width={120}
+                  height={120}
                   className="object-contain"
                 />
               </Link>

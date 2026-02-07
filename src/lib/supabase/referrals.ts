@@ -29,13 +29,8 @@ export interface Commission {
   affiliate_id: string;
   referral_id: string | null;
   payment_id: string | null;
-  // Commission types:
-  // - learner_initial: First-time learner membership purchase
-  // - dcs_addon: Digital Cashflow System addon purchase
-  // - learner_renewal: Learner membership renewal
-  // - learner_referral: Commission for referring a learner (requires migration)
-  // - affiliate_referral: Commission for referring an affiliate (requires migration)
-  commission_type: 'learner_initial' | 'dcs_addon' | 'learner_renewal' | 'learner_referral' | 'affiliate_referral';
+  // Commission type: 60% of any referral purchase amount
+  commission_type: 'learner_referral' | 'affiliate_referral';
   commission_amount: number;
   commission_currency: string;
   commission_rate: number;
@@ -133,11 +128,8 @@ export function generateReferralUrl(code: string, type: 'learner' | 'affiliate' 
     ? 'http://localhost:3000' 
     : (process.env.NEXT_PUBLIC_SITE_URL || 'https://digiafriq.com');
   
-  // Point to dedicated sales pages for each referral type
-  if (type === 'affiliate') {
-    return `${baseUrl}/join/dcs?ref=${code}`;
-  }
-  return `${baseUrl}/join/learner?ref=${code}`;
+  // AI Cashflow is the single entry point - all referrals go to the same sales page
+  return `${baseUrl}/join/dcs?ref=${code}`;
 }
 
 // Validate referral code
@@ -247,46 +239,8 @@ export async function getReferralStats(userId: string): Promise<ReferralStats> {
   return stats;
 }
 
-// Create commission from payment
-export async function createCommission(
-  affiliateId: string,
-  referralId: string,
-  paymentId: string,
-  commissionType: 'learner_referral' | 'affiliate_referral' | 'learner_renewal',
-  notes?: string
-): Promise<Commission | null> {
-  try {
-    const { data, error } = await supabase.rpc('create_commission', {
-      p_affiliate_id: affiliateId,
-      p_referral_id: referralId,
-      p_payment_id: paymentId,
-      p_commission_type: commissionType,
-      p_notes: notes
-    } as any);
-
-    if (error) {
-      console.error('Error creating commission:', error);
-      return null;
-    }
-
-    // Fetch the created commission
-    const { data: commission, error: fetchError } = await supabase
-      .from('commissions')
-      .select('*')
-      .eq('id', data)
-      .single();
-
-    if (fetchError) {
-      console.error('Error fetching commission:', fetchError);
-      return null;
-    }
-
-    return commission;
-  } catch (err) {
-    console.error('Error creating commission:', err);
-    return null;
-  }
-}
+// REMOVED: createCommission() — commission logic is now centralized in
+// src/lib/commissions/process-commission.ts (idempotent, 60% rate).
 
 // Helper function to generate referral code string
 function generateReferralCodeString(): string {

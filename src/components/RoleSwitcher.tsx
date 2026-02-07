@@ -50,10 +50,22 @@ export default function RoleSwitcher({ className = '' }: RoleSwitcherProps) {
     // Switch to the role
     setSwitching(true)
     setError(null)
-
+    
     try {
       // Import supabase client dynamically to avoid circular dependencies
       const { supabase } = await import('@/lib/supabase/client')
+      
+      // Validate session before proceeding
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !sessionData.session) {
+        console.warn('⚠️ Session expired during role switch')
+        setError('Your session has expired. Please log in again.')
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 2000)
+        setSwitching(false)
+        return
+      }
       
       // Call the switch_active_role function
       const { error: switchError } = await (supabase as any).rpc('switch_active_role', {

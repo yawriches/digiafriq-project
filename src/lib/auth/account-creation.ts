@@ -187,7 +187,7 @@ export async function createAccountAfterPayment(
           id: userId,
           full_name: fullName,
           active_role: membershipType,
-          available_roles: [membershipType],
+          available_roles: ['learner', 'affiliate'],
           account_type: 'auto_created',
           created_via: 'referral_payment',
           email,
@@ -255,7 +255,7 @@ export async function createAccountAfterPayment(
         id: userId,
         full_name: fullName,
         active_role: membershipType,
-        available_roles: [membershipType],
+        available_roles: ['learner', 'affiliate'],
         account_type: 'auto_created',
         created_via: 'referral_payment'
       }) as any)

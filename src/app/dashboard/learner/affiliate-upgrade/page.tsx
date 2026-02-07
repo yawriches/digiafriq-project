@@ -9,62 +9,120 @@ import {
   BarChart3,
   Award,
   Zap,
-  Loader2
+  Loader2,
+  BookOpen,
+  Lock,
+  Unlock,
+  Star
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { useMembershipDetails } from '@/lib/hooks/useMembershipDetails'
+import { useLearnerData } from '@/lib/hooks/useLearnerData'
+import { supabase } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 const AffiliateUpgradePage = () => {
   const router = useRouter()
-  const { hasDCS, loading: dcsLoading } = useMembershipDetails()
-  const [learnerPackageId, setLearnerPackageId] = useState<string | null>(null)
-  const [dcsAddonPrice, setDcsAddonPrice] = useState<number>(0)
+  const { hasDCS, loading: membershipLoading } = useMembershipDetails()
+  const { recentCourses, loading: coursesLoading } = useLearnerData()
   const [loading, setLoading] = useState(true)
+  const [affiliateCourse, setAffiliateCourse] = useState<any>(null)
+  const [isAffiliateUnlocked, setIsAffiliateUnlocked] = useState(false)
 
-  // Redirect if user already has DCS
   useEffect(() => {
-    if (!dcsLoading && hasDCS) {
-      router.push('/dashboard/affiliate')
-    }
-  }, [hasDCS, dcsLoading, router])
+    checkAffiliateStatus()
+  }, [hasDCS, recentCourses])
 
-  // Fetch the learner package with DCS addon
-  useEffect(() => {
-    const fetchLearnerPackage = async () => {
-      try {
-        const response = await fetch('/api/memberships?member_type=learner')
-        if (response.ok) {
-          const data = await response.json()
-          // Find the learner package with DCS addon enabled
-          const learnerPackage = data.packages?.find((pkg: any) => 
-            pkg.member_type === 'learner' && 
-            pkg.has_digital_cashflow === true
+  const checkAffiliateStatus = async () => {
+    try {
+      setLoading(true)
+      
+      // Check affiliate status using API
+      const response = await fetch('/api/affiliate/unlock')
+      if (response.ok) {
+        const data = await response.json()
+        
+        if (data.affiliate_unlocked) {
+          setIsAffiliateUnlocked(true)
+          router.push('/dashboard/affiliate')
+          return
+        }
+
+        // Set affiliate course info if available
+        if (data.affiliate_course) {
+          const courseData = recentCourses.find((enrollment: any) => 
+            enrollment.course_id === data.affiliate_course.id
           )
-          if (learnerPackage) {
-            setLearnerPackageId(learnerPackage.id)
-            setDcsAddonPrice(learnerPackage.digital_cashflow_price || 0)
+          if (courseData) {
+            setAffiliateCourse(courseData)
+            
+            // Auto-unlock if course is completed
+            if (data.affiliate_course.completed) {
+              await unlockAffiliateFeatures()
+            }
           }
         }
-      } catch (error) {
-        console.error('Failed to fetch learner package:', error)
-      } finally {
-        setLoading(false)
       }
+
+      // Fallback: Find the affiliate course locally
+      const affiliateCourse = recentCourses.find((enrollment: any) => {
+        const course = enrollment.courses
+        return course?.title?.toLowerCase().includes('affiliate') || 
+               course?.category?.toLowerCase().includes('affiliate')
+      })
+
+      if (affiliateCourse) {
+        setAffiliateCourse(affiliateCourse)
+      }
+    } catch (error) {
+      console.error('Error checking affiliate status:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const unlockAffiliateFeatures = async () => {
+    try {
+      const response = await fetch('/api/affiliate/unlock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to unlock affiliate features')
+      }
+
+      setIsAffiliateUnlocked(true)
+      toast.success(`🎉 ${data.message} Redirecting to your dashboard...`)
+      
+      setTimeout(() => {
+        router.push('/dashboard/affiliate')
+      }, 2000)
+    } catch (error: any) {
+      console.error('Error unlocking affiliate features:', error)
+      toast.error(error.message || 'Failed to unlock affiliate features. Please contact support.')
+    }
+  }
+
+  const handleUnlockClick = async () => {
+    if (!affiliateCourse) {
+      router.push('/dashboard/learner/courses')
+      return
     }
 
-    fetchLearnerPackage()
-  }, [])
-
-  const handleUpgradeClick = () => {
-    if (learnerPackageId) {
-      // Go directly to checkout for the DCS addon upgrade
-      router.push(`/checkout/${learnerPackageId}?addon=digital-cashflow&upgrade=true`)
+    if (affiliateCourse.completed_at !== null) {
+      // Course is completed, unlock affiliate features
+      await unlockAffiliateFeatures()
     } else {
-      // Fallback to membership page if package not found
-      router.push('/dashboard/learner/membership')
+      // Course not completed, redirect to course
+      router.push(`/dashboard/learner/courses/${affiliateCourse.course_id}`)
     }
   }
 
@@ -101,12 +159,12 @@ const AffiliateUpgradePage = () => {
     }
   ]
 
-  if (loading || dcsLoading) {
+  if (loading || membershipLoading || coursesLoading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-[#ed874a] mx-auto mb-4" />
-          <p className="text-gray-600">Loading membership options...</p>
+          <p className="text-gray-600">Checking your affiliate status...</p>
         </div>
       </div>
     )
@@ -139,13 +197,13 @@ const AffiliateUpgradePage = () => {
   const steps = [
     {
       number: 1,
-      title: "Choose Your Plan",
-      description: "Select the affiliate plan that suits your goals and pay the one-time setup fee"
+      title: "Complete Affiliate Course",
+      description: "Finish the affiliate marketing training to unlock premium features"
     },
     {
       number: 2,
-      title: "Get Your Materials",
-      description: "Access your affiliate dashboard and download marketing materials"
+      title: "Unlock Your Dashboard",
+      description: "Get instant access to your affiliate dashboard and marketing tools"
     },
     {
       number: 3,
@@ -166,13 +224,23 @@ const AffiliateUpgradePage = () => {
         <CardContent className="p-8">
           <div className="text-center">
             <div className="w-16 h-16 bg-[#ed874a] rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-white" />
+              {affiliateCourse?.completed_at !== null ? (
+                <Unlock className="w-8 h-8 text-white" />
+              ) : (
+                <Lock className="w-8 h-8 text-white" />
+              )}
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Upgrade to Affiliate Membership
+              {affiliateCourse?.completed_at !== null 
+                ? "🎉 Unlock Your Affiliate Features!" 
+                : "Complete Affiliate Course to Unlock Features"
+              }
             </h1>
             <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
-              Ready to start earning? View our membership options to upgrade to affiliate and start earning commissions for referrals.
+              {affiliateCourse?.completed_at !== null 
+                ? "Congratulations! You've completed the affiliate course. Unlock your affiliate dashboard and start earning commissions."
+                : "Complete the affiliate training course to unlock premium affiliate features and start earning commissions."
+              }
             </p>
             <div className="flex items-center justify-center space-x-8 text-sm text-gray-600">
               <div className="flex items-center">
@@ -189,6 +257,60 @@ const AffiliateUpgradePage = () => {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Course Status Card */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-center">Your Affiliate Course Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {affiliateCourse ? (
+            <div className="text-center p-6 bg-gray-50 rounded-lg">
+              <div className="w-12 h-12 bg-[#ed874a] rounded-full flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {affiliateCourse.courses?.title || 'Affiliate Marketing Course'}
+              </h3>
+              <div className="flex items-center justify-center mb-4">
+                {affiliateCourse.completed_at !== null ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                    <span className="text-green-600 font-medium">Completed</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-5 h-5 border-2 border-blue-500 rounded-full mr-2" />
+                    <span className="text-blue-600 font-medium">
+                      In Progress ({Math.round(affiliateCourse.progress_percentage || 0)}%)
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                {affiliateCourse.completed_at !== null 
+                  ? "Great job! You can now unlock your affiliate features."
+                  : "Complete this course to unlock premium affiliate features and start earning commissions."
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="text-center p-6 bg-yellow-50 rounded-lg">
+              <BookOpen className="w-12 h-12 text-yellow-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Affiliate Course Not Found</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Enroll in the affiliate marketing course to unlock premium features.
+              </p>
+              <Button 
+                onClick={() => router.push('/dashboard/learner/courses')}
+                className="bg-yellow-600 hover:bg-yellow-700"
+              >
+                Browse Courses
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -271,23 +393,39 @@ const AffiliateUpgradePage = () => {
         </CardContent>
       </Card>
 
-      {/* Direct CTA - No pricing section needed */}
+      {/* Direct CTA - Course Completion Based */}
       <Card className="bg-gradient-to-r from-[#ed874a] to-[#d76f32] text-white">
         <CardContent className="p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Ready to Start Earning?</h2>
+          <h2 className="text-2xl font-bold mb-4">
+            {affiliateCourse?.completed_at !== null 
+              ? "🎉 Unlock Your Affiliate Dashboard!" 
+              : "Complete Your Training to Start Earning"
+            }
+          </h2>
           <p className="text-lg mb-6 opacity-90">
-            View our membership options to upgrade to affiliate and start earning commissions for every successful referral.
+            {affiliateCourse?.completed_at !== null 
+              ? "You've earned it! Unlock your affiliate dashboard and start earning commissions today."
+              : "Complete the affiliate course to unlock premium features and start your earning journey."
+            }
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button 
-              onClick={handleUpgradeClick}
+              onClick={handleUnlockClick}
               size="lg" 
               className="bg-white text-[#ed874a] hover:bg-gray-100 px-8"
             >
-              Upgrade for ${dcsAddonPrice}
+              {affiliateCourse?.completed_at !== null 
+                ? "🚀 Unlock Affiliate Features"
+                : affiliateCourse 
+                  ? "📚 Continue Course"
+                  : "🔍 Find Affiliate Course"
+              }
             </Button>
             <p className="text-sm opacity-75">
-              One-time payment • Start earning immediately
+              {affiliateCourse?.completed_at !== null 
+                ? "No additional cost • Start earning immediately"
+                : "Free with membership • Complete at your own pace"
+              }
             </p>
           </div>
         </CardContent>

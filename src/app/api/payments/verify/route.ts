@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createCommission, completeReferral } from '@/lib/supabase/referrals'
+import { completeReferral } from '@/lib/supabase/referrals'
+import { processCommission } from '@/lib/commissions/process-commission'
 import {
   createAccountAfterPayment,
   checkExistingAccount,
@@ -321,134 +322,49 @@ async function processReferralCommissions(payment: any, verificationData: any) {
 
     console.log('📦 Membership package:', membershipPackage)
 
-    let commissionType: 'learner_referral' | 'affiliate_referral' = 'learner_referral'
-    let notes = `Commission for ${membershipPackage.name} purchase`
+    // ── Centralized commission processor (idempotent, 60%) ─────────────
+    const paymentAmountUSD = payment.base_currency_amount || payment.amount || 10
+    const result = await processCommission({
+      supabase,
+      affiliateId: referral.referrer_id,
+      referralId: referral.id,
+      paymentId: payment.id,
+      paymentAmountUSD,
+      source: 'verify',
+    })
 
-    // Determine commission type based on link type and membership type
-    // Note: referrals table uses 'link_type' not 'referral_type'
-    if (referral.link_type === 'dcs' && membershipPackage.member_type === 'affiliate') {
-      commissionType = 'affiliate_referral'
-      notes = `Commission for affiliate referral purchasing ${membershipPackage.name}`
-    } else if ((referral.link_type === 'learner' || referral.link_type === 'dcs') && membershipPackage.member_type === 'learner') {
-      commissionType = 'learner_referral'
-      notes = `Commission for learner referral purchasing ${membershipPackage.name}`
-    } else {
-      console.log('ℹ️ No commission applicable for this referral/membership combination')
+    if (result.skipped) {
+      // Commission already exists — still mark referral as completed
+      const referralCompleted = await completeReferral(referral.id)
+      console.log('✅ Referral marked as completed (commission already existed):', referralCompleted)
       return
     }
 
-    // Create commission for the referrer
-    console.log(`💰 Creating ${commissionType} commission for referrer ${referral.referrer_id}`)
-    
-    const commission = await createCommission(
-      referral.referrer_id,
-      referral.id,
-      payment.id,
-      commissionType,
-      notes
-    )
+    if (result.error) {
+      console.error('❌ [verify] Commission failed:', result.error)
+      return
+    }
 
-    if (commission) {
-      console.log('✅ Commission created successfully:', commission)
+    const commissionAmount = result.commissionAmount ?? 0
 
-      if (referrerEmail && referrerName && String(referrerName).trim()) {
-        await invokeEmailEvents({
-          type: 'commission',
-          to: referrerEmail,
-          name: referrerName,
-          productName: membershipPackage.name,
-          commissionAmount: (commission as any)?.commission_amount,
-          communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
-        })
-      }
+    // Send commission email
+    if (referrerEmail && referrerName && String(referrerName).trim()) {
+      await invokeEmailEvents({
+        type: 'commission',
+        to: referrerEmail,
+        name: referrerName,
+        productName: membershipPackage.name,
+        commissionAmount,
+        communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
+      })
+    }
 
-      // Special handling for affiliate referrals - create additional $2 commission (in USD)
-      if (commissionType === 'affiliate_referral') {
-        console.log('💰 Creating additional $2 USD commission for affiliate referral')
-        
-        // Create a separate commission for the $2 affiliate upgrade fee (always in USD)
-        const { error: affiliateCommissionError } = await supabase
-          .from('commissions')
-          .insert({
-            affiliate_id: referral.referrer_id,
-            referral_id: referral.id,
-            payment_id: payment.id,
-            commission_type: 'affiliate_referral',
-            commission_amount: 2.00,
-            commission_currency: 'USD', // Always USD
-            commission_rate: 0,
-            base_amount: 2.00,
-            base_currency: 'USD', // Always USD
-            status: 'available',
-            notes: '$2 USD bonus for affiliate referral upgrade'
-          }) as any
-
-        if (affiliateCommissionError) {
-          console.error('❌ Failed to create $2 affiliate commission:', affiliateCommissionError)
-        } else {
-          console.log('✅ $2 USD affiliate commission created successfully')
-
-          if (referrerEmail && referrerName && String(referrerName).trim()) {
-            await invokeEmailEvents({
-              type: 'commission',
-              to: referrerEmail,
-              name: referrerName,
-              productName: membershipPackage.name,
-              commissionAmount: 2.0,
-              communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
-            })
-          }
-        }
-      }
-
-      // DCS Link Bonus: If referral was made via DCS link (link_type === 'dcs'), 
-      // add extra $2 commission for the Digital Cashflow System bonus
-      if (referral.link_type === 'dcs' && commissionType === 'learner_referral') {
-        console.log('💰 Creating $2 USD DCS bonus commission (referral via DCS link)')
-        
-        const { error: dcsCommissionError } = await supabase
-          .from('commissions')
-          .insert({
-            affiliate_id: referral.referrer_id,
-            referral_id: referral.id,
-            payment_id: payment.id,
-            commission_type: 'dcs_addon',
-            commission_amount: 2.00,
-            commission_currency: 'USD',
-            commission_rate: 0,
-            base_amount: 2.00,
-            base_currency: 'USD',
-            status: 'available',
-            notes: '$2 USD DCS bonus - referral made via Digital Cashflow link'
-          }) as any
-
-        if (dcsCommissionError) {
-          console.error('❌ Failed to create $2 DCS commission:', dcsCommissionError)
-        } else {
-          console.log('✅ $2 USD DCS commission created successfully')
-
-          if (referrerEmail && referrerName && String(referrerName).trim()) {
-            await invokeEmailEvents({
-              type: 'commission',
-              to: referrerEmail,
-              name: referrerName,
-              productName: membershipPackage.name,
-              commissionAmount: 2.0,
-              communityUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/community` : 'https://digiafriq.com/community',
-            })
-          }
-        }
-      }
-
-      // Mark referral as completed
-      const referralCompleted = await completeReferral(referral.id)
-      if (referralCompleted) {
-        console.log('✅ Referral marked as completed')
-      } else {
-        console.error('❌ Failed to mark referral as completed')
-      }
+    // Mark referral as completed
+    const referralCompleted = await completeReferral(referral.id)
+    if (referralCompleted) {
+      console.log('✅ Referral marked as completed')
     } else {
-      console.error('❌ Failed to create commission')
+      console.error('❌ Failed to mark referral as completed')
     }
 
   } catch (commissionError) {
@@ -782,54 +698,37 @@ async function processMembershipCreation(payment: any, verificationData: any) {
       }
     }
 
-    // Update user role and available_roles based on membership type (for existing users)
-    if (membershipPackage.member_type === 'affiliate') {
-      console.log('👑 Affiliate membership detected, updating user role and available_roles...')
-      
-      // First, get current available_roles
-      const { data: currentProfile } = await supabase
-        .from('profiles')
-        .select('available_roles')
-        .eq('id', userId)
-        .single() as any
+    // AI Cashflow Program: Grant both learner AND affiliate access for all payments
+    // Since AI Cashflow is the single entry point, all paying users get full access
+    console.log('🎯 AI Cashflow payment detected, granting full access (learner + affiliate)...')
+    
+    // Get current available_roles
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('available_roles, active_role')
+      .eq('id', userId)
+      .single() as any
 
-      const currentRoles = currentProfile?.available_roles || ['learner']
-      const updatedRoles = Array.from(new Set([...currentRoles, 'affiliate']))
-      
-      const { error: roleUpdateError } = await supabase
-        .from('profiles')
-        .update({ 
-          role: 'affiliate',
-          active_role: 'affiliate',
-          available_roles: updatedRoles
-        })
-        .eq('id', userId) as any
+    const currentRoles = currentProfile?.available_roles || []
+    // Add both learner and affiliate roles
+    const updatedRoles = Array.from(new Set([...currentRoles, 'learner', 'affiliate']))
+    
+    // Keep current active_role if set, otherwise default to learner
+    const activeRole = currentProfile?.active_role || 'learner'
+    
+    const { error: roleUpdateError } = await supabase
+      .from('profiles')
+      .update({ 
+        available_roles: updatedRoles,
+        active_role: activeRole
+      })
+      .eq('id', userId) as any
 
-      if (roleUpdateError) {
-        console.error('❌ DATABASE ERROR: Failed to update user role:', roleUpdateError)
-        console.error('❌ Full role update error:', JSON.stringify(roleUpdateError, null, 2))
-      } else {
-        console.log('✅ User role updated to affiliate with available_roles:', updatedRoles)
-      }
+    if (roleUpdateError) {
+      console.error('❌ DATABASE ERROR: Failed to update user roles:', roleUpdateError)
+      console.error('❌ Full role update error:', JSON.stringify(roleUpdateError, null, 2))
     } else {
-      console.log('🎓 Learner membership detected, ensuring learner in available_roles...')
-      
-      // Ensure learner is in available_roles
-      const { data: currentProfile } = await supabase
-        .from('profiles')
-        .select('available_roles')
-        .eq('id', userId)
-        .single() as any
-
-      const currentRoles = currentProfile?.available_roles || []
-      if (!currentRoles.includes('learner')) {
-        const updatedRoles = [...currentRoles, 'learner']
-        await supabase
-          .from('profiles')
-          .update({ available_roles: updatedRoles })
-          .eq('id', userId)
-        console.log('✅ Added learner to available_roles:', updatedRoles)
-      }
+      console.log('✅ User granted full access with available_roles:', updatedRoles)
     }
 
     // Send referral signup email ONLY when this payment is via referral link.

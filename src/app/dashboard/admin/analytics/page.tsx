@@ -27,10 +27,11 @@ type TimePeriod = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 type ComparisonPeriod = 'weekly' | 'monthly' | 'yearly'
 
 interface TimeSeriesData {
-  label: string
-  learnerOnly: number
-  dcsAddon: number
-  total: number
+  date: string
+  value: number
+  breakdown: {
+    members: number
+  }
 }
 
 interface CountryData {
@@ -38,18 +39,14 @@ interface CountryData {
   countryCode: string
   users: number
   sales: number
-  learnerOnly: number
-  dcsAddon: number
+  members: number
 }
 
 interface AnalyticsState {
   // Overview stats
   totalUsers: number
   totalSales: number
-  dcsUsers: number
-  dcsSales: number
-  learnerOnlyUsers: number
-  learnerOnlySales: number
+  totalMembers: number
   
   // Time series data
   userTimeSeries: TimeSeriesData[]
@@ -57,12 +54,12 @@ interface AnalyticsState {
   
   // Growth comparison
   userGrowthComparison: {
-    current: { learnerOnly: number; dcsAddon: number }
-    previous: { learnerOnly: number; dcsAddon: number }
+    current: { members: number }
+    previous: { members: number }
   }
   salesGrowthComparison: {
-    current: { learnerOnly: number; dcsAddon: number }
-    previous: { learnerOnly: number; dcsAddon: number }
+    current: { members: number }
+    previous: { members: number }
   }
   
   // Country data
@@ -81,19 +78,16 @@ const AnalyticsPage = () => {
   const [data, setData] = useState<AnalyticsState>({
     totalUsers: 0,
     totalSales: 0,
-    dcsUsers: 0,
-    dcsSales: 0,
-    learnerOnlyUsers: 0,
-    learnerOnlySales: 0,
+    totalMembers: 0,
     userTimeSeries: [],
     salesTimeSeries: [],
     userGrowthComparison: {
-      current: { learnerOnly: 0, dcsAddon: 0 },
-      previous: { learnerOnly: 0, dcsAddon: 0 }
+      current: { members: 0 },
+      previous: { members: 0 }
     },
     salesGrowthComparison: {
-      current: { learnerOnly: 0, dcsAddon: 0 },
-      previous: { learnerOnly: 0, dcsAddon: 0 }
+      current: { members: 0 },
+      previous: { members: 0 }
     },
     countryData: [],
     hourlyData: []
@@ -149,7 +143,7 @@ const AnalyticsPage = () => {
         paymentsResult
       ] = await Promise.all([
         supabase.from('profiles').select('id, created_at, country'),
-        supabase.from('user_memberships').select('user_id, created_at, has_digital_cashflow_addon, is_active'),
+        supabase.from('user_memberships').select('user_id, created_at, is_active'),
         supabase.from('payments').select('*').eq('status', 'completed')
       ])
 
@@ -158,25 +152,21 @@ const AnalyticsPage = () => {
       const payments = paymentsResult.data || []
 
       // Create a map of user_id to membership info
-      const membershipMap = new Map<string, { hasDcs: boolean; createdAt: string }>()
+      const membershipMap = new Map<string, { createdAt: string }>()
       memberships.forEach((m: any) => {
         if (m.is_active) {
           membershipMap.set(m.user_id, {
-            hasDcs: m.has_digital_cashflow_addon || false,
             createdAt: m.created_at
           })
         }
       })
 
       // Calculate totals
-      const dcsUsers = memberships.filter((m: any) => m.has_digital_cashflow_addon && m.is_active).length
       const totalMemberships = memberships.filter((m: any) => m.is_active).length
-      const learnerOnlyUsers = totalMemberships - dcsUsers
 
       // Calculate sales
-      const dcsSales = dcsUsers * DCS_PRICE_USD
-      const learnerOnlySales = learnerOnlyUsers * MEMBERSHIP_PRICE_USD
-      const totalSales = dcsSales + learnerOnlySales + payments.reduce((sum: number, p: any) => {
+      const membershipSales = totalMemberships * MEMBERSHIP_PRICE_USD
+      const totalSales = membershipSales + payments.reduce((sum: number, p: any) => {
         // Use base_currency_amount if available (USD), otherwise fallback to base_amount or conversion
         const usdAmount = p.base_currency_amount || p.base_amount || (p.currency === 'USD' ? p.amount : p.amount / 10)
         return sum + usdAmount
@@ -206,21 +196,22 @@ const AnalyticsPage = () => {
           return isInPeriod(mDate, pointDate, timePeriod) && m.is_active
         })
         
-        const dcsInPeriod = periodUsers.filter((m: any) => m.has_digital_cashflow_addon).length
-        const learnerInPeriod = periodUsers.length - dcsInPeriod
+        const membersInPeriod = periodUsers.length
 
         userTimeSeries.push({
-          label: periodConfig.format(pointDate),
-          learnerOnly: learnerInPeriod,
-          dcsAddon: dcsInPeriod,
-          total: periodUsers.length
+          date: pointDate.toISOString().split('T')[0],
+          value: membersInPeriod,
+          breakdown: {
+            members: membersInPeriod
+          }
         })
 
         salesTimeSeries.push({
-          label: periodConfig.format(pointDate),
-          learnerOnly: learnerInPeriod * MEMBERSHIP_PRICE_USD,
-          dcsAddon: dcsInPeriod * (MEMBERSHIP_PRICE_USD + DCS_PRICE_USD),
-          total: learnerInPeriod * MEMBERSHIP_PRICE_USD + dcsInPeriod * (MEMBERSHIP_PRICE_USD + DCS_PRICE_USD)
+          date: pointDate.toISOString().split('T')[0],
+          value: membersInPeriod * MEMBERSHIP_PRICE_USD,
+          breakdown: {
+            members: membersInPeriod * MEMBERSHIP_PRICE_USD
+          }
         })
       }
 
@@ -240,23 +231,19 @@ const AnalyticsPage = () => {
 
       const userGrowthComparison = {
         current: {
-          learnerOnly: currentPeriodMemberships.filter((m: any) => !m.has_digital_cashflow_addon).length,
-          dcsAddon: currentPeriodMemberships.filter((m: any) => m.has_digital_cashflow_addon).length
+          members: currentPeriodMemberships.length
         },
         previous: {
-          learnerOnly: previousPeriodMemberships.filter((m: any) => !m.has_digital_cashflow_addon).length,
-          dcsAddon: previousPeriodMemberships.filter((m: any) => m.has_digital_cashflow_addon).length
+          members: previousPeriodMemberships.length
         }
       }
 
       const salesGrowthComparison = {
         current: {
-          learnerOnly: userGrowthComparison.current.learnerOnly * MEMBERSHIP_PRICE_USD,
-          dcsAddon: userGrowthComparison.current.dcsAddon * (MEMBERSHIP_PRICE_USD + DCS_PRICE_USD)
+          members: userGrowthComparison.current.members * MEMBERSHIP_PRICE_USD
         },
         previous: {
-          learnerOnly: userGrowthComparison.previous.learnerOnly * MEMBERSHIP_PRICE_USD,
-          dcsAddon: userGrowthComparison.previous.dcsAddon * (MEMBERSHIP_PRICE_USD + DCS_PRICE_USD)
+          members: userGrowthComparison.previous.members * MEMBERSHIP_PRICE_USD
         }
       }
 
@@ -272,8 +259,7 @@ const AnalyticsPage = () => {
             countryCode: getCountryCode(country),
             users: 0,
             sales: 0,
-            learnerOnly: 0,
-            dcsAddon: 0
+            members: 0
           })
         }
         
@@ -281,13 +267,8 @@ const AnalyticsPage = () => {
         countryStats.users++
         
         if (membership) {
-          if (membership.hasDcs) {
-            countryStats.dcsAddon++
-            countryStats.sales += MEMBERSHIP_PRICE_USD + DCS_PRICE_USD
-          } else {
-            countryStats.learnerOnly++
-            countryStats.sales += MEMBERSHIP_PRICE_USD
-          }
+          countryStats.members++
+          countryStats.sales += MEMBERSHIP_PRICE_USD
         }
       })
 
@@ -301,10 +282,7 @@ const AnalyticsPage = () => {
       setData({
         totalUsers: profiles.length,
         totalSales,
-        dcsUsers,
-        dcsSales,
-        learnerOnlyUsers,
-        learnerOnlySales,
+        totalMembers: totalMemberships,
         userTimeSeries,
         salesTimeSeries,
         userGrowthComparison,
@@ -395,7 +373,7 @@ const AnalyticsPage = () => {
   }) => {
     if (data.length === 0) return <div className="text-center text-gray-400 py-8">No data available</div>
     
-    const maxValue = Math.max(...data.map(d => d.total), 1)
+    const maxValue = Math.max(...data.map(d => d.value), 1)
     const padding = 40
     const chartWidth = 100
     const chartHeight = 100
@@ -403,12 +381,9 @@ const AnalyticsPage = () => {
     const getY = (value: number) => chartHeight - (value / maxValue) * (chartHeight - padding)
     const getX = (index: number) => (index / (data.length - 1 || 1)) * chartWidth
 
-    // Create paths for stacked area
-    const learnerPath = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.learnerOnly)}`).join(' ')
-    const dcsPath = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.total)}`).join(' ')
-    
-    const learnerArea = `${learnerPath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`
-    const dcsArea = `${dcsPath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`
+    // Create path for single area
+    const memberPath = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.value)}`).join(' ')
+    const memberArea = `${memberPath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`
 
     return (
       <div>
@@ -926,7 +901,11 @@ const AnalyticsPage = () => {
                           <td className="py-3 text-right">{country.users}</td>
                           <td className="py-3 text-right font-medium">{formatCurrency(country.sales)}</td>
                           <td className="py-3 text-right text-orange-600">{country.learnerOnly}</td>
-                          <td className="py-3 text-right text-purple-600">{country.dcsAddon}</td>
+                          <td className="py-3 text-right text-purple-600">{country.dcsAddon}<path
+              d={memberArea}
+              fill="url(#learnerGradient)"
+              className="transition-all duration-300"
+            /></td>
                         </tr>
                       ))}
                     </tbody>

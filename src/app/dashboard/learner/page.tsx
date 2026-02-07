@@ -31,8 +31,8 @@ const LearnerDashboard = () => {
 
   const statsCards = [
     {
-      title: "Enrolled Courses",
-      value: stats.totalEnrolled.toString(),
+      title: "Number of Programs",
+      value: stats.totalPrograms.toString(),
       icon: BookOpen,
       color: "text-blue-600",
       bgColor: "bg-blue-50",

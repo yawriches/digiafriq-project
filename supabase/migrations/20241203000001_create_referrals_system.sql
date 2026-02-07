@@ -260,14 +260,13 @@ BEGIN
   -- Calculate commission based on type
   CASE p_commission_type
     WHEN 'learner_referral' THEN
-      -- 80% of learner fee
-      v_commission_rate := 0.8000;
+      -- 60% of AI Cashflow program fee
+      v_commission_rate := 0.6000;
       v_commission_amount := v_base_amount * v_commission_rate;
       
     WHEN 'affiliate_referral' THEN
-      -- 80% of learner fee + $2 of affiliate upgrade fee
-      -- Note: This will be handled in two separate commission records
-      v_commission_rate := 0.8000;
+      -- 60% of AI Cashflow program fee
+      v_commission_rate := 0.6000;
       v_commission_amount := v_base_amount * v_commission_rate;
       
     WHEN 'learner_renewal' THEN
@@ -324,7 +323,7 @@ BEGIN
   -- Get commission rate
   CASE p_commission_type
     WHEN 'learner_referral', 'affiliate_referral' THEN
-      v_commission_rate := 0.8000;
+      v_commission_rate := 0.6000;
     WHEN 'learner_renewal' THEN
       v_commission_rate := 0.2000;
     ELSE

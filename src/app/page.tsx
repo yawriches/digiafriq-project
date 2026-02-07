@@ -1,62 +1,146 @@
 "use client"
-import Squares from "../components/Squares"
 import { motion } from "framer-motion"
+
+// Add shimmer animation
+const shimmerAnimation = `
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .animate-shimmer {
+    animation: shimmer 3s ease-in-out infinite;
+  }
+`
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, Monitor, Globe, Smartphone, Star, CheckCircle, ArrowRight, Users, Award, MapPin, Clock, BookOpen, Zap, Shield, Target, ChevronDown, HelpCircle, DollarSign, Check } from "lucide-react"
-import { useBlogPosts } from "@/lib/hooks/useBlogPosts"
-import { CourseDetailsModal } from "@/components/CourseDetailsModal"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowRight, Users, BookOpen, ChevronDown, Lightbulb, Wrench, TrendingUp, Quote, Coins, Network, Clock } from "lucide-react"
 import { useState } from "react"
+import { useBlogPosts } from "@/lib/hooks/useBlogPosts"
 
-const courses = [
-  { title: "Graphic Design", description: "Master visual communication and design principles", icon: Star, duration: "8 weeks", level: "Beginner–Advanced", image: "/graphicdesigning.png" },
-  { title: "Mini Importation", description: "Learn import/export business strategies", icon: Globe, duration: "6 weeks", level: "Beginner", image: "/miniimportation.png" },
-  { title: "Digital Marketing", description: "SEO, social media, content strategy", icon: TrendingUp, duration: "8 weeks", level: "Beginner–Advanced", image: "/digitalmarketing.png" },
-  { title: "No Code Web Development", description: "Build websites without coding", icon: Monitor, duration: "10 weeks", level: "Beginner", image: "/nocodeweb.png" },
+const platformFeatures = [
+  { 
+    icon: BookOpen, 
+    title: "Learning Vault", 
+    description: "Structured AI skill training focused on practical use cases and monetization." 
+  },
+  { 
+    icon: Wrench, 
+    title: "Tools & Resources", 
+    description: "Templates, prompts, frameworks, and workflows to accelerate execution." 
+  },
+  { 
+    icon: Users, 
+    title: "Community & Support", 
+    description: "A growing network of learners, builders, and earners supporting each other." 
+  },
+  { 
+    icon: TrendingUp, 
+    title: "Growth Pathways", 
+    description: "Optional advanced programs and systems for those ready to scale further." 
+  },
+]
+
+const processSteps = [
+  { 
+    number: "01", 
+    title: "Join a Digiafriq Program", 
+    description: "Begin with the AI Cashflow System as your foundation." 
+  },
+  { 
+    number: "02", 
+    title: "Learn Practical AI Skills", 
+    description: "Follow structured lessons designed for real-world application." 
+  },
+  { 
+    number: "03", 
+    title: "Apply & Monetize", 
+    description: "Use your skills to create services, products, or income opportunities." 
+  },
+  { 
+    number: "04", 
+    title: "Grow Within the Platform", 
+    description: "Access advanced tools, systems, and optional growth programs." 
+  },
 ]
 
 const testimonials = [
-  { name: "Kwame Asante", role: "Digital Marketer", content: "DigiAfriq transformed my career. The courses are practical and the support is amazing.", rating: 5, location: "Accra" },
-  { name: "Fatima Ibrahim", role: "Web Developer", content: "I built my first professional website in 6 weeks. Now I'm freelancing full-time!", rating: 5, location: "Lagos" },
-  { name: "David Mwangi", role: "Affiliate Marketer", content: "I earned over $2000 in commissions while still learning. Best investment I ever made.", rating: 5, location: "Nairobi" },
+  { 
+    name: "Kwame A.", 
+    content: "Digiafriq gave me structure and clarity. I finally understood how to use AI skills practically." 
+  },
+  { 
+    name: "Fatima S.", 
+    content: "The platform feels serious and well thought out. Not hype, just real systems." 
+  },
+  { 
+    name: "Nana K.", 
+    content: "I started with the AI Cashflow System and now understand how to build income around skills." 
+  },
 ]
 
-const steps = [
-  { number: "01", title: "Join DigiAfriq", description: "Pay 100 cedis annually for full access" },
-  { number: "02", title: "Learn Digital Skills", description: "Start any course at your own pace" },
-  { number: "03", title: "Earn as Affiliate", description: "Keep 100% commission on each sale" },
+const faqs = [
+  {
+    question: "What is Digiafriq?",
+    answer: "Digiafriq is an AI skills and monetization platform focused on practical learning and sustainable income pathways."
+  },
+  {
+    question: "Where do I start?",
+    answer: "Most members begin with the AI Cashflow System, which serves as the platform's recommended entry point."
+  },
+  {
+    question: "Is Digiafriq only for beginners?",
+    answer: "No. The platform supports beginners through to advanced learners, depending on the programs accessed."
+  },
+  {
+    question: "Is there a separate membership fee?",
+    answer: "Access to Digiafriq's core system is included when you join a qualifying program."
+  },
 ]
 
-const features = [
-  { icon: BookOpen, title: "Unlimited Course Access", description: "Access all courses with one annual subscription of 100 cedis" },
-  { icon: Clock, title: "Learn at Your Pace", description: "Self-paced learning that fits your schedule and lifestyle" },
-  { icon: Users, title: "Community Support", description: "Join thousands of learners across Africa" },
-  { icon: Award, title: "Practical Skills", description: "Hands-on projects that build real-world expertise" },
-  { icon: Zap, title: "Earn While Learning", description: "Optional affiliate program to monetize your journey" },
-  { icon: Shield, title: "Lifetime Updates", description: "Course content updated regularly with industry trends" },
+const beliefs = [
+  "Skills matter more than hype",
+  "Systems matter more than shortcuts",
+  "Long-term income beats quick wins"
 ]
 
-const stats = [
-  { number: "15,000+", label: "Active Learners", icon: Users },
-  { number: "50+", label: "Skills & Courses", icon: BookOpen },
-  { number: "20", label: "African Countries", icon: MapPin },
-  { number: "95%", label: "Success Rate", icon: Target },
+const platformPillars = [
+  "Skill development",
+  "Monetization frameworks",
+  "Community accountability",
+  "Scalable systems"
+]
+
+const whatIsDigiafriqFeatures = [
+  {
+    icon: Lightbulb,
+    title: "Skill Development",
+    description: "Acquire in-demand AI skills to enhance your capabilities."
+  },
+  {
+    icon: Coins,
+    title: "Monetization Frameworks", 
+    description: "Learn proven strategies to generate income from your AI expertise."
+  },
+  {
+    icon: Users,
+    title: "Community Accountability",
+    description: "Engage in a supportive community that fosters accountability."
+  },
+  {
+    icon: Network,
+    title: "Scalable Systems",
+    description: "Access frameworks that facilitate sustainable business growth."
+  }
 ]
 
 export default function Home() {
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
   const { posts: blogPosts, loading: blogLoading } = useBlogPosts(3)
-  const [selectedCourse, setSelectedCourse] = useState<typeof courses[0] | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
-  const handleViewDetails = (course: typeof courses[0]) => {
-    setSelectedCourse(course)
-    setIsModalOpen(true)
-  }
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-[#fef3e8] via-white to-[#fef3e8] overflow-hidden">
-      {/* Animated Background Elements - Applied to entire page */}
+    <div className="min-h-screen relative bg-white overflow-hidden">
+      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={{
@@ -85,9 +169,9 @@ export default function Home() {
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"
         />
       </div>
-      {/* Hero Section */}
-      <section className="relative min-h-[95vh] flex items-center py-12 lg:py-0 z-10">
-        {/* Hero Content */}
+
+      {/* 1. Hero Section (Authority First) */}
+      <section className="relative min-h-[90vh] flex items-center py-4 lg:py-8 z-10">
         <div className="mx-auto max-w-7xl px-6 lg:px-8 w-full relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             {/* Left: Text Content */}
@@ -95,71 +179,61 @@ export default function Home() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-8"
+              className="space-y-6"
             >
-              {/* Main Heading with Gradient */}
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.3 }}
                 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight"
               >
-                <span className="text-gray-900">Build Skills That</span>
+                <span className="text-gray-900">Learn AI Skills.</span>
                 <br />
                 <span className="bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] bg-clip-text text-transparent">
-                  Create Income
+                  Monetize Them.
                 </span>
-                <br />
               </motion.h1>
 
-              {/* Description with Animation */}
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.5 }}
                 className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl"
               >
-                Master in-demand digital skills and unlock an opportunity to earn through Digiafriq's affiliate system.
+                Digiafriq helps Africans learn AI skills and turn them into real income. Simple, credible, and instantly understandable.
               </motion.p>
 
-              {/* CTA Buttons with Enhanced Hover */}
+              {/* CTA */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.7 }}
-                className="flex flex-col sm:flex-row gap-4 pt-4"
+                className="pt-4"
               >
                 <Button
                   size="lg"
-                  className="group relative bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-8 py-6 rounded-xl font-semibold text-base shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
-                  asChild
-                >
-                  <Link href="#pricing" className="relative z-10 flex items-center justify-center">
-                    <span>Start Learning Now</span>
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-[#d76f32] to-[#d76f32]"
-                      initial={{ x: "-100%" }}
-                      whileHover={{ x: 0 }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </Link>
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="group border-2 border-[#ed874a] text-[#ed874a] hover:bg-[#fef3e8] px-8 py-6 rounded-xl font-semibold text-base transition-all duration-300 hover:border-[#d76f32] hover:shadow-lg"
+                  className="group relative bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-8 py-6 rounded-xl font-semibold text-base shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                   asChild
                 >
                   <Link href="/signup" className="flex items-center justify-center">
-                    <span>Join as affiliate</span>
-                    <Users className="w-5 h-5 ml-2 group-hover:rotate-12 transition-transform" />
+                    <span>Start Learning</span>
+                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </Button>
               </motion.div>
+
+              {/* Supporting line */}
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.9 }}
+                className="text-sm text-gray-500"
+              >
+                Practical skills • Real-world application • Sustainable income
+              </motion.p>
             </motion.div>
 
-            {/* Right: Brain Image with Floating Animation */}
+            {/* Right: Hero Image */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -167,42 +241,25 @@ export default function Home() {
               className="relative flex justify-center lg:justify-end"
             >
               <motion.div
-                animate={{
-                  y: [0, -20, 0],
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
+                animate={{ y: [0, -20, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="relative w-full max-w-2xl"
               >
-                {/* Glow Effect Behind Image */}
                 <div className="absolute inset-0 bg-gradient-to-r from-[#ed874a]/20 to-[#d76f32]/20 rounded-full blur-3xl scale-110" />
-                
-                {/* Main Image */}
                 <motion.img
                   whileHover={{ scale: 1.05 }}
                   transition={{ duration: 0.3 }}
                   src="/herosectionimage.png" 
-                  alt="Geometric brain illustration representing digital learning"
+                  alt="AI Skills and Monetization Platform"
                   className="relative w-full h-auto drop-shadow-2xl"
                 />
-                
-                {/* Floating Decorative Elements */}
                 <motion.div
-                  animate={{
-                    y: [0, -15, 0],
-                    rotate: [0, 5, 0]
-                  }}
+                  animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute -top-8 -right-8 w-20 h-20 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-2xl opacity-20 blur-xl"
                 />
                 <motion.div
-                  animate={{
-                    y: [0, 15, 0],
-                    rotate: [0, -5, 0]
-                  }}
+                  animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                   className="absolute -bottom-8 -left-8 w-24 h-24 bg-gradient-to-tr from-[#ed874a] to-[#d76f32] rounded-full opacity-20 blur-xl"
                 />
@@ -229,528 +286,251 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Join Our Growing Community
-            </h2>
-            <p className="text-base text-gray-600 max-w-2xl mx-auto">
-              Thousands of learners across Africa are already building their digital skills and earning through our platform.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            {/* Stats Cards */}
-            <div className="text-center p-6 bg-transparent rounded-lg border border-gray-200">
-              <div className="text-4xl font-bold text-gray-900 mb-2">15,000+</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Active Learners</div>
-            </div>
-
-            <div className="text-center p-6 bg-transparent rounded-lg border border-gray-200">
-              <div className="text-4xl font-bold text-gray-900 mb-2">1000+</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">Affiliates</div>
-            </div>
-
-            <div className="text-center p-6 bg-transparent rounded-lg border border-gray-200">
-              <div className="text-4xl font-bold text-gray-900 mb-2">20+</div>
-              <div className="text-sm text-gray-600 uppercase tracking-wide">African Countries</div>
-            </div>
-          </div>
-
-          {/* World Map */}
-          <div className="max-w-4xl mx-auto">
+      {/* 2. What Digiafriq Is (Clarity & Positioning) */}
+      <section className="py-20 relative z-10">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          {/* Background Africa Map */}
+          <div className="absolute inset-0 opacity-5 pointer-events-none">
             <img 
-              src="/world-map-with-pins.png" 
-              alt="DigiAfriq Global Reach - World Map with Location Pins"
-              className="w-full h-auto" 
+              src="/africa-map.png" 
+              alt="Africa Map Background" 
+              className="w-full h-full object-cover"
             />
           </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-16 relative z-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Why Choose DigiAfriq?
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center relative z-10"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
+              What Is Digiafriq?
             </h2>
-            <p className="text-base text-gray-600 max-w-3xl mx-auto">
-              We provide practical digital skills training designed specifically for the African market, with flexible learning options and real earning opportunities.
+            <p className="text-lg text-gray-600 leading-relaxed mb-12 max-w-3xl mx-auto">
+              Digiafriq is a <span className="font-semibold text-gray-900">skill-to-income</span> platform that empowers individuals to learn practical AI applications and monetize those skills ethically and sustainably.
             </p>
+            
+            {/* Feature Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              {whatIsDigiafriqFeatures.map((feature, index) => (
+                <motion.div
+                  key={feature.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg p-6 text-center hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <feature.icon className="w-8 h-8 text-[#ed874a]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    {feature.description}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+            
+            <p className="text-base text-gray-500 font-medium">
+              Designed with the African market in mind.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 3. Start With the AI Cashflow System - SPOTLIGHT */}
+      <section id="ai-cashflow-program" className="py-24 relative z-10 bg-gradient-to-br from-[#fef3e8] via-white to-[#fef8f0]">
+        {/* Spotlight Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            animate={{
+              scale: [1, 1.3, 1],
+              opacity: [0.1, 0.2, 0.1]
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-20 right-20 w-64 h-64 bg-gradient-to-br from-[#ed874a]/30 to-[#d76f32]/30 rounded-full blur-3xl"
+          />
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              opacity: [0.1, 0.15, 0.1]
+            }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+            className="absolute bottom-20 left-20 w-72 h-72 bg-gradient-to-tr from-[#ed874a]/25 to-[#d76f32]/25 rounded-full blur-3xl"
+          />
+        </div>
+
+        {/* Spotlight Badge - Premium Design */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-8"
+        >
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] text-white px-6 py-3 rounded-full text-sm font-bold shadow-2xl border border-white/20 backdrop-blur-sm relative overflow-hidden">
+            {/* Animated gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-50"></div>
+            
+            {/* Premium icon */}
+            <div className="relative z-10">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            </div>
+            
+            {/* Text */}
+            <span className="relative z-10 tracking-wider uppercase">
+              SPOTLIGHT PROGRAM
+            </span>
+            
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
           </div>
+        </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left: Features */}
-            <div className="space-y-8">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#ed874a] rounded-lg flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Unlimited Course Access</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Get lifetime access to all our courses with regular updates and new content added continuously.
-                  </p>
+        <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Left: Text Content */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="space-y-6"
+            >
+              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+                Start With the <br />
+                AI Cashflow Program
+              </h2>
+              <p className="text-lg text-gray-600 leading-relaxed">
+                The AI Cashflow Program is Digiafriq's flagship entry program. It is designed to help new members understand how AI skills can be applied and monetized in practical ways.
+              </p>
+              <p className="text-lg text-gray-600 leading-relaxed">
+                It serves as the recommended starting point for anyone entering the Digiafriq ecosystem and unlocks access to the platform's core tools, resources, and community.
+              </p>
+              
+              <Button
+                size="lg"
+                className="group relative bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-10 py-5 rounded-xl font-bold text-lg shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 border-2 border-white/50"
+                asChild
+              >
+                <Link href="/ai-cashflow-system" className="flex items-center">
+                  Learn About the AI Cashflow Program
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Link>
+              </Button>
+            </motion.div>
+
+            {/* Right: Illustration */}
+            <motion.div
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              className="relative flex justify-center lg:justify-end"
+            >
+              <div className="relative w-full max-w-lg">
+                {/* Monitor with Chart */}
+                <div className="relative">
+                  <img 
+                    src="/ai-cashflow-monitor.png" 
+                    alt="AI Cashflow System Monitor showing growth chart"
+                    className="w-full h-auto"
+                  />
+                  
+                  {/* Floating Elements */}
+                  <motion.div
+                    animate={{ y: [0, -10, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute -top-8 -right-4 w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-200"
+                  >
+                    <span className="text-xl font-bold text-[#ed874a]">AI</span>
+                  </motion.div>
+                  
+                  <motion.div
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                    className="absolute -top-4 -left-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-200"
+                  >
+                    <span className="text-lg font-bold text-green-600">$</span>
+                  </motion.div>
+                  
+                  <motion.div
+                    animate={{ rotate: [0, 5, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute top-4 -right-8 w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-gray-200"
+                  >
+                    <Wrench className="w-5 h-5 text-[#ed874a]" />
+                  </motion.div>
                 </div>
               </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#ed874a] rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Learn at Your Own Pace</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Study whenever and wherever you want with our flexible learning platform designed for busy schedules.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-[#ed874a] rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Earn While You Learn</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Join our affiliate program and start earning commissions while building your digital skills.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Image */}
-            <div className="relative">
-              <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                <img 
-                  src="/whychooseus.png" 
-                  alt="Why Choose DigiAfriq - Students learning digital skills"
-                  className="w-full h-auto object-cover"
-                />
-              </div>
-              {/* Decorative elements */}
-              <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-[#ed874a]/20 rounded-full blur-2xl"></div>
-              <div className="absolute -top-6 -right-6 w-32 h-32 bg-[#ed874a]/10 rounded-full blur-3xl"></div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Popular Courses Section */}
-      <section className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
-              Master In-Demand Skills
+      
+      
+      {/* 6. How Digiafriq Works (Process Clarity) */}
+      <section id="how-it-works" className="py-20 relative z-10">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              From Learning to Earning
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Choose from our comprehensive library of practical courses designed for the African digital economy.
+              A clear pathway from skill acquisition to income generation.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {courses.map((course, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {processSteps.map((step, index) => (
               <motion.div
-                key={course.title}
+                key={step.number}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="relative"
               >
-                <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-0 shadow-md overflow-hidden bg-transparent border border-gray-200">
-                  {/* Course Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    <img 
-                      src={course.image} 
-                      alt={course.title}
-                      className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                    />
-                    <div className="absolute top-3 right-3">
-                      <div className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                        <course.icon className="w-5 h-5 text-[#ed874a]" />
-                      </div>
-                    </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-lg h-full">
+                  <div className="text-4xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent mb-4">
+                    {step.number}
                   </div>
-                  
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-lg font-semibold mb-2">{course.title}</CardTitle>
-                    <CardDescription className="text-gray-600 mb-3">
-                      {course.description}
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="pt-0">
-                    <div className="flex justify-between text-sm text-gray-500 mb-4">
-                      <span className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {course.duration}
-                      </span>
-                      <span className="bg-[#ed874a]/10 text-[#ed874a] px-2 py-1 rounded-full text-xs">
-                        {course.level}
-                      </span>
-                    </div>
-                    
-                    {/* View Details Button */}
-                    <Button 
-                      className="w-full bg-[#ed874a] hover:bg-[#d76f32] text-white font-medium"
-                      onClick={() => handleViewDetails(course)}
-                    >
-                      View Details
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {step.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+                {index < processSteps.length - 1 && (
+                  <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-[#ed874a] to-[#d76f32]" />
+                )}
               </motion.div>
             ))}
           </div>
-
-          <div className="text-center mt-10">
-            <Button
-              size="lg"
-              className="bg-[#ed874a] text-white hover:bg-[#d76f32] px-8 py-3"
-              asChild
-            >
-              <Link href="/courses">
-                Explore All Courses
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
-          </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-24 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gradient-to-tr from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"></div>
-        </div>
-        
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-6">
-                Choose Your Path to Success
-              </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Select the perfect package for your journey. Both plans include unlimited course access, 
-                regular updates, and our commitment to your success.
-              </p>
-            </motion.div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            {/* Learner Package */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="relative group"
-            >
-              <div className="absolute -inset-1 bg-gradient-to-r from-[#ed874a] to-[#d76f32] rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-xl"></div>
-              <Card className="relative h-full bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl overflow-hidden">
-                {/* Gradient Border Top */}
-                <div className="h-2 bg-gradient-to-r from-[#ed874a] to-[#d76f32]"></div>
-                
-                <div className="p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-2xl flex items-center justify-center">
-                      <BookOpen className="w-8 h-8 text-[#ed874a]" />
-                    </div>
-                  </div>
-
-                  <CardHeader className="p-0 mb-6">
-                    <CardTitle className="text-3xl font-bold text-gray-900 mb-3">
-                      Learner Package
-                    </CardTitle>
-                    <CardDescription className="text-gray-600 text-base leading-relaxed">
-                      Perfect for individuals ready to master in-demand digital skills and transform their career
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-0 space-y-8">
-                    {/* Price */}
-                    <div className="text-center py-6 px-4 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-xl">
-                      <div className="flex items-baseline justify-center gap-2 mb-2">
-                        <span className="text-5xl font-bold text-[#ed874a]">100</span>
-                        <span className="text-xl text-gray-600 font-medium">cedis/year</span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        Full access to all premium courses
-                      </p>
-                    </div>
-
-                    {/* Features */}
-                    <div className="space-y-4">
-                      {[
-                        "Unlimited access to 50+ courses",
-                        "Learn at your own flexible schedule", 
-                        "Join 15,000+ active learners",
-                        "Community support & forums",
-                        "Certificates of completion",
-                        "Mobile app for learning on-the-go"
-                      ].map((feature, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-[#ed874a]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Check className="w-4 h-4 text-[#ed874a]" />
-                          </div>
-                          <span className="text-gray-700 font-medium">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="p-0 mt-8">
-                    <Button className="w-full py-4 text-lg bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" asChild>
-                      <Link href="/signup">
-                        Start Learning Today
-                        <ArrowRight className="w-5 h-5 ml-2" />
-                      </Link>
-                    </Button>
-                  </CardFooter>
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* Digital Cashflow System Package */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="relative group"
-            >
-              <div className="absolute -inset-1 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] rounded-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl"></div>
-              <Card className="relative h-full bg-white/80 backdrop-blur-sm border-0 shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-2xl overflow-hidden transform scale-105">
-                {/* Gradient Border Top */}
-                <div className="h-2 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a]"></div>
-                
-                <div className="p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-2xl flex items-center justify-center">
-                      <Users className="w-8 h-8 text-[#ed874a]" />
-                    </div>
-                    <span className="px-4 py-2 bg-gradient-to-r from-[#ed874a]/10 to-[#d76f32]/10 text-[#ed874a] rounded-full text-sm font-semibold border border-[#ed874a]/20">
-                      Premium Choice
-                    </span>
-                  </div>
-
-                  <CardHeader className="p-0 mb-6">
-                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent mb-3">
-                      Digital Cashflow System
-                    </CardTitle>
-                    <CardDescription className="text-gray-600 text-base leading-relaxed">
-                      Learn digital skills AND earn income with our complete affiliate marketing system
-                    </CardDescription>
-                  </CardHeader>
-
-                  <CardContent className="p-0 space-y-8">
-                    {/* Price */}
-                    <div className="text-center py-6 px-4 bg-gradient-to-br from-[#ed874a]/10 to-[#d76f32]/10 rounded-xl">
-                      <div className="flex items-baseline justify-center gap-2 mb-2">
-                        <span className="text-5xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent">180</span>
-                        <span className="text-xl text-gray-600 font-medium">cedis/year</span>
-                      </div>
-                      <p className="text-sm text-gray-600 font-medium">
-                        Everything in Learner + affiliate features
-                      </p>
-                    </div>
-
-                    {/* Features */}
-                    <div className="space-y-4">
-                      {[
-                        "Everything in Learner Package",
-                        "Affiliate dashboard & analytics",
-                        "Earn 80% commission on referrals", 
-                        "Professional marketing materials",
-                        "Real-time earnings tracking",
-                        "Weekly payout processing"
-                      ].map((feature, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-full flex items-center justify-center flex-shrink-0">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                          <span className="text-gray-700 font-medium">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="p-0 mt-8">
-                    <Button className="w-full py-4 text-lg bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] hover:from-[#d76f32] hover:via-[#ed874a] hover:to-[#d76f32] text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105" asChild>
-                      <Link href="/signup">
-                        Start Earning Today
-                        <ArrowRight className="w-5 h-5 ml-2" />
-                      </Link>
-                    </Button>
-                  </CardFooter>
-                </div>
-              </Card>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Affiliate Program Section */}
-      <section className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
-              Partner With DigiAfriq
+      {/* 7. Community & Social Proof (Trust Layer) */}
+      <section className="py-20 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              A Growing Community Across Africa
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Join our thriving affiliate community and turn your network into a sustainable income stream. Earn generous commissions while helping others transform their careers.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left Column - Partner Image with Stats */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="relative"
-            >
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl">
-                <img 
-                  src="/partner.jpg" 
-                  alt="DigiAfriq Affiliate Partners - Success and Growth"
-                  className="w-full h-auto object-cover"
-                />
-                {/* Overlay with Stats */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end">
-                  <div className="p-8 w-full">
-                    <div className="grid grid-cols-3 gap-4 text-white">
-                      <div className="text-center">
-                        <div className="text-3xl font-bold mb-1">1000+</div>
-                        <div className="text-sm opacity-90">Active Partners</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold mb-1">80%</div>
-                        <div className="text-sm opacity-90">commission</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-3xl font-bold mb-1">95%</div>
-                        <div className="text-sm opacity-90">Success Rate</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* Floating Decorative Elements */}
-              <motion.div
-                animate={{
-                  y: [0, -20, 0],
-                  rotate: [0, 5, 0]
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-6 -right-6 w-16 h-16 bg-[#ed874a]/20 rounded-2xl blur-xl"
-              />
-              <motion.div
-                animate={{
-                  y: [0, 20, 0],
-                  rotate: [0, -5, 0]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-6 -left-6 w-20 h-20 bg-[#d76f32]/20 rounded-full blur-xl"
-              />
-            </motion.div>
-
-            {/* Right Column - Benefits & CTA */}
-            <div className="space-y-8">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
-                <div className="flex items-start space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <DollarSign className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Generous Commissions</h3>
-                    <p className="text-gray-600 leading-relaxed">Earn 100 cedis for every successful referral. Keep 80% of your commissions with no hidden fees or deductions.</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-              >
-                <div className="flex items-start space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <Zap className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Marketing Resources</h3>
-                    <p className="text-gray-600 leading-relaxed">Get access to professional marketing materials, social media content, and proven strategies to maximize your success.</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                <div className="flex items-start space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <Target className="w-7 h-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Real-Time Analytics</h3>
-                    <p className="text-gray-600 leading-relaxed">Monitor your referrals, track your earnings, and get paid promptly with our transparent affiliate dashboard.</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* CTA Section */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                className="text-center"
-              >
-                <Button 
-                  size="lg" 
-                  className="bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white font-bold py-4 px-8 shadow-lg transform hover:scale-105 transition-all duration-300"
-                  asChild
-                >
-                  <Link href="/signup">
-                    Become a Partner
-                    <ArrowRight className="w-5 h-5 ml-2" />
-                  </Link>
-                </Button>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials Section */}
-      <section className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
-              Success Stories from Africa
-            </h2>
-            <p className="text-lg text-gray-600">
-              Real results from real people across the continent.
-            </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
@@ -760,35 +540,15 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <Card className="h-full shadow-lg border-0 bg-transparent border border-gray-200">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex">
-                        {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />
-                        ))}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {testimonial.location}
-                      </div>
-                    </div>
-                    <CardDescription className="text-gray-700 text-base italic leading-relaxed mb-4">
+                <Card className="h-full bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg">
+                  <CardContent className="pt-6">
+                    <Quote className="w-8 h-8 text-[#ed874a]/30 mb-4" />
+                    <p className="text-gray-700 leading-relaxed mb-6 italic">
                       &ldquo;{testimonial.content}&rdquo;
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-[#ed874a]/10 rounded-full flex items-center justify-center mr-3">
-                        <span className="font-semibold text-[#ed874a]">
-                          {testimonial.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                        <div className="text-sm text-gray-600">{testimonial.role}</div>
-                      </div>
-                    </div>
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      — {testimonial.name}
+                    </p>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -797,121 +557,71 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section id="faq" className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
+      
+      {/* 9. FAQ (Confidence & Transparency) */}
+      <section id="faq" className="py-20 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
+        <div className="mx-auto max-w-3xl px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Frequently Asked Questions
             </h2>
-            <p className="text-lg text-gray-600">
-              See some of the questions people are asking.
-            </p>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Left Column - Illustration */}
-            <motion.div
-              transition={{ duration: 0.6 }}
-              className="flex justify-center lg:justify-start"
-            >
-              <div className="relative">
-                <div className="w-96 h-96 flex items-center justify-center">
-                  <img 
-                    src="/faq-image.png" 
-                    alt="FAQ - Frequently Asked Questions"
-                    className="w-80 h-80 object-contain"
-                  />
-                </div>
-                {/* Floating elements */}
-                <div className="absolute top-8 right-8 w-8 h-8 bg-[#ed874a]/20 rounded-lg rotate-12"></div>
-                <div className="absolute bottom-12 left-4 w-6 h-6 bg-[#d76f32]/30 rounded-full"></div>
-                <div className="absolute top-1/2 -left-8 w-4 h-4 bg-[#ed874a]/40 rounded-full"></div>
-              </div>
-            </motion.div>
-
-            {/* Right Column - FAQ Items */}
-            <div className="space-y-4">
-              {[
-                {
-                  question: "What is Digiafriq?",
-                  answer: "Digiafriq is an online learning platform built to help Africans learn in-demand digital skills and, if they choose, earn income through our affiliate and reseller opportunities."
-                },
-                {
-                  question: "Who is Digiafriq for?",
-                  answer: "Digiafriq is for beginners, students, professionals, entrepreneurs, and anyone who wants to learn practical digital skills and explore online income opportunities. No prior experience is required."
-                },
-                {
-                  question: "How does learning work on Digiafriq?",
-                  answer: "Once you join Digiafriq, you get instant access to a growing library of quality courses. You can learn at your own pace, on any device, anytime."
-                },
-                {
-                  question: "Can I earn money on Digiafriq?",
-                  answer: "Yes. Digiafriq offers an optional affiliate and reseller program that allows members to earn commissions by promoting Digiafriq products. Learning comes first — earning is an added opportunity."
-                },
-                {
-                  question: "Do you issue certificates after course completion?",
-                  answer: "No. At the moment, Digiafriq does not issue certificates. Our focus is on practical skills, real knowledge, and hands-on learning that you can apply immediately."
-                }
-              ].map((faq, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              >
+                <div 
+                  className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm overflow-hidden cursor-pointer"
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
                 >
-                  <details className="group bg-gray-50 rounded-lg border border-gray-200 hover:border-[#ed874a]/30 transition-colors">
-                    <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#ed874a] transition-colors">
-                        {faq.question}
-                      </h3>
-                      <ChevronDown className="w-5 h-5 text-gray-500 group-hover:text-[#ed874a] transition-all duration-200 group-open:rotate-180" />
-                    </summary>
+                  <div className="flex items-center justify-between p-6">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {faq.question}
+                    </h3>
+                    <ChevronDown 
+                      className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} 
+                    />
+                  </div>
+                  {openFaq === index && (
                     <div className="px-6 pb-6">
                       <p className="text-gray-600 leading-relaxed">
                         {faq.answer}
                       </p>
                     </div>
-                  </details>
-                </motion.div>
-              ))}
-            </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
           </div>
-
-          {/* CTA at bottom */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-center mt-12"
-          >
-            <p className="text-gray-600 mb-6">Still have questions? We&apos;re here to help!</p>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-[#ed874a] text-[#ed874a] hover:bg-[#ed874a] hover:text-white px-8 py-3"
-              asChild
-            >
-              <Link href="/contact">
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Contact Support
-              </Link>
-            </Button>
-          </motion.div>
         </div>
       </section>
 
-      {/* Latest Blog Section */}
+      {/* 10. Latest Blog Section */}
       <section id="blog" className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl mb-4">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Latest from Our Blog
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Stay updated with the latest insights, tips, and success stories from the digital world.
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {blogLoading ? (
@@ -967,9 +677,9 @@ export default function Home() {
                       <CardTitle className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 hover:text-[#ed874a] transition-colors">
                         {post.title}
                       </CardTitle>
-                      <CardDescription className="text-gray-600 text-base leading-relaxed line-clamp-3">
+                      <CardContent className="text-gray-600 text-base leading-relaxed line-clamp-3">
                         {post.excerpt}
-                      </CardDescription>
+                      </CardContent>
                     </CardHeader>
                     
                     <CardContent className="pt-0">
@@ -999,7 +709,7 @@ export default function Home() {
           >
             <Button
               size="lg"
-              className="bg-[#ed874a] hover:bg-[#d76f32] text-white px-8 py-3"
+              className="bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-8 py-3"
               asChild
             >
               <Link href="/blog">
@@ -1011,12 +721,28 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Course Details Modal */}
-      <CourseDetailsModal 
-        course={selectedCourse}
-        open={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      />
+      {/* Footer */}
+      <footer className="py-12 border-t border-gray-200 relative z-10">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-lg font-bold text-gray-900 mb-2">
+              Digiafriq
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              Africa&apos;s AI Skills & Monetization Platform
+            </p>
+            <div className="flex justify-center gap-6 text-sm text-gray-600">
+              <Link href="/about" className="hover:text-[#ed874a] transition-colors">About</Link>
+              <Link href="/contact" className="hover:text-[#ed874a] transition-colors">Contact</Link>
+              <Link href="/privacy" className="hover:text-[#ed874a] transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-[#ed874a] transition-colors">Terms</Link>
+            </div>
+            <p className="text-xs text-gray-400 mt-6">
+              © {new Date().getFullYear()} Digiafriq. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

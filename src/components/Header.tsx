@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const navigation = [
-  { name: "Pricing", href: "/#pricing" },
+  { name: "How It Works", href: "/#how-it-works" },
   { name: "FAQ", href: "/#faq" },
   { name: "Blog", href: "/#blog" },
   { name: "Contact Us", href: "/contact" },

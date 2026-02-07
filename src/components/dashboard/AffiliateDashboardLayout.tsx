@@ -37,6 +37,7 @@ interface SidebarItem {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
   href?: string
   submenu?: { title: string; href: string }[]
+  tooltipId?: string
 }
 
 interface AffiliateDashboardLayoutProps {
@@ -138,7 +139,7 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
         { title: "Withdrawal History", href: "/dashboard/affiliate/withdrawals/history" }
       ]
     },
-    { title: "Tutorials", icon: BookOpen, href: "/dashboard/affiliate/tutorials" },
+    { title: "Tutorials", icon: BookOpen, href: "/dashboard/affiliate/tutorials", tooltipId: "training-section" },
     { title: "Profile Settings", icon: User, href: "/dashboard/profile" },
     { title: "Log out", icon: LogOut, href: "/login" }
   ]
@@ -292,6 +293,7 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
                     ? 'bg-orange-50 text-orange-600 border border-orange-200 shadow-sm' 
                     : 'text-gray-700 hover:bg-gray-50 hover:border hover:border-gray-200'
                 }`}
+                {...(item.tooltipId ? { 'data-tooltip': item.tooltipId } : {})}
                 onClick={() => {
                   if (item.submenu) {
                     toggleMenu(item.title)
