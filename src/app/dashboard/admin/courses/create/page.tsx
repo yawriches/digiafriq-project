@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { 
   Plus,
   Loader2,
@@ -46,7 +46,7 @@ interface CourseForm {
   modules: Module[]
 }
 
-export default function CreateCoursePage() {
+function CreateCourseContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [saving, setSaving] = useState(false)
@@ -174,5 +174,13 @@ export default function CreateCoursePage() {
         </Card>
       </div>
     </AdminDashboardLayout>
+  )
+}
+
+export default function CreateCoursePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <CreateCourseContent />
+    </Suspense>
   )
 }
