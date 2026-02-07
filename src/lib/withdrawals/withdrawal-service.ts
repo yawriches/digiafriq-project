@@ -19,22 +19,26 @@ import {
 
 async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
   try {
-    const { data, error } = await (supabase as any).functions.invoke('email-events', {
-      body: payload,
+    // Use the server-side API route instead of invoking the Edge Function
+    // directly from the browser client (anon key can't invoke Edge Functions)
+    const resp = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     })
 
-    if (error) {
+    const result = await resp.json()
+
+    if (!resp.ok || !result?.ok) {
       console.error('❌ email-events invoke error (withdrawal-service):', {
-        message: (error as any)?.message,
-        name: (error as any)?.name,
-        status: (error as any)?.status,
-        context: (error as any)?.context,
+        status: resp.status,
+        error: result?.error,
         payload,
       })
       return false
     }
 
-    console.log('✅ email-events invoked (withdrawal-service):', { payload, data })
+    console.log('✅ email-events invoked (withdrawal-service):', { type: payload.type, to: payload.to })
     return true
   } catch (e) {
     console.error('❌ email-events invoke exception (withdrawal-service):', {
