@@ -667,7 +667,51 @@ async function processMembershipCreation(payment: any, verificationData: any) {
         }
       }
     } else {
-      // CREATE new membership
+      // Idempotency: check if membership already created for this payment (e.g. by webhook)
+      const { data: existingForPayment } = await supabase
+        .from('user_memberships')
+        .select('id')
+        .eq('payment_id', payment.id)
+        .maybeSingle() as any
+
+      if (existingForPayment) {
+        console.log('⚡ Membership already exists for this payment (likely created by webhook), skipping:', {
+          paymentId: payment.id,
+          membershipId: existingForPayment.id
+        })
+        // Still continue to update roles and send emails below
+      } else {
+      // Deactivate any existing expired memberships for this user (renewal flow)
+      // This ensures clean state — old expired records are marked inactive
+      if (userId) {
+        const { data: existingMemberships, error: fetchExistingError } = await supabase
+          .from('user_memberships')
+          .select('id, expires_at, is_active')
+          .eq('user_id', userId)
+          .eq('is_active', true) as any
+
+        if (!fetchExistingError && existingMemberships?.length > 0) {
+          const expiredIds = existingMemberships
+            .filter((m: any) => new Date(m.expires_at) <= new Date())
+            .map((m: any) => m.id)
+
+          if (expiredIds.length > 0) {
+            console.log('🔄 Deactivating expired memberships for renewal:', expiredIds)
+            const { error: deactivateError } = await supabase
+              .from('user_memberships')
+              .update({ is_active: false })
+              .in('id', expiredIds) as any
+
+            if (deactivateError) {
+              console.error('⚠️ Failed to deactivate expired memberships (non-blocking):', deactivateError)
+            } else {
+              console.log('✅ Deactivated', expiredIds.length, 'expired membership(s)')
+            }
+          }
+        }
+      }
+
+      // CREATE new membership — new 365-day term starts from now (renewal date)
       const membershipData: any = {
         user_id: userId,
         membership_package_id: membershipPackageId,
@@ -696,6 +740,7 @@ async function processMembershipCreation(payment: any, verificationData: any) {
       } else {
         console.log('✅ User membership created successfully with DCS addon:', hasDCSAddon)
       }
+      } // end: else (no existing membership for this payment)
     }
 
     // AI Cashflow Program: Grant both learner AND affiliate access for all payments

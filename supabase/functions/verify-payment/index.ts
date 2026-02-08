@@ -694,6 +694,12 @@ async function handlePaymentSuccess(paymentData: any, provider: string) {
       return
     }
 
+    // Idempotency: skip if already completed (prevents double processing from webhook + UI callback)
+    if (payment.status === 'completed') {
+      console.log('⚡ Payment already completed, skipping webhook processing:', payment.id)
+      return
+    }
+
     // Update payment status
     const { error: updateError } = await supabase
       .from('payments')
@@ -708,9 +714,12 @@ async function handlePaymentSuccess(paymentData: any, provider: string) {
       throw new Error(`Failed to update payment: ${updateError.message}`)
     }
 
-    // Create user membership if this is a membership payment or addon upgrade
-    if (payment.payment_type === 'membership' || payment.payment_type === 'addon_upgrade') {
+    // Create user membership for all membership-related payment types
+    const membershipPaymentTypes = ['membership', 'referral_membership', 'addon_upgrade']
+    if (membershipPaymentTypes.includes(payment.payment_type)) {
       await createMembership(payment)
+    } else {
+      console.log('ℹ️ Non-membership payment type, skipping membership creation:', payment.payment_type)
     }
 
     console.log('Payment processed successfully', { 
@@ -800,6 +809,11 @@ async function handlePayoutFailed(payoutData: any, provider: string) {
 
 async function createMembership(payment: any) {
   try {
+    if (!payment.user_id) {
+      console.error('❌ No user_id on payment record, cannot create membership:', payment.id)
+      return
+    }
+
     // Get membership package details
     const { data: membershipPackage, error: packageError } = await supabase
       .from('membership_packages')
@@ -813,12 +827,12 @@ async function createMembership(payment: any) {
 
     // Check if this is an addon upgrade (not a new membership)
     const metadata = payment.metadata || {}
-    const isAddonUpgrade = metadata.is_addon_upgrade === true
-    const hasDCSAddon = metadata.has_digital_cashflow_addon === true
+    const isAddonUpgrade = metadata.is_addon_upgrade === true || metadata.is_addon_upgrade === 'true' || payment.payment_type === 'addon_upgrade'
+    const hasDCSAddon = metadata.has_digital_cashflow_addon === true || metadata.has_digital_cashflow_addon === 'true'
 
     if (isAddonUpgrade) {
       // UPDATE existing membership with DCS addon
-      console.log('Processing DCS addon upgrade for user:', payment.user_id)
+      console.log('🔄 Processing DCS addon upgrade for user:', payment.user_id)
       
       const { error: updateError } = await supabase
         .from('user_memberships')
@@ -832,57 +846,111 @@ async function createMembership(payment: any) {
         throw new Error(`Failed to update membership with DCS addon: ${updateError.message}`)
       }
 
-      console.log('DCS addon added to existing membership successfully', { 
+      console.log('✅ DCS addon added to existing membership successfully', { 
         userId: payment.user_id,
         paymentId: payment.id
       })
 
     } else {
-      // CREATE new membership
-      console.log('Creating new membership for user:', payment.user_id)
-      
-      // Calculate expiry date
-      const expiryDate = new Date()
-      expiryDate.setDate(expiryDate.getDate() + membershipPackage.duration_days)
+      // CHECK: Prevent duplicate membership creation (idempotency)
+      const { data: existingForPayment } = await supabase
+        .from('user_memberships')
+        .select('id')
+        .eq('payment_id', payment.id)
+        .maybeSingle()
 
-      // Create user membership with DCS addon flag
+      if (existingForPayment) {
+        console.log('⚡ Membership already exists for this payment, skipping:', {
+          paymentId: payment.id,
+          membershipId: existingForPayment.id
+        })
+        return
+      }
+
+      // Deactivate any existing expired memberships for this user (renewal flow)
+      const { data: existingMemberships } = await supabase
+        .from('user_memberships')
+        .select('id, expires_at, is_active')
+        .eq('user_id', payment.user_id)
+        .eq('is_active', true)
+
+      if (existingMemberships && existingMemberships.length > 0) {
+        const expiredIds = existingMemberships
+          .filter((m: any) => new Date(m.expires_at) <= new Date())
+          .map((m: any) => m.id)
+
+        if (expiredIds.length > 0) {
+          console.log('🔄 Deactivating expired memberships for renewal:', expiredIds)
+          await supabase
+            .from('user_memberships')
+            .update({ is_active: false })
+            .in('id', expiredIds)
+        }
+      }
+
+      // CREATE new membership — use duration_months (matching UI verify route)
+      console.log('🆕 Creating new membership for user:', payment.user_id)
+      
+      const startDate = new Date()
+      const expiryDate = new Date()
+      expiryDate.setMonth(expiryDate.getMonth() + (membershipPackage.duration_months || 12))
+
+      const membershipData: any = {
+        user_id: payment.user_id,
+        membership_package_id: payment.membership_package_id,
+        payment_id: payment.id,
+        started_at: startDate.toISOString(),
+        expires_at: expiryDate.toISOString(),
+        is_active: true,
+        has_digital_cashflow_addon: hasDCSAddon
+      }
+
+      // Add lifetime access for affiliate memberships
+      if (membershipPackage.member_type === 'affiliate') {
+        membershipData.affiliate_lifetime_access = true
+        console.log('👑 Lifetime affiliate access granted')
+      }
+
       const { error: membershipError } = await supabase
         .from('user_memberships')
-        .insert({
-          user_id: payment.user_id,
-          membership_package_id: payment.membership_package_id,
-          payment_id: payment.id,
-          status: 'active',
-          is_active: true,
-          start_date: new Date().toISOString(),
-          expires_at: expiryDate.toISOString(),
-          auto_renew: false,
-          has_digital_cashflow_addon: hasDCSAddon
-        })
+        .insert(membershipData)
 
       if (membershipError) {
         throw new Error(`Failed to create membership: ${membershipError.message}`)
       }
 
-      // Update user role if it's an affiliate membership
-      if (membershipPackage.member_type === 'affiliate') {
-        await supabase
-          .from('profiles')
-          .update({ role: 'affiliate' })
-          .eq('id', payment.user_id)
-      }
+      // Update user roles — grant both learner and affiliate access (AI Cashflow program)
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('available_roles, active_role')
+        .eq('id', payment.user_id)
+        .single()
 
-      console.log('Membership created successfully', { 
+      const currentRoles = (currentProfile as any)?.available_roles || []
+      const updatedRoles = Array.from(new Set([...currentRoles, 'learner', 'affiliate']))
+      const activeRole = (currentProfile as any)?.active_role || 'learner'
+
+      await supabase
+        .from('profiles')
+        .update({ 
+          available_roles: updatedRoles,
+          active_role: activeRole
+        })
+        .eq('id', payment.user_id)
+
+      console.log('✅ Membership created successfully', { 
         userId: payment.user_id,
         packageId: payment.membership_package_id,
         paymentId: payment.id,
-        hasDCSAddon: hasDCSAddon
+        hasDCSAddon,
+        expiresAt: expiryDate.toISOString(),
+        roles: updatedRoles
       })
     }
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('Error creating/updating membership:', errorMessage)
+    console.error('❌ Error creating/updating membership:', errorMessage)
     throw error
   }
 }
