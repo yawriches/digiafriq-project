@@ -48,13 +48,13 @@ export async function GET(request: NextRequest) {
       usersResult,
       coursesResult,
       commissionsResult,
-      affiliateProfilesResult
+      recentPaymentsResult,
     ] = await Promise.all([
       supabaseAdmin.from('payments').select('amount, currency, payment_type, metadata').eq('status', 'completed'),
-      supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at'),
+      supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at, affiliate_onboarding_completed'),
       supabaseAdmin.from('courses').select('id'),
       supabaseAdmin.from('commissions').select('commission_amount, commission_currency, amount'),
-      supabaseAdmin.from('user_memberships').select('user_id').eq('is_active', true)
+      supabaseAdmin.from('payments').select('id, amount, currency, status, provider_reference, paystack_reference, created_at, user_id').order('created_at', { ascending: false }).limit(5)
     ])
 
     if (paymentsResult.error) {
@@ -100,10 +100,8 @@ export async function GET(request: NextRequest) {
       return sum + usdAmount
     }, 0)
 
-    // Affiliates who completed onboarding = users with affiliate role AND an active membership
-    const activeMemberships = affiliateProfilesResult.data || []
-    const activeMembershipUserIds = new Set(activeMemberships.map((m: any) => m.user_id))
-    const affiliatesOnboarded = affiliates.filter((u: any) => activeMembershipUserIds.has(u.id)).length
+    // Affiliates who completed onboarding
+    const affiliatesOnboarded = users.filter((u: any) => u.affiliate_onboarding_completed === true).length
 
     // Split payments into affiliate sales vs direct
     const affiliateSales = payments.filter((p: any) => 
@@ -125,6 +123,22 @@ export async function GET(request: NextRequest) {
         created_at: u.created_at
       }))
 
+    // Build recent payments with user info
+    const recentPaymentsRaw = recentPaymentsResult.data || []
+    const userMap = new Map(users.map((u: any) => [u.id, u]))
+    const recentPayments = recentPaymentsRaw.map((p: any) => {
+      const user = userMap.get(p.user_id)
+      return {
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        reference: p.provider_reference || p.paystack_reference || null,
+        created_at: p.created_at,
+        user: user ? { email: user.email, full_name: user.full_name } : undefined
+      }
+    })
+
     return NextResponse.json({
       stats: {
         totalUsers: users.length,
@@ -141,7 +155,7 @@ export async function GET(request: NextRequest) {
         directSales,
       },
       recentUsers,
-      recentPayments: [],
+      recentPayments,
     })
 
   } catch (error: any) {

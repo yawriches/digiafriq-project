@@ -22,76 +22,36 @@ export async function fetchUsers(
   filters: FilterParams = {}
 ): Promise<PaginatedResponse<User>> {
   try {
-    let query = supabase
-      .from('profiles')
-      .select('*', { count: 'exact' })
+    // Get session token for auth
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) throw new Error('No session')
 
-    // Apply filters
-    if (filters.search) {
-      query = query.or(`email.ilike.%${filters.search}%,full_name.ilike.%${filters.search}%`)
+    // Build query params
+    const params = new URLSearchParams({
+      page: String(pagination.page),
+      limit: String(pagination.limit),
+      sortBy: pagination.sortBy || 'created_at',
+      sortOrder: pagination.sortOrder || 'desc',
+    })
+    if (filters.search) params.set('search', filters.search)
+    if (filters.role && filters.role !== 'all') params.set('role', filters.role)
+    if (filters.status && filters.status !== 'all') params.set('status', filters.status)
+    if (filters.country && filters.country !== 'all') params.set('country', filters.country)
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
+    if (filters.dateTo) params.set('dateTo', filters.dateTo)
+
+    const response = await fetch(`/api/admin/users?${params.toString()}`, {
+      headers: {
+        'Authorization': `Bearer ${sessionData.session.access_token}`
+      }
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Failed to fetch users (${response.status})`)
     }
 
-    if (filters.role && filters.role !== 'all') {
-      query = query.eq('role', filters.role)
-    }
-
-    if (filters.status && filters.status !== 'all') {
-      query = query.eq('status', filters.status)
-    }
-
-    if (filters.country && filters.country !== 'all') {
-      query = query.eq('country', filters.country)
-    }
-
-    if (filters.dateFrom) {
-      query = query.gte('created_at', filters.dateFrom)
-    }
-
-    if (filters.dateTo) {
-      query = query.lte('created_at', filters.dateTo)
-    }
-
-    // Apply sorting
-    const sortBy = pagination.sortBy || 'created_at'
-    const sortOrder = pagination.sortOrder || 'desc'
-    query = query.order(sortBy, { ascending: sortOrder === 'asc' })
-
-    // Apply pagination
-    const from = (pagination.page - 1) * pagination.limit
-    const to = from + pagination.limit - 1
-    query = query.range(from, to)
-
-    const { data, error, count } = await query
-
-    if (error) throw error
-
-    // Enhance users with referral and withdrawal stats
-    const enhancedUsers = await Promise.all(
-      (data || []).map(async (user: any) => {
-        if (user.role === 'affiliate' || user.role === 'admin') {
-          const stats = await fetchReferralStats(user.id)
-          return {
-            ...user,
-            referral_count: stats.total_referrals,
-            total_withdrawals: stats.total_withdrawals,
-            total_commissions: stats.total_commissions
-          }
-        }
-        return user
-      })
-    )
-
-    const totalPages = Math.ceil((count || 0) / pagination.limit)
-
-    return {
-      data: enhancedUsers,
-      count: count || 0,
-      page: pagination.page,
-      limit: pagination.limit,
-      totalPages,
-      hasMore: pagination.page < totalPages,
-      hasPrevious: pagination.page > 1
-    }
+    return response.json()
   } catch (error) {
     console.error('Error fetching users:', error)
     throw error
@@ -100,62 +60,35 @@ export async function fetchUsers(
 
 export async function fetchUserStats(): Promise<UserStats> {
   try {
-    // Get total users by role
-    const { data: roleData, error: roleError } = await supabase
-      .from('profiles')
-      .select('role')
+    // Get session token for auth
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) throw new Error('No session')
 
-    if (roleError) throw roleError
+    const response = await fetch('/api/admin/dashboard-stats', {
+      headers: {
+        'Authorization': `Bearer ${sessionData.session.access_token}`
+      }
+    })
 
-    // Since status field doesn't exist yet, default all users to active
-    const { data: allUsers, error: allUsersError } = await supabase
-      .from('profiles')
-      .select('id')
-
-    if (allUsersError) throw allUsersError
-
-    // Get recent signups (last 30 days)
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const { data: recentData, error: recentError } = await supabase
-      .from('profiles')
-      .select('id')
-      .gte('created_at', thirtyDaysAgo.toISOString())
-
-    if (recentError) throw recentError
-
-    // Get total revenue from payments (with currency for proper conversion)
-    const { data: revenueData, error: revenueError } = await supabase
-      .from('payments')
-      .select('amount, currency')
-      .eq('status', 'completed')
-
-    if (revenueError) throw revenueError
-
-    const stats: UserStats = {
-      totalUsers: allUsers?.length || 0,
-      activeUsers: allUsers?.filter((u: any) => u.status === 'active').length || 0,
-      suspendedUsers: allUsers?.filter((u: any) => u.status === 'suspended').length || 0,
-      pendingUsers: allUsers?.filter((u: any) => u.status === 'pending').length || 0,
-      learnersCount: roleData?.filter((u: any) => u.role === 'learner').length || 0,
-      affiliatesCount: roleData?.filter((u: any) => u.role === 'affiliate').length || 0,
-      adminsCount: roleData?.filter((u: any) => u.role === 'admin').length || 0,
-      recentSignups: recentData?.length || 0,
-      totalRevenue: revenueData?.reduce((sum: number, p: any) => {
-        // Convert payment amount to USD based on its currency
-        const currency = p.currency?.toUpperCase() || 'USD'
-        let usdAmount = p.amount
-        
-        // If currency is not USD, convert to USD
-        if (currency !== 'USD' && currency in CURRENCY_RATES) {
-          usdAmount = p.amount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
-        }
-        
-        return sum + usdAmount
-      }, 0) || 0
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Failed to fetch user stats (${response.status})`)
     }
 
-    return stats
+    const data = await response.json()
+    const s = data.stats
+
+    return {
+      totalUsers: s.totalUsers || 0,
+      activeUsers: s.activeUsers || 0,
+      suspendedUsers: s.suspendedUsers || 0,
+      pendingUsers: s.pendingUsers || 0,
+      learnersCount: 0,
+      affiliatesCount: s.activeAffiliates || 0,
+      adminsCount: 0,
+      recentSignups: 0,
+      totalRevenue: s.totalRevenue || 0
+    }
   } catch (error) {
     console.error('Error fetching user stats:', error)
     throw error
