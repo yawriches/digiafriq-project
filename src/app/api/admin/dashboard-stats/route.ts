@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at, affiliate_onboarding_completed'),
       supabaseAdmin.from('courses').select('id'),
       supabaseAdmin.from('commissions').select('commission_amount, commission_currency, amount'),
-      supabaseAdmin.from('payments').select('id, amount, currency, status, provider_reference, paystack_reference, created_at, user_id').order('created_at', { ascending: false }).limit(5)
+      supabaseAdmin.from('payments').select('id, amount, currency, status, paystack_reference, created_at, user_id').order('created_at', { ascending: false }).limit(10)
     ])
 
     if (paymentsResult.error) {
@@ -62,6 +62,9 @@ export async function GET(request: NextRequest) {
     }
     if (usersResult.error) {
       console.error('Users fetch error:', usersResult.error)
+    }
+    if (recentPaymentsResult.error) {
+      console.error('Recent payments fetch error:', recentPaymentsResult.error)
     }
 
     const payments = paymentsResult.data || []
@@ -133,7 +136,7 @@ export async function GET(request: NextRequest) {
         amount: p.amount,
         currency: p.currency,
         status: p.status,
-        reference: p.provider_reference || p.paystack_reference || null,
+        reference: p.paystack_reference || null,
         created_at: p.created_at,
         user: user ? { email: user.email, full_name: user.full_name } : undefined
       }

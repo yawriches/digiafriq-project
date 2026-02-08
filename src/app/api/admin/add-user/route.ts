@@ -30,11 +30,15 @@ export async function POST(request: NextRequest) {
     // Check if requesting user is admin
     const { data: adminProfile } = await supabaseAdmin
       .from('profiles')
-      .select('available_roles')
+      .select('available_roles, active_role, role')
       .eq('id', requestingUser.id)
       .single()
 
-    if (!adminProfile?.available_roles?.includes('admin')) {
+    const isAdmin = adminProfile?.available_roles?.includes('admin') || 
+                    adminProfile?.active_role === 'admin' || 
+                    adminProfile?.role === 'admin'
+
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
     }
 
