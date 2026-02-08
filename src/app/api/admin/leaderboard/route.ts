@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Fetch all affiliate profiles ordered by earnings
     const { data: affiliateProfiles, error: apError } = await supabaseAdmin
       .from('affiliate_profiles')
-      .select('id, total_earnings, total_referrals, active_referrals, lifetime_referrals, available_balance, affiliate_level, status, commission_rate, referral_code, created_at')
+      .select('id, total_earnings, active_referrals, lifetime_referrals, available_balance, affiliate_level, status, commission_rate, referral_code, created_at')
       .order('total_earnings', { ascending: false })
 
     if (apError) {
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         email: profile?.email || '',
         level: ap.affiliate_level || getLevel(rank),
         total_earnings: ap.total_earnings || 0,
-        total_referrals: ap.lifetime_referrals || ap.total_referrals || 0,
+        total_referrals: ap.lifetime_referrals || 0,
         active_referrals: ap.active_referrals || 0,
         available_balance: ap.available_balance || 0,
         commission_rate: ap.commission_rate || 0,
