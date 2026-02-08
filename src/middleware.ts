@@ -85,9 +85,35 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Note: Affiliate dashboard access is handled by the layout
-  // This allows proper membership verification (DCS addon, lifetime access)
-  // without blocking users at the middleware level
+  // Learner dashboard membership check — block expired/unpaid users
+  if (session && path.startsWith('/dashboard/learner')) {
+    const isMembershipPage = path === '/dashboard/learner/membership'
+    const isCheckoutPage = path.startsWith('/dashboard/learner/membership/checkout')
+    const isPaymentRelatedPage = isMembershipPage || isCheckoutPage
+
+    if (!isPaymentRelatedPage) {
+      // Check if user is admin (admins bypass membership check)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profileData?.role !== 'admin') {
+        // Check for active, non-expired membership
+        const { count } = await supabase
+          .from('user_memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', session.user.id)
+          .eq('is_active', true)
+          .gt('expires_at', new Date().toISOString())
+
+        if ((count ?? 0) === 0) {
+          return NextResponse.redirect(new URL('/dashboard/learner/membership', req.url))
+        }
+      }
+    }
+  }
 
   return res
 }

@@ -34,8 +34,10 @@ export default function LearnerLayout({
   }, []);
 
   // Re-check membership on every pathname change (navigation)
+  // CRITICAL: Reset BOTH flags so stale hasActiveMembership=true can never leak through
   useEffect(() => {
     if (authLoading || !user) return;
+    setHasActiveMembership(false);
     setMembershipChecked(false);
     checkMembership(user.id);
   }, [user, authLoading, pathname, checkMembership]);
