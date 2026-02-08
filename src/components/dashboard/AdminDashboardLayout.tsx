@@ -19,7 +19,8 @@ import {
   TrendingUp,
   Award,
   CreditCard,
-  Bell
+  Bell,
+  Trophy
 } from 'lucide-react'
 
 interface AdminDashboardLayoutProps {
@@ -60,6 +61,14 @@ const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({ children, t
         { title: "Withdrawals", href: "/dashboard/admin/withdrawals" },
         { title: "Commissions", href: "/dashboard/admin/commissions" },
         { title: "Revenue", href: "/dashboard/admin/revenue" }
+      ]
+    },
+    { 
+      title: "Affiliates", 
+      icon: Trophy,
+      submenu: [
+        { title: "Leaderboard", href: "/dashboard/admin/leaderboard" },
+        { title: "Contests", href: "/dashboard/admin/contests" }
       ]
     },
     { title: "Analytics", icon: TrendingUp, href: "/dashboard/admin/analytics" },
