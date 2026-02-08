@@ -1,8 +1,7 @@
 "use client"
 import { useCallback } from 'react'
 import { supabase } from '@/lib/supabase/client'
-import { CURRENCY_RATES } from '@/contexts/CurrencyContext'
-import { useSWR, supabaseFetcher, swrDefaults } from '@/lib/hooks/swr'
+import { useSWR, swrDefaults } from '@/lib/hooks/swr'
 
 interface AdminStats {
   totalUsers: number
@@ -53,80 +52,24 @@ export const useAdminData = (): AdminData => {
   const key = 'admin-dashboard'
 
   const fetcher = useCallback(async () => {
-    return supabaseFetcher(key, async () => {
-      const { data: revenueData, error: revenueError } = await supabase
-        .from('payments')
-        .select('amount, currency, payment_type, metadata')
-        .eq('status', 'completed')
+    // Get current session token for auth
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      throw new Error('No session')
+    }
 
-      if (revenueError) {
-        throw revenueError
-      }
-
-      const totalRevenue = revenueData?.reduce((sum: number, p: any) => {
-        const currency = p.currency?.toUpperCase() || 'USD'
-        let usdAmount = p.amount
-        if (currency !== 'USD' && currency in CURRENCY_RATES) {
-          usdAmount = p.amount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
-        }
-        return sum + usdAmount
-      }, 0) || 0
-
-      const [usersResult, coursesResult, commissionsResult, affiliateProfilesResult] = await Promise.all([
-        (supabase as any).from('profiles').select('*'),
-        (supabase as any).from('courses').select('*'),
-        (supabase as any).from('commissions').select('*'),
-        (supabase as any).from('affiliate_profiles').select('id, has_paid').eq('has_paid', true)
-      ])
-
-      const users = usersResult.data || []
-      const affiliates = users.filter((u: User) => u.role === 'affiliate')
-
-      const activeUsers = users.filter((u: any) => u.status === 'active').length
-      const suspendedUsers = users.filter((u: any) => u.status === 'suspended').length
-      const pendingUsers = users.filter((u: any) => u.status === 'pending').length
-
-      const courses = coursesResult.data || []
-
-      const commissions = commissionsResult.data || []
-      const totalCommissions = commissions.reduce((sum: number, c: any) => {
-        const currency = c.commission_currency?.toUpperCase() || 'USD'
-        let usdAmount = c.commission_amount || c.amount || 0
-        if (currency !== 'USD' && currency in CURRENCY_RATES) {
-          usdAmount = usdAmount / CURRENCY_RATES[currency as keyof typeof CURRENCY_RATES].rate
-        }
-        return sum + usdAmount
-      }, 0)
-
-      // Affiliates who completed onboarding (has_paid = true)
-      const affiliatesOnboarded = affiliateProfilesResult.data?.length || 0
-
-      // Split completed payments into affiliate sales vs direct website sales
-      const completedPayments = revenueData || []
-      const affiliateSales = completedPayments.filter((p: any) => 
-        p.payment_type === 'referral_membership' || p.metadata?.is_referral_signup === true || p.metadata?.referral_code
-      ).length
-      const directSales = completedPayments.length - affiliateSales
-
-      return {
-        stats: {
-          totalUsers: users.length,
-          activeUsers,
-          suspendedUsers,
-          pendingUsers,
-          totalRevenue,
-          activeCourses: courses.length,
-          activeAffiliates: affiliates.length,
-          totalPayments: revenueData?.length || 0,
-          totalCommissions,
-          affiliatesOnboarded,
-          affiliateSales,
-          directSales,
-        } as AdminStats,
-        recentUsers: users.slice(0, 5) as User[],
-        recentPayments: [] as Payment[],
+    const response = await fetch('/api/admin/dashboard-stats', {
+      headers: {
+        'Authorization': `Bearer ${sessionData.session.access_token}`
       }
     })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || `Failed to fetch dashboard stats (${response.status})`)
+    }
+
+    return response.json()
   }, [])
 
   const { data, error, isLoading } = useSWR(key, fetcher, {
