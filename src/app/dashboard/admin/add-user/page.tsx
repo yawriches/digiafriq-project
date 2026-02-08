@@ -17,7 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
-import { supabase } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/supabase/auth'
 import { toast } from 'sonner'
 
 interface FormData {
@@ -29,6 +29,7 @@ interface FormData {
 }
 
 const AddUserPage = () => {
+  const { session } = useAuth()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState<FormData>({
@@ -80,57 +81,31 @@ const AddUserPage = () => {
     setLoading(true)
 
     try {
-      // Create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          first_name: formData.firstName,
-          last_name: formData.lastName
-        }
+      if (!session?.access_token) {
+        toast.error('Session expired. Please refresh the page.')
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch('/api/admin/add-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          roles: formData.roles
+        })
       })
 
-      if (authError) {
-        throw authError
-      }
+      const data = await response.json()
 
-      if (!authData.user) {
-        throw new Error('Failed to create user')
-      }
-
-      // Create the user profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          active_role: formData.roles[0], // Set first selected role as active
-          available_roles: formData.roles,
-          created_at: new Date().toISOString()
-        })
-
-      if (profileError) {
-        throw profileError
-      }
-
-      // If affiliate role is selected, create affiliate profile
-      if (formData.roles.includes('affiliate')) {
-        const { error: affiliateError } = await supabase
-          .from('affiliate_profiles')
-          .insert({
-            user_id: authData.user.id,
-            unique_affiliate_code: `${formData.firstName.toLowerCase()}${formData.lastName.toLowerCase()}${Math.random().toString(36).substr(2, 5)}`,
-            status: 'active',
-            created_at: new Date().toISOString()
-          })
-
-        if (affiliateError) {
-          console.error('Failed to create affiliate profile:', affiliateError)
-          // Don't throw error here, user is still created successfully
-        }
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create user')
       }
 
       toast.success(`User ${formData.email} created successfully with roles: ${formData.roles.join(', ')}`)
@@ -156,23 +131,23 @@ const AddUserPage = () => {
     <AdminDashboardLayout title="Add User">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Add New User</h1>
-          <p className="text-gray-300">Create a new user account and assign roles directly from the admin dashboard</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New User</h1>
+          <p className="text-gray-500">Create a new user account and assign roles directly from the admin dashboard</p>
         </div>
 
-        <Card className="bg-gradient-to-br from-gray-900 via-gray-800 to-black border-gray-700/50">
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="p-8">
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* User Information Section */}
               <div>
-                <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-400" />
+                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" />
                   User Information
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       First Name *
                     </label>
                     <input
@@ -180,14 +155,14 @@ const AddUserPage = () => {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="John"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Last Name *
                     </label>
                     <input
@@ -195,14 +170,14 @@ const AddUserPage = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                       placeholder="Doe"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address *
                     </label>
                     <div className="relative">
@@ -212,7 +187,7 @@ const AddUserPage = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                         placeholder="john.doe@example.com"
                         required
                       />
@@ -220,7 +195,7 @@ const AddUserPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Password *
                     </label>
                     <div className="relative">
@@ -230,7 +205,7 @@ const AddUserPage = () => {
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full pl-10 pr-12 py-3 bg-gray-800 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                        className="w-full pl-10 pr-12 py-3 bg-white border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                         placeholder="••••••••"
                         required
                         minLength={6}
@@ -238,20 +213,20 @@ const AddUserPage = () => {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                       >
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    <p className="mt-1 text-xs text-gray-400">Minimum 6 characters</p>
+                    <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
                   </div>
                 </div>
               </div>
 
               {/* Role Selection Section */}
               <div>
-                <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-purple-400" />
+                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-purple-600" />
                   Role Assignment
                 </h2>
                 
@@ -266,20 +241,20 @@ const AddUserPage = () => {
                         onClick={() => toggleRole(role.id)}
                         className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                           isSelected
-                            ? 'border-blue-500/50 bg-gradient-to-br from-blue-600/20 to-purple-600/20'
-                            : 'border-gray-600/50 bg-gray-800/50 hover:border-gray-500/50'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            isSelected ? role.color : 'bg-gray-700'
+                            isSelected ? role.color : 'bg-gray-300'
                           }`}>
                             <Icon className="w-5 h-5 text-white" />
                           </div>
                           
                           <div className="flex-1">
-                            <h3 className="font-semibold text-white mb-1">{role.label}</h3>
-                            <p className="text-xs text-gray-400">{role.description}</p>
+                            <h3 className="font-semibold text-gray-900 mb-1">{role.label}</h3>
+                            <p className="text-xs text-gray-500">{role.description}</p>
                           </div>
                           
                           <div className="flex-shrink-0">
@@ -288,7 +263,7 @@ const AddUserPage = () => {
                                 <Check className="w-4 h-4 text-white" />
                               </div>
                             ) : (
-                              <div className="w-6 h-6 border-2 border-gray-600 rounded-full" />
+                              <div className="w-6 h-6 border-2 border-gray-300 rounded-full" />
                             )}
                           </div>
                         </div>
@@ -297,16 +272,16 @@ const AddUserPage = () => {
                   })}
                 </div>
                 
-                <p className="mt-3 text-sm text-gray-400">
+                <p className="mt-3 text-sm text-gray-500">
                   Select one or more roles for this user. The first selected role will be set as their active role.
                 </p>
               </div>
 
               {/* Submit Button */}
-              <div className="flex items-center justify-between pt-6 border-t border-gray-700/50">
-                <div className="text-sm text-gray-400">
+              <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+                <div className="text-sm text-gray-500">
                   {formData.roles.length > 0 && (
-                    <span>Selected roles: <span className="text-white font-medium">{formData.roles.join(', ')}</span></span>
+                    <span>Selected roles: <span className="text-gray-900 font-medium">{formData.roles.join(', ')}</span></span>
                   )}
                 </div>
                 
@@ -321,7 +296,7 @@ const AddUserPage = () => {
                       lastName: '',
                       roles: ['learner']
                     })}
-                    className="border-gray-600/50 text-gray-300 hover:bg-gray-800"
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
                   >
                     Clear
                   </Button>
@@ -329,7 +304,7 @@ const AddUserPage = () => {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8"
+                    className="bg-[#ed874a] hover:bg-[#d6783f] text-white px-8"
                   >
                     {loading ? (
                       <>

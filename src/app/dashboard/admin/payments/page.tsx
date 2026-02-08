@@ -378,18 +378,7 @@ const PaymentsManagement = () => {
       </div>
 
       {/* Stats Cards - Row 2: Revenue Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Membership Fees</p>
-                <p className="text-xl font-bold text-purple-600">{formatCurrency(revenueByType.membership, 'USD')}</p>
-              </div>
-              <Users className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
