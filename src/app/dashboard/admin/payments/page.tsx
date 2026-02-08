@@ -42,6 +42,7 @@ interface Payment {
   paid_currency: string | null
   exchange_rate: number | null
   paystack_reference: string | null
+  provider_reference: string | null
   paystack_transaction_id: string | null
   status: string
   payment_method: string | null
@@ -65,7 +66,6 @@ interface Payment {
 }
 
 interface RevenueByType {
-  course: number
   membership: number
 }
 
@@ -152,7 +152,7 @@ const PaymentsManagement = () => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       filtered = filtered.filter(payment => 
-        payment.paystack_reference?.toLowerCase().includes(search) ||
+        (payment.provider_reference || payment.paystack_reference)?.toLowerCase().includes(search) ||
         payment.user?.full_name?.toLowerCase().includes(search) ||
         payment.user?.email?.toLowerCase().includes(search) ||
         payment.course?.title?.toLowerCase().includes(search)
@@ -189,7 +189,7 @@ const PaymentsManagement = () => {
     const csvContent = [
       ['Reference', 'User', 'Email', 'Amount', 'Currency', 'Base Amount (USD)', 'Base Currency Amount (USD)', 'Type', 'Provider', 'Status', 'Date'].join(','),
       ...filteredPayments.map(p => [
-        p.paystack_reference || 'N/A',
+        p.provider_reference || p.paystack_reference || 'N/A',
         p.user?.full_name || 'N/A',
         p.user?.email || 'N/A',
         p.amount,
@@ -289,9 +289,9 @@ const PaymentsManagement = () => {
   // Revenue by type - Use base_currency_amount if available, then base_amount, otherwise convert
   const getAmountUSD = (p: Payment) => (p as any).base_currency_amount || p.base_amount || toUSD(p.amount, p.currency)
   
+  const membershipTypes = ['membership', 'referral_membership', 'addon_upgrade']
   const revenueByType: RevenueByType = {
-    course: completedPayments.filter(p => p.payment_type === 'course' || (!p.payment_type && p.course_id)).reduce((sum, p) => sum + getAmountUSD(p), 0),
-    membership: completedPayments.filter(p => p.payment_type === 'membership').reduce((sum, p) => sum + getAmountUSD(p), 0),
+    membership: completedPayments.filter(p => membershipTypes.includes(p.payment_type || '')).reduce((sum, p) => sum + getAmountUSD(p), 0),
   }
 
   // Revenue by currency
@@ -371,18 +371,7 @@ const PaymentsManagement = () => {
       </div>
 
       {/* Stats Cards - Row 2: Revenue Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Course Sales</p>
-                <p className="text-xl font-bold text-blue-600">{formatCurrency(revenueByType.course, 'USD')}</p>
-              </div>
-              <ShoppingCart className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -394,7 +383,7 @@ const PaymentsManagement = () => {
             </div>
           </CardContent>
         </Card>
-              </div>
+      </div>
 
       {/* Revenue by Currency */}
       {Object.keys(revenueByCurrency).length > 0 && (
@@ -502,7 +491,7 @@ const PaymentsManagement = () => {
                     <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <span className="font-mono text-sm text-gray-900">
-                          {payment.paystack_reference?.slice(0, 12) || 'N/A'}...
+                          {(payment.provider_reference || payment.paystack_reference)?.slice(0, 12) || 'N/A'}...
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -650,7 +639,7 @@ const PaymentsManagement = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Reference</p>
-                  <p className="font-mono text-sm break-all">{selectedPayment.paystack_reference || 'N/A'}</p>
+                  <p className="font-mono text-sm break-all">{selectedPayment.provider_reference || selectedPayment.paystack_reference || 'N/A'}</p>
                 </div>
               </div>
 

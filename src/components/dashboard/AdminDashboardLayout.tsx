@@ -110,7 +110,6 @@ const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({ children, t
                   alt="DigiAfriq" 
                   className="h-8 w-auto"
                 />
-                <span className="ml-2 text-xl font-bold text-gray-900">Admin</span>
               </div>
             </div>
             
