@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/supabase/auth';
 import { supabase } from '@/lib/supabase/client';
@@ -20,8 +20,10 @@ export default function LearnerLayout({
   // Direct membership check — no SWR, no caching, fresh on every navigation
   const [membershipChecked, setMembershipChecked] = useState(false);
   const [hasActiveMembership, setHasActiveMembership] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const lastCheckedPath = useRef<string | null>(null);
 
-  const checkMembership = useCallback(async (userId: string) => {
+  const checkMembership = useCallback(async (userId: string, currentPath: string) => {
     const { count } = await supabase
       .from('user_memberships')
       .select('id', { count: 'exact', head: true })
@@ -29,26 +31,39 @@ export default function LearnerLayout({
       .eq('is_active', true)
       .gt('expires_at', new Date().toISOString());
 
-    setHasActiveMembership((count ?? 0) > 0);
+    const hasActive = (count ?? 0) > 0;
+    setHasActiveMembership(hasActive);
     setMembershipChecked(true);
+    lastCheckedPath.current = currentPath;
+
+    // Immediate redirect if no active membership (don't wait for useEffect)
+    const isMembership = currentPath === '/dashboard/learner/membership';
+    const isCheckout = currentPath?.startsWith('/dashboard/learner/membership/checkout');
+    if (!hasActive && !isMembership && !isCheckout) {
+      setIsRedirecting(true);
+      window.location.href = '/dashboard/learner/membership';
+    }
   }, []);
 
   // Re-check membership on every pathname change (navigation)
-  // CRITICAL: Reset BOTH flags so stale hasActiveMembership=true can never leak through
   useEffect(() => {
     if (authLoading || !user) return;
-    setHasActiveMembership(false);
-    setMembershipChecked(false);
-    checkMembership(user.id);
-  }, [user, authLoading, pathname, checkMembership]);
+    if (isRedirecting) return;
+    
+    // Always re-check if path changed
+    if (lastCheckedPath.current !== pathname) {
+      setHasActiveMembership(false);
+      setMembershipChecked(false);
+      checkMembership(user.id, pathname);
+    }
+  }, [user, authLoading, pathname, checkMembership, isRedirecting]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      const redirectUrl = `/login?redirectTo=${encodeURIComponent(pathname)}`;
-      router.push(redirectUrl);
+      window.location.href = `/login?redirectTo=${encodeURIComponent(pathname)}`;
     }
-  }, [user, authLoading, router, pathname]);
+  }, [user, authLoading, pathname]);
 
   const isMembershipPage = pathname === '/dashboard/learner/membership';
   const isCheckoutPage = pathname?.startsWith('/dashboard/learner/membership/checkout');
@@ -57,15 +72,8 @@ export default function LearnerLayout({
   // Admin users can access learner dashboard without membership check
   const isAdmin = profile?.role === 'admin';
 
-  // Redirect users without active membership to membership page
-  useEffect(() => {
-    if (membershipChecked && !isAdmin && !hasActiveMembership && !isPaymentRelatedPage) {
-      router.replace('/dashboard/learner/membership');
-    }
-  }, [membershipChecked, hasActiveMembership, isPaymentRelatedPage, isAdmin, router]);
-
-  // While checking membership, show skeleton (never show content)
-  if ((!membershipChecked || authLoading) && !isPaymentRelatedPage) {
+  // While checking membership or redirecting, show skeleton (never show content)
+  if ((isRedirecting || !membershipChecked || authLoading) && !isPaymentRelatedPage) {
     return (
       <LearnerDashboardLayout>
         <LearnerDashboardSkeleton />
@@ -73,7 +81,7 @@ export default function LearnerLayout({
     );
   }
 
-  // Block users without active membership from ALL pages
+  // Block users without active membership from ALL pages (backup for redirect)
   if (!hasActiveMembership && !isPaymentRelatedPage && !isAdmin) {
     return (
       <LearnerDashboardLayout>
