@@ -98,6 +98,8 @@ function CheckoutContent() {
 
   const membershipId = params.id as string;
   const isUpgradeFlow = searchParams.get('upgrade') === 'true';
+  const isRenewalFlow = searchParams.get('renewal') === 'true';
+  const RENEWAL_PRICE = 10;
 
   // State
   const [membershipData, setMembershipData] = useState<any>(null);
@@ -215,7 +217,7 @@ function CheckoutContent() {
   }, [membershipData, hasLearnerMembership, allMemberships, isUpgradeFlow]);
 
   // AI Cashflow is the single program - no add-ons needed
-  const basePrice = upgradePricing?.isUpgrade ? upgradePricing.upgradePrice : membershipData?.price || 0;
+  const basePrice = isRenewalFlow ? RENEWAL_PRICE : (upgradePricing?.isUpgrade ? upgradePricing.upgradePrice : membershipData?.price || 0);
   const actualPrice = basePrice;
   const convertedPrice = actualPrice * CURRENCY_RATES[currency].rate;
 
@@ -249,6 +251,23 @@ function CheckoutContent() {
         return;
       }
 
+      // Client-side guard: prevent duplicate payment if user already has active membership
+      if (user?.id && !isRenewalFlow) {
+        const { count } = await supabase
+          .from('user_memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .gt('expires_at', new Date().toISOString())
+
+        if ((count ?? 0) > 0) {
+          toast.error('You already have an active membership.');
+          setLoading(false);
+          router.push('/dashboard/learner/membership');
+          return;
+        }
+      }
+
       const paymentHash = generatePaymentHash({
         membership_package_id: membershipId,
         user_id: user?.id || '',
@@ -269,6 +288,7 @@ function CheckoutContent() {
           usd_price: actualPrice,
           original_price: membershipData?.price || 0,
           is_upgrade: upgradePricing?.isUpgrade || false,
+          is_renewal: isRenewalFlow,
           has_digital_cashflow_addon: true,
           payment_hash: paymentHash,
           timestamp: Date.now(),
@@ -354,7 +374,7 @@ function CheckoutContent() {
           <Image src="/digiafriqlogo.png" alt="DigiAfriq" width={130} height={30} className="h-auto" />
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Complete Your Purchase</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">{isRenewalFlow ? 'Renew Your Membership' : 'Complete Your Purchase'}</h1>
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left - Form */}
@@ -477,7 +497,7 @@ function CheckoutContent() {
           <div>
             <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 sticky top-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {upgradePricing?.isUpgrade ? 'Upgrade to Affiliate' : membershipData.name}
+                {isRenewalFlow ? 'Membership Renewal' : (upgradePricing?.isUpgrade ? 'Upgrade to Affiliate' : membershipData.name)}
               </h2>
 
               {/* Features */}
@@ -497,7 +517,7 @@ function CheckoutContent() {
               {/* Pricing */}
               <div className="border-t pt-6 mb-6 space-y-2">
                 {/* Show upgrade pricing if applicable */}
-                {upgradePricing?.isUpgrade && !isUpgradeFlow && (
+                {upgradePricing?.isUpgrade && !isUpgradeFlow && !isRenewalFlow && (
                   <>
                     <div className="flex justify-between text-gray-500">
                       <span>Original Price</span>
@@ -509,8 +529,20 @@ function CheckoutContent() {
                     </div>
                   </>
                 )}
+                {isRenewalFlow && (
+                  <>
+                    <div className="flex justify-between text-gray-500">
+                      <span>Original Price</span>
+                      <span className="line-through">${membershipData.price}</span>
+                    </div>
+                    <div className="flex justify-between text-green-600">
+                      <span>Renewal Discount</span>
+                      <span>-${(membershipData.price - RENEWAL_PRICE).toFixed(1)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-gray-700">
-                  <span>AI Cashflow Program</span>
+                  <span>{isRenewalFlow ? 'Renewal — AI Cashflow Program' : 'AI Cashflow Program'}</span>
                   <span>${actualPrice}</span>
                 </div>
               </div>

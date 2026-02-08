@@ -400,6 +400,24 @@ function CheckoutPageInner() {
       
       console.log('✅ Session found successfully');
 
+      // Client-side guard: prevent duplicate payment if user already has active membership
+      if (user?.id) {
+        const { count } = await supabase
+          .from('user_memberships')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .gt('expires_at', new Date().toISOString())
+
+        if ((count ?? 0) > 0) {
+          clearTimeout(timeoutId);
+          toast.error('You already have an active membership.');
+          setLoading(false);
+          router.push('/dashboard/learner/membership');
+          return;
+        }
+      }
+
       console.log('📝 Preparing payment request...');
       
       // Calculate the actual price to charge (upgrade price or full price)

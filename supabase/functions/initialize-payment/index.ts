@@ -955,6 +955,38 @@ serve(async (req) => {
       )
     }
 
+    // Prevent duplicate payment: block if user already has an active, non-expired membership
+    // (Skip this check for addon upgrades and referral payments)
+    const isAddonUpgrade = payment_type === 'addon_upgrade' || metadata?.is_addon_upgrade === true
+    if (user && !isReferralPayment && !isAddonUpgrade) {
+      const { data: activeMembership } = await supabase
+        .from('user_memberships')
+        .select('id, membership_package_id, expires_at')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle()
+
+      if (activeMembership) {
+        console.warn('⚠️ User already has an active membership, blocking duplicate payment:', {
+          userId: user.id,
+          existingMembershipId: activeMembership.id,
+          existingPackageId: activeMembership.membership_package_id,
+          expiresAt: activeMembership.expires_at,
+          requestedPackageId: membership_package_id
+        })
+        return new Response(
+          JSON.stringify({ 
+            error: 'You already have an active membership. Please wait until it expires before purchasing again.',
+            active_membership: {
+              expires_at: activeMembership.expires_at
+            }
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // Convert USD price to appropriate currency based on provider
     // Use metadata.usd_price if provided (includes addon), otherwise fall back to package price
     const usdPrice = metadata?.usd_price || membershipPackage.price;
