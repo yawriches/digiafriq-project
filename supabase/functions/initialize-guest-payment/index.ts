@@ -458,7 +458,14 @@ serve(async (req) => {
     const provider = PaymentProviderFactory.create(selectedProvider, providerKey)
     
     // Get callback URL from environment or use default
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://digiafriq.com'
+    let siteUrl = Deno.env.get('SITE_URL') || 'https://www.digiafriq.com'
+    
+    // CRITICAL: Never use localhost for payment callbacks - always use production URL
+    if (siteUrl.includes('localhost') || siteUrl.includes('127.0.0.1')) {
+      console.warn('⚠️ Detected localhost in SITE_URL, forcing production URL')
+      siteUrl = 'https://www.digiafriq.com'
+    }
+    
     const callbackUrl = `${siteUrl}/payment/guest-callback`
 
     const paymentResponse = await provider.initializePayment({

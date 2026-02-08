@@ -1065,7 +1065,14 @@ serve(async (req) => {
     
     // Determine callback URL based on whether this is a guest/referral payment
     // Always use production URL, never localhost
-    const siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('NEXT_PUBLIC_SITE_URL') || 'https://www.digiafriq.com'
+    let siteUrl = Deno.env.get('SITE_URL') || Deno.env.get('NEXT_PUBLIC_SITE_URL') || 'https://www.digiafriq.com'
+    
+    // CRITICAL: Never use localhost for payment callbacks - always use production URL
+    if (siteUrl.includes('localhost') || siteUrl.includes('127.0.0.1')) {
+      console.warn('⚠️ Detected localhost in SITE_URL, forcing production URL')
+      siteUrl = 'https://www.digiafriq.com'
+    }
+    
     const callbackPath = isReferralPayment ? '/payment/guest-callback' : '/payment/callback'
     const callbackUrl = `${siteUrl}${callbackPath}`
     
