@@ -19,7 +19,8 @@ import {
   Building,
   ShoppingCart,
   Users,
-  Award
+  Award,
+  Link2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -67,6 +68,8 @@ interface Payment {
 
 interface RevenueByType {
   membership: number
+  referral: number
+  direct: number
 }
 
 interface RevenueByCurrency {
@@ -290,8 +293,12 @@ const PaymentsManagement = () => {
   const getAmountUSD = (p: Payment) => (p as any).base_currency_amount || p.base_amount || toUSD(p.amount, p.currency)
   
   const membershipTypes = ['membership', 'referral_membership', 'addon_upgrade']
+  const referralPayments = completedPayments.filter(p => p.payment_type === 'referral_membership' || (p.metadata?.is_referral_signup === true || p.metadata?.referral_code))
+  const directPayments = completedPayments.filter(p => !referralPayments.includes(p))
   const revenueByType: RevenueByType = {
     membership: completedPayments.filter(p => membershipTypes.includes(p.payment_type || '')).reduce((sum, p) => sum + getAmountUSD(p), 0),
+    referral: referralPayments.reduce((sum, p) => sum + getAmountUSD(p), 0),
+    direct: directPayments.reduce((sum, p) => sum + getAmountUSD(p), 0),
   }
 
   // Revenue by currency
@@ -371,7 +378,7 @@ const PaymentsManagement = () => {
       </div>
 
       {/* Stats Cards - Row 2: Revenue Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -380,6 +387,30 @@ const PaymentsManagement = () => {
                 <p className="text-xl font-bold text-purple-600">{formatCurrency(revenueByType.membership, 'USD')}</p>
               </div>
               <Users className="h-8 w-8 text-purple-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Referral Payments</p>
+                <p className="text-xl font-bold text-orange-600">{formatCurrency(revenueByType.referral, 'USD')}</p>
+                <p className="text-xs text-gray-500">{referralPayments.length} payment{referralPayments.length !== 1 ? 's' : ''}</p>
+              </div>
+              <Link2 className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Direct Website Payments</p>
+                <p className="text-xl font-bold text-blue-600">{formatCurrency(revenueByType.direct, 'USD')}</p>
+                <p className="text-xs text-gray-500">{directPayments.length} payment{directPayments.length !== 1 ? 's' : ''}</p>
+              </div>
+              <Globe className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
