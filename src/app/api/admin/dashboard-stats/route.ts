@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at'),
       supabaseAdmin.from('courses').select('id'),
       supabaseAdmin.from('commissions').select('commission_amount, commission_currency, amount'),
-      supabaseAdmin.from('affiliate_profiles').select('id, has_paid').eq('has_paid', true)
+      supabaseAdmin.from('user_memberships').select('user_id').eq('is_active', true)
     ])
 
     if (paymentsResult.error) {
@@ -100,8 +100,10 @@ export async function GET(request: NextRequest) {
       return sum + usdAmount
     }, 0)
 
-    // Affiliates who completed onboarding
-    const affiliatesOnboarded = affiliateProfilesResult.data?.length || 0
+    // Affiliates who completed onboarding = users with affiliate role AND an active membership
+    const activeMemberships = affiliateProfilesResult.data || []
+    const activeMembershipUserIds = new Set(activeMemberships.map((m: any) => m.user_id))
+    const affiliatesOnboarded = affiliates.filter((u: any) => activeMembershipUserIds.has(u.id)).length
 
     // Split payments into affiliate sales vs direct
     const affiliateSales = payments.filter((p: any) => 
