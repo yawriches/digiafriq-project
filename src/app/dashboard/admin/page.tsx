@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Award,
   Activity,
+  Link2,
   BarChart3,
   PieChart,
   Calendar,
@@ -82,49 +83,46 @@ const AdminDashboard = () => {
       title: "Total Revenue",
       value: formatAmount(stats.totalRevenue),
       subtitle: CURRENCY_RATES[selectedCurrency].name,
-      change: 23.8,
       icon: DollarSign,
       gradient: "from-emerald-500 via-green-500 to-teal-500",
-      bgGradient: "from-emerald-50 to-green-50",
       iconBg: "bg-gradient-to-br from-emerald-100 to-green-100",
       iconColor: "text-emerald-600",
-      trend: "up"
     },
     {
-      title: "Active Users",
+      title: "Total Users",
       value: stats.totalUsers.toLocaleString(),
-      subtitle: "Members",
-      change: 12.5,
+      subtitle: "Platform Members",
       icon: Users,
       gradient: "from-blue-500 via-indigo-500 to-purple-500",
-      bgGradient: "from-blue-50 to-indigo-50",
       iconBg: "bg-gradient-to-br from-blue-100 to-indigo-100",
       iconColor: "text-blue-600",
-      trend: "up"
     },
     {
-      title: "Course Library",
-      value: stats.activeCourses,
-      subtitle: "Active Courses",
-      change: 5.2,
-      icon: BookOpen,
-      gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
-      bgGradient: "from-violet-50 to-purple-50",
-      iconBg: "bg-gradient-to-br from-violet-100 to-purple-100",
-      iconColor: "text-violet-600",
-      trend: "up"
-    },
-    {
-      title: "Affiliate Network",
-      value: stats.activeAffiliates,
-      subtitle: "Active Partners",
-      change: 8.1,
+      title: "Affiliates Onboarded",
+      value: stats.affiliatesOnboarded.toLocaleString(),
+      subtitle: "Completed Onboarding",
       icon: Crown,
       gradient: "from-orange-500 via-amber-500 to-yellow-500",
-      bgGradient: "from-orange-50 to-amber-50",
       iconBg: "bg-gradient-to-br from-orange-100 to-amber-100",
       iconColor: "text-orange-600",
-      trend: "up"
+    },
+    {
+      title: "Affiliate Sales",
+      value: stats.affiliateSales.toLocaleString(),
+      subtitle: "Via Referrals",
+      icon: Link2,
+      gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
+      iconBg: "bg-gradient-to-br from-violet-100 to-purple-100",
+      iconColor: "text-violet-600",
+    },
+    {
+      title: "Direct Website Sales",
+      value: stats.directSales.toLocaleString(),
+      subtitle: "Website Purchases",
+      icon: Globe,
+      gradient: "from-cyan-500 via-teal-500 to-emerald-500",
+      iconBg: "bg-gradient-to-br from-cyan-100 to-teal-100",
+      iconColor: "text-cyan-600",
     }
   ]
 
@@ -217,7 +215,7 @@ const AdminDashboard = () => {
         {/* Premium Statistics Cards */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Platform Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             {premiumStatCards.map((stat, index) => (
               <div
                 key={index}
@@ -230,32 +228,22 @@ const AdminDashboard = () => {
                 
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`w-14 h-14 ${stat.iconBg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-white/50 shadow-sm`}>
-                      <stat.icon className={`w-7 h-7 ${stat.iconColor}`} />
-                    </div>
-                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold ${
-                      stat.trend === 'up' 
-                        ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                        : 'bg-red-100 text-red-700 border border-red-200'
-                    }`}>
-                      {stat.trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                      {Math.abs(stat.change).toFixed(1)}%
+                    <div className={`w-12 h-12 ${stat.iconBg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-white/50 shadow-sm`}>
+                      <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
                     </div>
                   </div>
                   
-                  <div className="mb-2">
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                      <span className="text-sm font-medium text-gray-500">{stat.subtitle}</span>
-                    </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
                     <p className="text-sm font-medium text-gray-600 mt-1">{stat.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{stat.subtitle}</p>
                   </div>
 
-                  {/* Mini Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-4">
+                  {/* Accent Bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-1 mt-4">
                     <div 
-                      className={`bg-gradient-to-r ${stat.gradient} h-1.5 rounded-full transition-all duration-1000 ease-out`}
-                      style={{ width: `${Math.min(stat.change * 3, 100)}%` }}
+                      className={`bg-gradient-to-r ${stat.gradient} h-1 rounded-full`}
+                      style={{ width: '100%' }}
                     ></div>
                   </div>
                 </div>

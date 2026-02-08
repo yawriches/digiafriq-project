@@ -14,6 +14,9 @@ interface AdminStats {
   activeAffiliates: number
   totalPayments: number
   totalCommissions: number
+  affiliatesOnboarded: number
+  affiliateSales: number
+  directSales: number
 }
 
 interface User {
@@ -53,7 +56,7 @@ export const useAdminData = (): AdminData => {
     return supabaseFetcher(key, async () => {
       const { data: revenueData, error: revenueError } = await supabase
         .from('payments')
-        .select('amount, currency')
+        .select('amount, currency, payment_type, metadata')
         .eq('status', 'completed')
 
       if (revenueError) {
@@ -69,10 +72,11 @@ export const useAdminData = (): AdminData => {
         return sum + usdAmount
       }, 0) || 0
 
-      const [usersResult, coursesResult, commissionsResult] = await Promise.all([
+      const [usersResult, coursesResult, commissionsResult, affiliateProfilesResult] = await Promise.all([
         (supabase as any).from('profiles').select('*'),
         (supabase as any).from('courses').select('*'),
-        (supabase as any).from('commissions').select('*')
+        (supabase as any).from('commissions').select('*'),
+        (supabase as any).from('affiliate_profiles').select('id, has_paid').eq('has_paid', true)
       ])
 
       const users = usersResult.data || []
@@ -94,6 +98,16 @@ export const useAdminData = (): AdminData => {
         return sum + usdAmount
       }, 0)
 
+      // Affiliates who completed onboarding (has_paid = true)
+      const affiliatesOnboarded = affiliateProfilesResult.data?.length || 0
+
+      // Split completed payments into affiliate sales vs direct website sales
+      const completedPayments = revenueData || []
+      const affiliateSales = completedPayments.filter((p: any) => 
+        p.payment_type === 'referral_membership' || p.metadata?.is_referral_signup === true || p.metadata?.referral_code
+      ).length
+      const directSales = completedPayments.length - affiliateSales
+
       return {
         stats: {
           totalUsers: users.length,
@@ -105,6 +119,9 @@ export const useAdminData = (): AdminData => {
           activeAffiliates: affiliates.length,
           totalPayments: revenueData?.length || 0,
           totalCommissions,
+          affiliatesOnboarded,
+          affiliateSales,
+          directSales,
         } as AdminStats,
         recentUsers: users.slice(0, 5) as User[],
         recentPayments: [] as Payment[],
@@ -128,6 +145,9 @@ export const useAdminData = (): AdminData => {
       activeAffiliates: 0,
       totalPayments: 0,
       totalCommissions: 0,
+      affiliatesOnboarded: 0,
+      affiliateSales: 0,
+      directSales: 0,
     },
     recentUsers: data?.recentUsers ?? [],
     recentPayments: data?.recentPayments ?? [],
