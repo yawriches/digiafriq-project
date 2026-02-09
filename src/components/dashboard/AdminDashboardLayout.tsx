@@ -49,7 +49,6 @@ const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({ children, t
         { title: "Blog", href: "/dashboard/admin/blog" },
         { title: "Programs", href: "/dashboard/admin/programs" },
         { title: "Courses", href: "/dashboard/admin/courses" },
-        { title: "Tutorials", href: "/dashboard/admin/tutorials" },
         { title: "Categories", href: "/dashboard/admin/categories" }
       ]
     },
