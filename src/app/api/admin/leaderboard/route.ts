@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all data in parallel
-    const [profilesResult, affiliateProfilesResult, commissionsResult] = await Promise.all([
+    const [profilesResult, affiliateProfilesResult, commissionsResult, paymentsResult] = await Promise.all([
       // Get all users who are affiliates (from profiles table - the source of truth)
       supabaseAdmin
         .from('profiles')
@@ -53,7 +53,12 @@ export async function GET(request: NextRequest) {
       // Get all commissions to calculate earnings per affiliate
       supabaseAdmin
         .from('commissions')
-        .select('affiliate_id, commission_amount, status')
+        .select('affiliate_id, commission_amount, status'),
+      // Get completed payments to calculate sales per affiliate
+      supabaseAdmin
+        .from('payments')
+        .select('amount, currency, payment_type, metadata, status')
+        .eq('status', 'completed')
     ])
 
     if (profilesResult.error) {
@@ -65,16 +70,23 @@ export async function GET(request: NextRequest) {
     if (commissionsResult.error) {
       console.error('Commissions fetch error:', commissionsResult.error)
     }
+    if (paymentsResult.error) {
+      console.error('Payments fetch error:', paymentsResult.error)
+    }
 
     const allProfiles = profilesResult.data || []
     const affiliateProfilesData = affiliateProfilesResult.data || []
     const commissions = commissionsResult.data || []
+    const payments = paymentsResult.data || []
 
-    // Identify all affiliates from profiles table
+    // Identify all affiliates from profiles table - only those who completed onboarding
     const affiliateUsers = allProfiles.filter((p: any) =>
-      p.role === 'affiliate' ||
-      p.active_role === 'affiliate' ||
-      p.available_roles?.includes('affiliate')
+      p.affiliate_onboarding_completed === true &&
+      (
+        p.role === 'affiliate' ||
+        p.active_role === 'affiliate' ||
+        p.available_roles?.includes('affiliate')
+      )
     )
 
     if (affiliateUsers.length === 0) {
@@ -86,26 +98,48 @@ export async function GET(request: NextRequest) {
     affiliateProfilesData.forEach((ap: any) => apMap.set(ap.id, ap))
 
     // Calculate earnings per affiliate from commissions
-    const earningsMap = new Map<string, number>()
+    const commissionEarningsMap = new Map<string, number>()
     const referralCountMap = new Map<string, number>()
     commissions.forEach((c: any) => {
       if (c.affiliate_id) {
-        const current = earningsMap.get(c.affiliate_id) || 0
-        earningsMap.set(c.affiliate_id, current + (parseFloat(c.commission_amount) || 0))
+        const current = commissionEarningsMap.get(c.affiliate_id) || 0
+        commissionEarningsMap.set(c.affiliate_id, current + (parseFloat(c.commission_amount) || 0))
         const count = referralCountMap.get(c.affiliate_id) || 0
         referralCountMap.set(c.affiliate_id, count + 1)
+      }
+    })
+
+    // Build a map of referral_code -> user_id from affiliate_profiles
+    const codeToUserMap = new Map<string, string>()
+    affiliateProfilesData.forEach((ap: any) => {
+      if (ap.referral_code) codeToUserMap.set(ap.referral_code, ap.id)
+    })
+
+    // Calculate sales per affiliate from payments (via metadata.referral_code)
+    const salesCountMap = new Map<string, number>()
+    const salesAmountMap = new Map<string, number>()
+    payments.forEach((p: any) => {
+      const refCode = p.metadata?.referral_code
+      if (refCode && codeToUserMap.has(refCode)) {
+        const affiliateId = codeToUserMap.get(refCode)!
+        salesCountMap.set(affiliateId, (salesCountMap.get(affiliateId) || 0) + 1)
+        salesAmountMap.set(affiliateId, (salesAmountMap.get(affiliateId) || 0) + (parseFloat(p.amount) || 0))
       }
     })
 
     // Build leaderboard entries
     const unsorted = affiliateUsers.map((user: any) => {
       const ap = apMap.get(user.id)
-      const commissionsEarnings = earningsMap.get(user.id) || 0
+      const commissionsEarnings = commissionEarningsMap.get(user.id) || 0
       const commissionsCount = referralCountMap.get(user.id) || 0
+      const salesCount = salesCountMap.get(user.id) || 0
+      const salesAmount = salesAmountMap.get(user.id) || 0
 
-      // Use affiliate_profiles data if available, fall back to commissions data
-      const totalEarnings = ap?.total_earnings ? parseFloat(ap.total_earnings) : commissionsEarnings
-      const totalReferrals = ap?.lifetime_referrals || commissionsCount
+      // Use best available earnings: affiliate_profiles > commissions > payment sales
+      const totalEarnings = (ap?.total_earnings && parseFloat(ap.total_earnings) > 0)
+        ? parseFloat(ap.total_earnings)
+        : (commissionsEarnings > 0 ? commissionsEarnings : salesAmount)
+      const totalReferrals = ap?.lifetime_referrals || commissionsCount || salesCount
 
       return {
         user_id: user.id,
