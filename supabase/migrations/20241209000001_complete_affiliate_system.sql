@@ -26,6 +26,9 @@ CREATE TABLE affiliate_profiles (
   mobile_money_provider TEXT,
   mobile_money_number TEXT,
   payout_method VARCHAR(20) CHECK (payout_method IN ('bank', 'mobile_money')),
+  affiliate_level TEXT DEFAULT 'Starter',
+  commission_rate DECIMAL(5,2) DEFAULT 100.00,
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -256,6 +259,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for automatic affiliate profile creation
+DROP TRIGGER IF EXISTS create_affiliate_on_dcs_purchase ON user_memberships;
 CREATE TRIGGER create_affiliate_on_dcs_purchase
   AFTER UPDATE ON user_memberships
   FOR EACH ROW

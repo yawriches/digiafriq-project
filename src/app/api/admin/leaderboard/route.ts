@@ -40,55 +40,97 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch all affiliate profiles ordered by earnings
-    const { data: affiliateProfiles, error: apError } = await supabaseAdmin
-      .from('affiliate_profiles')
-      .select('id, total_earnings, active_referrals, lifetime_referrals, available_balance, affiliate_level, status, commission_rate, referral_code, created_at')
-      .order('total_earnings', { ascending: false })
+    // Fetch all data in parallel
+    const [profilesResult, affiliateProfilesResult, commissionsResult] = await Promise.all([
+      // Get all users who are affiliates (from profiles table - the source of truth)
+      supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, email, role, active_role, available_roles, status, affiliate_onboarding_completed, created_at'),
+      // Get affiliate_profiles if they exist (optional enrichment)
+      supabaseAdmin
+        .from('affiliate_profiles')
+        .select('id, total_earnings, active_referrals, lifetime_referrals, available_balance, affiliate_level, status, commission_rate, referral_code, created_at'),
+      // Get all commissions to calculate earnings per affiliate
+      supabaseAdmin
+        .from('commissions')
+        .select('affiliate_id, commission_amount, status')
+    ])
 
-    if (apError) {
-      console.error('Affiliate profiles fetch error:', apError)
-      return NextResponse.json({ error: apError.message }, { status: 500 })
+    if (profilesResult.error) {
+      console.error('Profiles fetch error:', profilesResult.error)
+    }
+    if (affiliateProfilesResult.error) {
+      console.error('Affiliate profiles fetch error:', affiliateProfilesResult.error)
+    }
+    if (commissionsResult.error) {
+      console.error('Commissions fetch error:', commissionsResult.error)
     }
 
-    if (!affiliateProfiles || affiliateProfiles.length === 0) {
+    const allProfiles = profilesResult.data || []
+    const affiliateProfilesData = affiliateProfilesResult.data || []
+    const commissions = commissionsResult.data || []
+
+    // Identify all affiliates from profiles table
+    const affiliateUsers = allProfiles.filter((p: any) =>
+      p.role === 'affiliate' ||
+      p.active_role === 'affiliate' ||
+      p.available_roles?.includes('affiliate')
+    )
+
+    if (affiliateUsers.length === 0) {
       return NextResponse.json({ data: [], stats: { totalAffiliates: 0, totalEarnings: 0, totalReferrals: 0, activeAffiliates: 0 } })
     }
 
-    // Fetch matching profiles for names/emails
-    const profileIds = affiliateProfiles.map((ap: any) => ap.id)
-    const { data: profiles } = await supabaseAdmin
-      .from('profiles')
-      .select('id, full_name, email, affiliate_onboarding_completed')
-      .in('id', profileIds)
+    // Build maps for enrichment
+    const apMap = new Map<string, any>()
+    affiliateProfilesData.forEach((ap: any) => apMap.set(ap.id, ap))
 
-    const profileMap = new Map<string, any>()
-    if (profiles) {
-      profiles.forEach((p: any) => profileMap.set(p.id, p))
-    }
-
-    // Build leaderboard entries
-    let rank = 0
-    const leaderboard = affiliateProfiles.map((ap: any) => {
-      const profile = profileMap.get(ap.id)
-      rank++
-      return {
-        rank,
-        user_id: ap.id,
-        name: profile?.full_name || profile?.email?.split('@')[0] || 'Unknown',
-        email: profile?.email || '',
-        level: ap.affiliate_level || getLevel(rank),
-        total_earnings: ap.total_earnings || 0,
-        total_referrals: ap.lifetime_referrals || 0,
-        active_referrals: ap.active_referrals || 0,
-        available_balance: ap.available_balance || 0,
-        commission_rate: ap.commission_rate || 0,
-        referral_code: ap.referral_code || '',
-        status: ap.status || 'active',
-        onboarding_completed: profile?.affiliate_onboarding_completed || false,
-        created_at: ap.created_at
+    // Calculate earnings per affiliate from commissions
+    const earningsMap = new Map<string, number>()
+    const referralCountMap = new Map<string, number>()
+    commissions.forEach((c: any) => {
+      if (c.affiliate_id) {
+        const current = earningsMap.get(c.affiliate_id) || 0
+        earningsMap.set(c.affiliate_id, current + (parseFloat(c.commission_amount) || 0))
+        const count = referralCountMap.get(c.affiliate_id) || 0
+        referralCountMap.set(c.affiliate_id, count + 1)
       }
     })
+
+    // Build leaderboard entries
+    const unsorted = affiliateUsers.map((user: any) => {
+      const ap = apMap.get(user.id)
+      const commissionsEarnings = earningsMap.get(user.id) || 0
+      const commissionsCount = referralCountMap.get(user.id) || 0
+
+      // Use affiliate_profiles data if available, fall back to commissions data
+      const totalEarnings = ap?.total_earnings ? parseFloat(ap.total_earnings) : commissionsEarnings
+      const totalReferrals = ap?.lifetime_referrals || commissionsCount
+
+      return {
+        user_id: user.id,
+        name: user.full_name || user.email?.split('@')[0] || 'Unknown',
+        email: user.email || '',
+        level: ap?.affiliate_level || 'Starter',
+        total_earnings: totalEarnings,
+        total_referrals: totalReferrals,
+        active_referrals: ap?.active_referrals || 0,
+        available_balance: ap?.available_balance ? parseFloat(ap.available_balance) : 0,
+        commission_rate: ap?.commission_rate ? parseFloat(ap.commission_rate) : 0,
+        referral_code: ap?.referral_code || '',
+        status: ap?.status || user.status || 'active',
+        onboarding_completed: user.affiliate_onboarding_completed || false,
+        created_at: ap?.created_at || user.created_at
+      }
+    })
+
+    // Sort by earnings descending, then assign ranks
+    unsorted.sort((a: any, b: any) => b.total_earnings - a.total_earnings)
+    const leaderboard = unsorted.map((entry: any, index: number) => ({
+      ...entry,
+      rank: index + 1,
+      level: entry.level || getLevel(index + 1)
+    }))
 
     // Stats
     const stats = {
