@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { completeReferral } from '@/lib/supabase/referrals'
+// completeReferral is implemented inline below using the service-role client
+// (the version in @/lib/supabase/referrals uses the anon client, blocked by RLS)
 import { processCommission } from '@/lib/commissions/process-commission'
 import {
   createAccountAfterPayment,
@@ -30,6 +31,24 @@ const supabase = createClient(
     },
   }
 )
+
+// Inline completeReferral using service-role client (bypasses RLS)
+async function completeReferral(referralId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('referrals')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', referralId)
+    if (error) {
+      console.error('Error completing referral:', error)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('Error completing referral:', err)
+    return false
+  }
+}
 
 async function invokeEmailEvents(payload: Record<string, unknown>): Promise<boolean> {
   try {
@@ -254,7 +273,8 @@ async function processReferralCommissions(payment: any, verificationData: any) {
   
   try {
     // Check if this user was referred (look for both pending and completed referrals)
-    const { data: referral, error: referralError } = await supabase
+    let referral: any = null
+    const { data: existingReferral, error: referralError } = await supabase
       .from('referrals')
       .select('*')
       .eq('referred_id', payment.user_id)
@@ -263,12 +283,81 @@ async function processReferralCommissions(payment: any, verificationData: any) {
       .limit(1)
       .single() as any
 
-    if (referralError || !referral) {
-      console.log('ℹ️ No pending referral found for user')
-      return
-    }
+    if (existingReferral && !referralError) {
+      referral = existingReferral
+      console.log('✅ Found existing referral:', referral.id)
+    } else {
+      // No referral record exists — try to create one from payment metadata
+      const refCode = payment.metadata?.referral_code || verificationData.data?.metadata?.referral_code
+      if (!refCode) {
+        console.log('ℹ️ No referral record and no referral code in metadata — skipping')
+        return
+      }
 
-    console.log('✅ Found referral:', referral)
+      console.log('🔗 No referral record found, creating from metadata. Code:', refCode)
+
+      // Look up the referrer
+      let referrerId: string | null = null
+
+      const { data: codeData } = await supabase
+        .from('referral_codes')
+        .select('user_id')
+        .eq('code', refCode)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (codeData) {
+        referrerId = codeData.user_id
+        console.log('✅ Found referrer from referral_codes:', referrerId)
+      } else {
+        const { data: apData } = await supabase
+          .from('affiliate_profiles')
+          .select('id')
+          .eq('referral_code', refCode)
+          .maybeSingle()
+
+        if (apData) {
+          referrerId = apData.id
+          console.log('✅ Found referrer from affiliate_profiles:', referrerId)
+        }
+      }
+
+      if (!referrerId) {
+        console.log('⚠️ No referrer found for code:', refCode)
+        return
+      }
+
+      if (referrerId === payment.user_id) {
+        console.log('⚠️ Self-referral detected, skipping')
+        return
+      }
+
+      // Create the referral record
+      const refType = payment.metadata?.referral_type || 'learner'
+      const linkType = refType === 'dcs' || refType === 'affiliate' ? 'dcs' : 'learner'
+
+      const { data: newReferral, error: createRefErr } = await supabase
+        .from('referrals')
+        .insert({
+          referrer_id: referrerId,
+          referred_id: payment.user_id,
+          referral_code: refCode,
+          link_type: linkType,
+          initial_purchase_type: payment.metadata?.has_digital_cashflow_addon ? 'learner_dcs' : 'learner',
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (createRefErr) {
+        console.error('❌ Failed to create referral record:', createRefErr)
+        return
+      }
+
+      referral = newReferral
+      console.log('✅ Created referral record:', referral.id)
+    }
 
     const { data: referrerProfile, error: referrerProfileError } = await supabase
       .from('profiles')
