@@ -1,954 +1,505 @@
 "use client"
-import React, { useState, useEffect, useMemo } from 'react'
-import { 
-  TrendingUp, 
-  Users, 
-  DollarSign, 
+import React, { useState, useEffect, useCallback } from 'react'
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  DollarSign,
   Award,
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
   RefreshCw,
   Globe,
-  Filter,
-  ChevronDown,
-  MoreHorizontal
+  BarChart3,
+  BookOpen,
+  UserCheck,
+  CreditCard,
+  Activity
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import { supabase } from '@/lib/supabase/client'
 
-// Constants
-const DCS_PRICE_USD = 8
-const MEMBERSHIP_PRICE_USD = 20
-
-type TimePeriod = 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
-type ComparisonPeriod = 'weekly' | 'monthly' | 'yearly'
-
-interface TimeSeriesData {
-  date: string
-  value: number
-  breakdown: {
-    members: number
-  }
-}
-
-interface CountryData {
-  country: string
-  countryCode: string
-  users: number
-  sales: number
-  members: number
-}
-
-interface AnalyticsState {
-  // Overview stats
+interface Overview {
   totalUsers: number
-  totalSales: number
-  totalMembers: number
-  
-  // Time series data
-  userTimeSeries: TimeSeriesData[]
-  salesTimeSeries: TimeSeriesData[]
-  
-  // Growth comparison
-  userGrowthComparison: {
-    current: { members: number }
-    previous: { members: number }
-  }
-  salesGrowthComparison: {
-    current: { members: number }
-    previous: { members: number }
-  }
-  
-  // Country data
-  countryData: CountryData[]
-  
-  // Hourly heatmap
-  hourlyData: { day: string; hours: number[] }[]
+  activeUsers: number
+  affiliates: number
+  affiliatesOnboarded: number
+  activeMemberships: number
+  totalCourses: number
+  publishedCourses: number
+  totalReferrals: number
+  successfulReferrals: number
+  totalRevenue: number
+  affiliateRevenue: number
+  directRevenue: number
+  totalPayments: number
+  totalCommissions: number
+  pendingCommissions: number
+  thisMonthUsers: number
+  lastMonthUsers: number
+  userGrowthPct: number
+  thisMonthRevenue: number
+  lastMonthRevenue: number
+  revenueGrowthPct: number
 }
+
+interface UserGrowthPoint { month: string; total: number; affiliates: number; learners: number }
+interface RevenueTrendPoint { month: string; total: number; affiliate: number; direct: number }
+interface PaymentTrendPoint { month: string; count: number; amount: number }
+interface CountryPoint { country: string; users: number; affiliates: number; revenue: number }
+interface HeatmapRow { day: string; hours: number[] }
 
 const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true)
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('daily')
-  const [comparisonPeriod, setComparisonPeriod] = useState<ComparisonPeriod>('weekly')
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sales' | 'country'>('overview')
-  
-  const [data, setData] = useState<AnalyticsState>({
-    totalUsers: 0,
-    totalSales: 0,
-    totalMembers: 0,
-    userTimeSeries: [],
-    salesTimeSeries: [],
-    userGrowthComparison: {
-      current: { members: 0 },
-      previous: { members: 0 }
-    },
-    salesGrowthComparison: {
-      current: { members: 0 },
-      previous: { members: 0 }
-    },
-    countryData: [],
-    hourlyData: []
-  })
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [userGrowth, setUserGrowth] = useState<UserGrowthPoint[]>([])
+  const [revenueTrend, setRevenueTrend] = useState<RevenueTrendPoint[]>([])
+  const [paymentTrend, setPaymentTrend] = useState<PaymentTrendPoint[]>([])
+  const [countryData, setCountryData] = useState<CountryPoint[]>([])
+  const [heatmap, setHeatmap] = useState<HeatmapRow[]>([])
+  const [activeChart, setActiveChart] = useState<'users' | 'revenue' | 'payments'>('revenue')
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [timePeriod, comparisonPeriod])
-
-  const getDateRangeForPeriod = (period: TimePeriod) => {
-    const now = new Date()
-    const ranges: { [key in TimePeriod]: { start: Date; points: number; format: (d: Date) => string } } = {
-      hourly: {
-        start: new Date(now.getTime() - 24 * 60 * 60 * 1000),
-        points: 24,
-        format: (d) => `${d.getHours()}:00`
-      },
-      daily: {
-        start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-        points: 7,
-        format: (d) => d.toLocaleDateString('en-US', { weekday: 'short' })
-      },
-      weekly: {
-        start: new Date(now.getTime() - 8 * 7 * 24 * 60 * 60 * 1000),
-        points: 8,
-        format: (d) => `Week ${Math.ceil(d.getDate() / 7)}`
-      },
-      monthly: {
-        start: new Date(now.getFullYear(), now.getMonth() - 11, 1),
-        points: 12,
-        format: (d) => d.toLocaleDateString('en-US', { month: 'short' })
-      },
-      yearly: {
-        start: new Date(now.getFullYear() - 4, 0, 1),
-        points: 5,
-        format: (d) => d.getFullYear().toString()
-      }
-    }
-    return ranges[period]
-  }
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true)
-      
-      const now = new Date()
-      const periodConfig = getDateRangeForPeriod(timePeriod)
-      
-      // Fetch all required data in parallel
-      const [
-        profilesResult,
-        membershipsResult,
-        paymentsResult
-      ] = await Promise.all([
-        supabase.from('profiles').select('id, created_at, country'),
-        supabase.from('user_memberships').select('user_id, created_at, is_active'),
-        supabase.from('payments').select('*').eq('status', 'completed')
-      ])
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) return
 
-      const profiles = profilesResult.data || []
-      const memberships = membershipsResult.data || []
-      const payments = paymentsResult.data || []
-
-      // Create a map of user_id to membership info
-      const membershipMap = new Map<string, { createdAt: string }>()
-      memberships.forEach((m: any) => {
-        if (m.is_active) {
-          membershipMap.set(m.user_id, {
-            createdAt: m.created_at
-          })
-        }
+      const response = await fetch('/api/admin/analytics', {
+        headers: { 'Authorization': `Bearer ${sessionData.session.access_token}` }
       })
+      if (!response.ok) throw new Error('Failed to fetch analytics')
 
-      // Calculate totals
-      const totalMemberships = memberships.filter((m: any) => m.is_active).length
-
-      // Calculate sales
-      const membershipSales = totalMemberships * MEMBERSHIP_PRICE_USD
-      const totalSales = membershipSales + payments.reduce((sum: number, p: any) => {
-        // Use base_currency_amount if available (USD), otherwise fallback to base_amount or conversion
-        const usdAmount = p.base_currency_amount || p.base_amount || (p.currency === 'USD' ? p.amount : p.amount / 10)
-        return sum + usdAmount
-      }, 0)
-
-      // Generate time series data
-      const userTimeSeries: TimeSeriesData[] = []
-      const salesTimeSeries: TimeSeriesData[] = []
-      
-      for (let i = 0; i < periodConfig.points; i++) {
-        let pointDate: Date
-        if (timePeriod === 'hourly') {
-          pointDate = new Date(now.getTime() - (periodConfig.points - 1 - i) * 60 * 60 * 1000)
-        } else if (timePeriod === 'daily') {
-          pointDate = new Date(now.getTime() - (periodConfig.points - 1 - i) * 24 * 60 * 60 * 1000)
-        } else if (timePeriod === 'weekly') {
-          pointDate = new Date(now.getTime() - (periodConfig.points - 1 - i) * 7 * 24 * 60 * 60 * 1000)
-        } else if (timePeriod === 'monthly') {
-          pointDate = new Date(now.getFullYear(), now.getMonth() - (periodConfig.points - 1 - i), 1)
-        } else {
-          pointDate = new Date(now.getFullYear() - (periodConfig.points - 1 - i), 0, 1)
-        }
-
-        // Count users and sales for this period
-        const periodUsers = memberships.filter((m: any) => {
-          const mDate = new Date(m.created_at)
-          return isInPeriod(mDate, pointDate, timePeriod) && m.is_active
-        })
-        
-        const membersInPeriod = periodUsers.length
-
-        userTimeSeries.push({
-          date: pointDate.toISOString().split('T')[0],
-          value: membersInPeriod,
-          breakdown: {
-            members: membersInPeriod
-          }
-        })
-
-        salesTimeSeries.push({
-          date: pointDate.toISOString().split('T')[0],
-          value: membersInPeriod * MEMBERSHIP_PRICE_USD,
-          breakdown: {
-            members: membersInPeriod * MEMBERSHIP_PRICE_USD
-          }
-        })
-      }
-
-      // Calculate growth comparison
-      const compPeriodDays = comparisonPeriod === 'weekly' ? 7 : comparisonPeriod === 'monthly' ? 30 : 365
-      const currentPeriodStart = new Date(now.getTime() - compPeriodDays * 24 * 60 * 60 * 1000)
-      const previousPeriodStart = new Date(now.getTime() - 2 * compPeriodDays * 24 * 60 * 60 * 1000)
-
-      const currentPeriodMemberships = memberships.filter((m: any) => {
-        const mDate = new Date(m.created_at)
-        return mDate >= currentPeriodStart && m.is_active
-      })
-      const previousPeriodMemberships = memberships.filter((m: any) => {
-        const mDate = new Date(m.created_at)
-        return mDate >= previousPeriodStart && mDate < currentPeriodStart && m.is_active
-      })
-
-      const userGrowthComparison = {
-        current: {
-          members: currentPeriodMemberships.length
-        },
-        previous: {
-          members: previousPeriodMemberships.length
-        }
-      }
-
-      const salesGrowthComparison = {
-        current: {
-          members: userGrowthComparison.current.members * MEMBERSHIP_PRICE_USD
-        },
-        previous: {
-          members: userGrowthComparison.previous.members * MEMBERSHIP_PRICE_USD
-        }
-      }
-
-      // Country data
-      const countryMap = new Map<string, CountryData>()
-      profiles.forEach((p: any) => {
-        const country = p.country || 'Unknown'
-        const membership = membershipMap.get(p.id)
-        
-        if (!countryMap.has(country)) {
-          countryMap.set(country, {
-            country,
-            countryCode: getCountryCode(country),
-            users: 0,
-            sales: 0,
-            members: 0
-          })
-        }
-        
-        const countryStats = countryMap.get(country)!
-        countryStats.users++
-        
-        if (membership) {
-          countryStats.members++
-          countryStats.sales += MEMBERSHIP_PRICE_USD
-        }
-      })
-
-      const countryData = Array.from(countryMap.values())
-        .sort((a, b) => b.users - a.users)
-        .slice(0, 10)
-
-      // Hourly heatmap data
-      const hourlyData = generateHourlyHeatmap(memberships)
-
-      setData({
-        totalUsers: profiles.length,
-        totalSales,
-        totalMembers: totalMemberships,
-        userTimeSeries,
-        salesTimeSeries,
-        userGrowthComparison,
-        salesGrowthComparison,
-        countryData,
-        hourlyData
-      })
-
+      const data = await response.json()
+      setOverview(data.overview)
+      setUserGrowth(data.userGrowth || [])
+      setRevenueTrend(data.revenueTrend || [])
+      setPaymentTrend(data.paymentTrend || [])
+      setCountryData(data.countryData || [])
+      setHeatmap(data.heatmap || [])
     } catch (error) {
       console.error('Error fetching analytics:', error)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    fetchAnalytics()
+  }, [fetchAnalytics])
+
+  const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const fmtShort = (n: number) => {
+    if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`
+    if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`
+    return `$${n.toFixed(0)}`
   }
 
-  const isInPeriod = (date: Date, periodStart: Date, period: TimePeriod): boolean => {
-    if (period === 'hourly') {
-      return date.getHours() === periodStart.getHours() && 
-             date.toDateString() === periodStart.toDateString()
-    } else if (period === 'daily') {
-      return date.toDateString() === periodStart.toDateString()
-    } else if (period === 'weekly') {
-      const weekStart = new Date(periodStart)
-      const weekEnd = new Date(periodStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-      return date >= weekStart && date < weekEnd
-    } else if (period === 'monthly') {
-      return date.getMonth() === periodStart.getMonth() && 
-             date.getFullYear() === periodStart.getFullYear()
-    } else {
-      return date.getFullYear() === periodStart.getFullYear()
+  const getCountryFlag = (country: string): string => {
+    const codes: Record<string, string> = {
+      'Ghana': 'GH', 'Nigeria': 'NG', 'United States': 'US', 'USA': 'US',
+      'Kenya': 'KE', 'South Africa': 'ZA', 'United Kingdom': 'GB', 'UK': 'GB',
+      'Cameroon': 'CM', 'Senegal': 'SN', 'Tanzania': 'TZ', 'Uganda': 'UG',
     }
+    const code = codes[country]
+    if (!code) return '🌍'
+    const codePoints = code.toUpperCase().split('').map(c => 127397 + c.charCodeAt(0))
+    return String.fromCodePoint(...codePoints)
   }
 
-  const getCountryCode = (country: string): string => {
-    const codes: { [key: string]: string } = {
-      'Ghana': 'GH',
-      'Nigeria': 'NG',
-      'United States': 'US',
-      'USA': 'US',
-      'Kenya': 'KE',
-      'South Africa': 'ZA',
-      'United Kingdom': 'GB',
-      'UK': 'GB',
-      'Unknown': '??'
-    }
-    return codes[country] || '??'
-  }
-
-  const generateHourlyHeatmap = (memberships: any[]): { day: string; hours: number[] }[] => {
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-    const heatmap = days.map(day => ({
-      day,
-      hours: Array(24).fill(0)
-    }))
-
-    memberships.forEach((m: any) => {
-      const date = new Date(m.created_at)
-      const dayIndex = (date.getDay() + 6) % 7 // Monday = 0
-      const hour = date.getHours()
-      if (heatmap[dayIndex]) {
-        heatmap[dayIndex].hours[hour]++
-      }
-    })
-
-    return heatmap
-  }
-
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-  }
-
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-    return num.toString()
-  }
-
-  const getGrowthPercent = (current: number, previous: number): number => {
-    if (previous === 0) return current > 0 ? 100 : 0
-    return ((current - previous) / previous) * 100
-  }
-
-  // Chart Components
-  const AreaChart = ({ data, height = 200, showLegend = true }: { 
-    data: TimeSeriesData[], 
-    height?: number,
-    showLegend?: boolean 
-  }) => {
-    if (data.length === 0) return <div className="text-center text-gray-400 py-8">No data available</div>
-    
-    const maxValue = Math.max(...data.map(d => d.value), 1)
-    const padding = 40
-    const chartWidth = 100
-    const chartHeight = 100
-
-    const getY = (value: number) => chartHeight - (value / maxValue) * (chartHeight - padding)
-    const getX = (index: number) => (index / (data.length - 1 || 1)) * chartWidth
-
-    // Create path for single area
-    const memberPath = data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.value)}`).join(' ')
-    const memberArea = `${memberPath} L ${chartWidth} ${chartHeight} L 0 ${chartHeight} Z`
-
+  if (loading) {
     return (
-      <div>
-        <div className="relative" style={{ height }}>
-          <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" className="w-full h-full">
-            <defs>
-              <linearGradient id="learnerGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f97316" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#f97316" stopOpacity="0.05" />
-              </linearGradient>
-              <linearGradient id="dcsGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.05" />
-              </linearGradient>
-              <pattern id="stripes" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
-                <line x1="0" y1="0" x2="0" y2="4" stroke="#f97316" strokeWidth="2" strokeOpacity="0.3" />
-              </pattern>
-            </defs>
-            
-            {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map(y => (
-              <line key={y} x1="0" y1={y} x2={chartWidth} y2={y} stroke="#e5e7eb" strokeWidth="0.5" />
-            ))}
-            
-            {/* DCS Area (behind) */}
-            <path d={dcsArea} fill="url(#dcsGradient)" />
-            <path d={dcsPath} fill="none" stroke="#8b5cf6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-            
-            {/* Learner Area (front with stripes) */}
-            <path d={learnerArea} fill="url(#stripes)" />
-            <path d={learnerPath} fill="none" stroke="#f97316" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-            
-            {/* Data points */}
-            {data.map((d, i) => (
-              <g key={i}>
-                <circle cx={getX(i)} cy={getY(d.total)} r="3" fill="#8b5cf6" />
-                <circle cx={getX(i)} cy={getY(d.learnerOnly)} r="3" fill="#f97316" />
-              </g>
-            ))}
-          </svg>
-          
-          {/* X-axis labels */}
-          <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500 px-2">
-            {data.filter((_, i) => i % Math.ceil(data.length / 6) === 0 || i === data.length - 1).map((d, i) => (
-              <span key={i}>{d.label}</span>
-            ))}
-          </div>
-        </div>
-        
-        {showLegend && (
-          <div className="flex items-center justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-3 bg-orange-500 rounded opacity-60" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px)' }} />
-              <span className="text-sm text-gray-600">Learner Only</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-3 bg-purple-500 rounded opacity-60" />
-              <span className="text-sm text-gray-600">DCS Addon</span>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const DonutChart = ({ value, total, label, color }: { value: number, total: number, label: string, color: string }) => {
-    const percentage = total > 0 ? (value / total) * 100 : 0
-    const circumference = 2 * Math.PI * 40
-    const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`
-    
-    return (
-      <div className="flex flex-col items-center">
-        <div className="relative w-32 h-32">
-          <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" strokeWidth="12" />
-            <circle 
-              cx="50" cy="50" r="40" 
-              fill="none" 
-              stroke={color} 
-              strokeWidth="12"
-              strokeDasharray={strokeDasharray}
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold">{percentage.toFixed(1)}%</span>
-            <span className="text-xs text-gray-500">{label}</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const HourlyHeatmap = ({ data }: { data: { day: string; hours: number[] }[] }) => {
-    const maxValue = Math.max(...data.flatMap(d => d.hours), 1)
-    
-    return (
-      <div className="overflow-x-auto">
-        <div className="min-w-[600px]">
-          {data.map((row, dayIndex) => (
-            <div key={dayIndex} className="flex items-center gap-1 mb-1">
-              <span className="w-10 text-xs text-gray-500">{row.day}</span>
-              <div className="flex gap-0.5 flex-1">
-                {row.hours.map((value, hourIndex) => {
-                  const intensity = value / maxValue
-                  const bgColor = value === 0 
-                    ? 'bg-gray-100' 
-                    : intensity > 0.7 
-                      ? 'bg-orange-500' 
-                      : intensity > 0.4 
-                        ? 'bg-orange-400' 
-                        : intensity > 0.2 
-                          ? 'bg-orange-300' 
-                          : 'bg-orange-200'
-                  return (
-                    <div 
-                      key={hourIndex}
-                      className={`w-full h-6 rounded-sm ${bgColor} cursor-pointer transition-transform hover:scale-110`}
-                      title={`${row.day} ${hourIndex}:00 - ${value} signups`}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center gap-1 mt-2">
-            <span className="w-10"></span>
-            <div className="flex justify-between flex-1 text-xs text-gray-400">
-              {[0, 6, 12, 18, 23].map(h => (
-                <span key={h}>{h}:00</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const ComparisonBar = ({ 
-    label, 
-    current, 
-    previous, 
-    color 
-  }: { 
-    label: string
-    current: number
-    previous: number
-    color: string 
-  }) => {
-    const growth = getGrowthPercent(current, previous)
-    const maxVal = Math.max(current, previous, 1)
-    
-    return (
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium text-gray-700">{label}</span>
-          <div className={`flex items-center text-sm ${growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {growth >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-            <span>{Math.abs(growth).toFixed(1)}%</span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 w-16">Current</span>
-            <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full ${color}`}
-                style={{ width: `${(current / maxVal) * 100}%` }}
-              />
-            </div>
-            <span className="text-sm font-medium w-16 text-right">{formatNumber(current)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 w-16">Previous</span>
-            <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full rounded-full bg-gray-300"
-                style={{ width: `${(previous / maxVal) * 100}%` }}
-              />
-            </div>
-            <span className="text-sm font-medium w-16 text-right">{formatNumber(previous)}</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const totalUserGrowth = getGrowthPercent(
-    data.userGrowthComparison.current.learnerOnly + data.userGrowthComparison.current.dcsAddon,
-    data.userGrowthComparison.previous.learnerOnly + data.userGrowthComparison.previous.dcsAddon
-  )
-  
-  const totalSalesGrowth = getGrowthPercent(
-    data.salesGrowthComparison.current.learnerOnly + data.salesGrowthComparison.current.dcsAddon,
-    data.salesGrowthComparison.previous.learnerOnly + data.salesGrowthComparison.previous.dcsAddon
-  )
-
-  return (
-    <AdminDashboardLayout 
-      title="Analytics"
-      headerAction={
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filters
-          </Button>
-          <Button variant="outline" onClick={fetchAnalytics} disabled={loading}>
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      }
-    >
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
+      <AdminDashboardLayout title="Analytics">
+        <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
           <span className="ml-3 text-gray-600">Loading analytics...</span>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Top Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Total Overview Card */}
-            <Card className="md:col-span-1">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-600">Product overview</span>
-                  <select 
-                    value={timePeriod}
-                    onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
-                    className="text-sm border rounded px-2 py-1"
-                  >
-                    <option value="hourly">Hourly</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
+      </AdminDashboardLayout>
+    )
+  }
+
+  const o = overview!
+
+  // Chart data helpers
+  const getChartData = () => {
+    if (activeChart === 'users') return userGrowth.map(d => ({ label: d.month, values: [d.learners, d.affiliates] }))
+    if (activeChart === 'revenue') return revenueTrend.map(d => ({ label: d.month, values: [d.direct, d.affiliate] }))
+    return paymentTrend.map(d => ({ label: d.month, values: [d.amount] }))
+  }
+  const chartData = getChartData()
+  const chartMax = Math.max(...chartData.map(d => d.values.reduce((a, b) => a + b, 0)), 1)
+
+  const chartColors = activeChart === 'payments'
+    ? [['bg-emerald-500']]
+    : activeChart === 'users'
+      ? [['bg-blue-500'], ['bg-orange-500']]
+      : [['bg-blue-500'], ['bg-orange-500']]
+
+  const chartLegend = activeChart === 'users'
+    ? [{ label: 'Learners', color: 'bg-blue-500' }, { label: 'Affiliates', color: 'bg-orange-500' }]
+    : activeChart === 'revenue'
+      ? [{ label: 'Direct', color: 'bg-blue-500' }, { label: 'Affiliate', color: 'bg-orange-500' }]
+      : [{ label: 'Revenue', color: 'bg-emerald-500' }]
+
+  // Heatmap
+  const heatmapMax = Math.max(...heatmap.flatMap(r => r.hours), 1)
+
+  return (
+    <AdminDashboardLayout
+      title="Analytics"
+      headerAction={
+        <Button variant="outline" onClick={fetchAnalytics} disabled={loading} size="sm">
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      }
+    >
+      <div className="space-y-6">
+        {/* KPI Cards Row 1 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-emerald-100">Total Revenue</p>
+                  <p className="text-2xl font-bold mt-1">{fmt(o.totalRevenue)}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {o.revenueGrowthPct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    <span className="text-xs">{o.revenueGrowthPct >= 0 ? '+' : ''}{o.revenueGrowthPct}% vs last month</span>
+                  </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.totalSales)}</p>
-                <p className="text-sm text-gray-500">Total sales</p>
-                
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-sm text-gray-600 mb-2">Select by product</p>
-                  <div className="flex gap-2">
-                    <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm">
-                      Learner Only
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-white">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Total Users</p>
+                  <p className="text-2xl font-bold text-gray-900">{o.totalUsers.toLocaleString()}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    {o.userGrowthPct >= 0
+                      ? <ArrowUpRight className="w-3 h-3 text-green-600" />
+                      : <ArrowDownRight className="w-3 h-3 text-red-600" />}
+                    <span className={`text-xs ${o.userGrowthPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {o.userGrowthPct >= 0 ? '+' : ''}{o.userGrowthPct}%
                     </span>
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
-                      DCS Addon
-                    </span>
+                    <span className="text-xs text-gray-400">this month</span>
                   </div>
                 </div>
-                
-                <div className="mt-4 flex justify-between text-sm">
-                  <span className="text-gray-500">New sales:</span>
-                  <span className="font-medium">{data.userGrowthComparison.current.learnerOnly + data.userGrowthComparison.current.dcsAddon}</span>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-blue-600" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Active Sales Card */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Active Memberships</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.learnerOnlySales + data.dcsSales)}</p>
-                    <div className={`flex items-center text-sm mt-1 ${totalSalesGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      vs last {comparisonPeriod}
-                      {totalSalesGrowth >= 0 ? <ArrowUpRight className="w-4 h-4 ml-1" /> : <ArrowDownRight className="w-4 h-4 ml-1" />}
-                      {Math.abs(totalSalesGrowth).toFixed(1)}%
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {[40, 60, 45, 70, 55].map((h, i) => (
-                      <div key={i} className="w-3 bg-orange-400 rounded-t" style={{ height: `${h}px` }} />
-                    ))}
-                  </div>
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-white">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Affiliates</p>
+                  <p className="text-2xl font-bold text-orange-600">{o.affiliates}</p>
+                  <p className="text-xs text-gray-400 mt-1">{o.affiliatesOnboarded} onboarded</p>
                 </div>
-                <button className="mt-4 text-sm text-gray-600 flex items-center gap-1 hover:text-orange-600">
-                  See Details <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </CardContent>
-            </Card>
-
-            {/* DCS Revenue Card */}
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">DCS Revenue</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatCurrency(data.dcsSales)}</p>
-                    <div className={`flex items-center text-sm mt-1 ${getGrowthPercent(data.salesGrowthComparison.current.dcsAddon, data.salesGrowthComparison.previous.dcsAddon) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      vs last {comparisonPeriod}
-                      <ArrowUpRight className="w-4 h-4 ml-1" />
-                      {Math.abs(getGrowthPercent(data.salesGrowthComparison.current.dcsAddon, data.salesGrowthComparison.previous.dcsAddon)).toFixed(1)}%
-                    </div>
-                  </div>
-                  <DonutChart 
-                    value={data.dcsSales} 
-                    total={data.totalSales} 
-                    label="of total"
-                    color="#8b5cf6"
-                  />
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <UserCheck className="w-6 h-6 text-orange-600" />
                 </div>
-                <button className="mt-4 text-sm text-gray-600 flex items-center gap-1 hover:text-orange-600">
-                  See Details <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Main Analytics Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Analytics</CardTitle>
-                <div className="flex items-center gap-2">
-                  <select 
-                    value={timePeriod}
-                    onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
-                    className="text-sm border rounded px-3 py-1.5"
-                  >
-                    <option value="hourly">Hourly</option>
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                  </select>
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Filter className="w-4 h-4" />
-                    Filters
-                  </Button>
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-white">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Active Memberships</p>
+                  <p className="text-2xl font-bold text-purple-600">{o.activeMemberships}</p>
+                  <p className="text-xs text-gray-400 mt-1">{o.totalPayments} total payments</p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-6 mb-4">
-                  <div>
-                    <span className="text-2xl font-bold">{formatCurrency(data.totalSales)}</span>
-                    <span className="text-sm text-gray-500 ml-2">sales</span>
-                    <span className={`text-sm ml-2 ${totalSalesGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {totalSalesGrowth >= 0 ? '+' : ''}{totalSalesGrowth.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    <span className="font-medium text-gray-900">
-                      {((data.dcsUsers / (data.totalUsers || 1)) * 100).toFixed(2)}%
-                    </span>
-                    {' '}Conv.rate
-                    <span className="text-green-600 ml-1">↑13%</span>
-                  </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Award className="w-6 h-6 text-purple-600" />
                 </div>
-                <AreaChart data={data.salesTimeSeries} height={250} />
-              </CardContent>
-            </Card>
-
-            {/* Sales Performance */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Sales Performance</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center">
-                  <DonutChart 
-                    value={data.userGrowthComparison.current.learnerOnly + data.userGrowthComparison.current.dcsAddon}
-                    total={data.userGrowthComparison.previous.learnerOnly + data.userGrowthComparison.previous.dcsAddon + data.userGrowthComparison.current.learnerOnly + data.userGrowthComparison.current.dcsAddon}
-                    label="Since last period"
-                    color="#f97316"
-                  />
-                  
-                  <div className="w-full mt-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-orange-500 rounded" />
-                        <span className="text-sm text-gray-600">Total Sales per day</span>
-                      </div>
-                      <span className="text-sm text-gray-500">For week</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-orange-200 rounded" />
-                        <span className="text-sm text-gray-600">Average Sales</span>
-                      </div>
-                      <span className="text-sm text-gray-500">For today</span>
-                    </div>
-                  </div>
-                  
-                  <button className="mt-6 text-sm text-gray-600 flex items-center gap-1 hover:text-orange-600">
-                    See Details <ArrowUpRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Hourly Heatmap & Growth Comparison */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Hourly Heatmap */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-gray-400" />
-                  <CardTitle className="text-lg font-semibold">Total visits by hourly</CardTitle>
-                </div>
-                <Button variant="ghost" size="sm">
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <span className="text-3xl font-bold">{formatNumber(data.totalUsers)}</span>
-                  <span className={`text-sm ml-2 ${totalUserGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {totalUserGrowth >= 0 ? '+' : ''}{totalUserGrowth.toFixed(1)}%
-                  </span>
-                </div>
-                <HourlyHeatmap data={data.hourlyData} />
-              </CardContent>
-            </Card>
-
-            {/* User Growth Comparison */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold">User Growth Comparison</CardTitle>
-                <select 
-                  value={comparisonPeriod}
-                  onChange={(e) => setComparisonPeriod(e.target.value as ComparisonPeriod)}
-                  className="text-sm border rounded px-3 py-1.5"
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ComparisonBar 
-                  label="Learner Only"
-                  current={data.userGrowthComparison.current.learnerOnly}
-                  previous={data.userGrowthComparison.previous.learnerOnly}
-                  color="bg-orange-500"
-                />
-                <ComparisonBar 
-                  label="DCS Addon"
-                  current={data.userGrowthComparison.current.dcsAddon}
-                  previous={data.userGrowthComparison.previous.dcsAddon}
-                  color="bg-purple-500"
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sales Growth & Country Comparison */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Sales Growth Comparison */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold">Sales Growth Comparison</CardTitle>
-                <select 
-                  value={comparisonPeriod}
-                  onChange={(e) => setComparisonPeriod(e.target.value as ComparisonPeriod)}
-                  className="text-sm border rounded px-3 py-1.5"
-                >
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                </select>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ComparisonBar 
-                  label="Learner Only"
-                  current={data.salesGrowthComparison.current.learnerOnly}
-                  previous={data.salesGrowthComparison.previous.learnerOnly}
-                  color="bg-orange-500"
-                />
-                <ComparisonBar 
-                  label="DCS Addon"
-                  current={data.salesGrowthComparison.current.dcsAddon}
-                  previous={data.salesGrowthComparison.previous.dcsAddon}
-                  color="bg-purple-500"
-                />
-              </CardContent>
-            </Card>
-
-            {/* Country Breakdown */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-gray-400" />
-                  Users & Sales by Country
-                </CardTitle>
-                <button className="text-sm text-orange-600 flex items-center gap-1">
-                  See Details <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-sm text-gray-500 border-b">
-                        <th className="pb-2 font-medium">Country</th>
-                        <th className="pb-2 font-medium text-right">Users</th>
-                        <th className="pb-2 font-medium text-right">Sales</th>
-                        <th className="pb-2 font-medium text-right">Learner</th>
-                        <th className="pb-2 font-medium text-right">DCS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.countryData.slice(0, 5).map((country, index) => (
-                        <tr key={index} className="border-b last:border-0">
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{getCountryFlag(country.countryCode)}</span>
-                              <span className="font-medium">{country.country}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 text-right">{country.users}</td>
-                          <td className="py-3 text-right font-medium">{formatCurrency(country.sales)}</td>
-                          <td className="py-3 text-right text-orange-600">{country.learnerOnly}</td>
-                          <td className="py-3 text-right text-purple-600">{country.dcsAddon}<path
-              d={memberArea}
-              fill="url(#learnerGradient)"
-              className="transition-all duration-300"
-            /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* User Time Series */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg font-semibold">User Signups Over Time</CardTitle>
-              <select 
-                value={timePeriod}
-                onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
-                className="text-sm border rounded px-3 py-1.5"
-              >
-                <option value="hourly">Hourly</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-            </CardHeader>
-            <CardContent>
-              <AreaChart data={data.userTimeSeries} height={200} />
+              </div>
             </CardContent>
           </Card>
         </div>
-      )}
+
+        {/* KPI Cards Row 2 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Affiliate Revenue</p>
+                  <p className="text-xl font-bold text-gray-900">{fmt(o.affiliateRevenue)}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {o.totalRevenue > 0 ? ((o.affiliateRevenue / o.totalRevenue) * 100).toFixed(1) : '0'}% of total
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Direct Revenue</p>
+                  <p className="text-xl font-bold text-gray-900">{fmt(o.directRevenue)}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {o.totalRevenue > 0 ? ((o.directRevenue / o.totalRevenue) * 100).toFixed(1) : '0'}% of total
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Commissions</p>
+                  <p className="text-xl font-bold text-gray-900">{fmt(o.totalCommissions)}</p>
+                  <p className="text-xs text-gray-400 mt-1">{fmt(o.pendingCommissions)} pending</p>
+                </div>
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Courses</p>
+                  <p className="text-xl font-bold text-gray-900">{o.totalCourses}</p>
+                  <p className="text-xs text-gray-400 mt-1">{o.publishedCourses} published</p>
+                </div>
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-indigo-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Chart */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-gray-500" />
+                {activeChart === 'users' ? 'User Growth' : activeChart === 'revenue' ? 'Revenue Trend' : 'Payment Volume'}
+                <span className="text-sm font-normal text-gray-400">(Last 12 Months)</span>
+              </CardTitle>
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                {(['revenue', 'users', 'payments'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveChart(tab)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
+                      activeChart === tab ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Bar Chart */}
+            <div className="h-64 flex items-end gap-1.5 pt-4">
+              {chartData.map((point, i) => {
+                const total = point.values.reduce((a, b) => a + b, 0)
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
+                      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                        <p className="font-medium">{point.label}</p>
+                        {point.values.map((v, vi) => (
+                          <p key={vi} className="text-gray-300">
+                            {chartLegend[vi]?.label}: {activeChart === 'users' ? v : fmtShort(v)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="w-full flex flex-col-reverse rounded-t-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ height: `${Math.max((total / chartMax) * 100, 2)}%` }}>
+                      {point.values.map((v, vi) => (
+                        <div
+                          key={vi}
+                          className={`w-full ${chartColors[vi]?.[0] || 'bg-gray-400'}`}
+                          style={{ height: total > 0 ? `${(v / total) * 100}%` : '0%' }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-gray-400 truncate w-full text-center">{point.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-6 mt-4 pt-3 border-t">
+              {chartLegend.map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${item.color}`} />
+                  <span className="text-sm text-gray-600">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bottom Row: Heatmap + Country */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Signup Heatmap */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Activity className="w-5 h-5 text-gray-500" />
+                Signup Activity Heatmap
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <div className="min-w-[500px]">
+                  {heatmap.map((row, di) => (
+                    <div key={di} className="flex items-center gap-1 mb-1">
+                      <span className="w-10 text-xs text-gray-500 font-medium">{row.day}</span>
+                      <div className="flex gap-0.5 flex-1">
+                        {row.hours.map((val, hi) => {
+                          const intensity = val / heatmapMax
+                          const bg = val === 0 ? 'bg-gray-100'
+                            : intensity > 0.7 ? 'bg-orange-500'
+                            : intensity > 0.4 ? 'bg-orange-400'
+                            : intensity > 0.2 ? 'bg-orange-300'
+                            : 'bg-orange-200'
+                          return (
+                            <div
+                              key={hi}
+                              className={`w-full h-5 rounded-sm ${bg} cursor-pointer transition-transform hover:scale-110`}
+                              title={`${row.day} ${hi}:00 — ${val} signups`}
+                            />
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1 mt-2">
+                    <span className="w-10" />
+                    <div className="flex justify-between flex-1 text-[10px] text-gray-400">
+                      {[0, 6, 12, 18, 23].map(h => <span key={h}>{h}:00</span>)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-xs text-gray-400">Less</span>
+                    {['bg-gray-100', 'bg-orange-200', 'bg-orange-300', 'bg-orange-400', 'bg-orange-500'].map((c, i) => (
+                      <div key={i} className={`w-4 h-4 rounded-sm ${c}`} />
+                    ))}
+                    <span className="text-xs text-gray-400">More</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Country Breakdown */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Globe className="w-5 h-5 text-gray-500" />
+                Users by Country
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {countryData.length === 0 ? (
+                <p className="text-center text-gray-400 py-8">No country data available</p>
+              ) : (
+                <div className="space-y-3">
+                  {countryData.map((c, i) => {
+                    const pct = o.totalUsers > 0 ? (c.users / o.totalUsers) * 100 : 0
+                    return (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-lg w-8">{getCountryFlag(c.country)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-gray-900 truncate">{c.country}</span>
+                            <span className="text-sm text-gray-500">{c.users} users</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div
+                              className="bg-[#ed874a] h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.max(pct, 1)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400 w-12 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Revenue Breakdown Bar */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">Revenue Source Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-full bg-gray-100 rounded-full h-8 overflow-hidden flex">
+                  {o.totalRevenue > 0 && (
+                    <>
+                      <div
+                        className="bg-orange-500 h-full flex items-center justify-center text-white text-xs font-medium transition-all duration-500"
+                        style={{ width: `${(o.affiliateRevenue / o.totalRevenue) * 100}%`, minWidth: o.affiliateRevenue > 0 ? '50px' : '0' }}
+                      >
+                        {(o.affiliateRevenue / o.totalRevenue) * 100 > 8 ? `${((o.affiliateRevenue / o.totalRevenue) * 100).toFixed(1)}%` : ''}
+                      </div>
+                      <div
+                        className="bg-blue-500 h-full flex items-center justify-center text-white text-xs font-medium transition-all duration-500"
+                        style={{ width: `${(o.directRevenue / o.totalRevenue) * 100}%`, minWidth: o.directRevenue > 0 ? '50px' : '0' }}
+                      >
+                        {(o.directRevenue / o.totalRevenue) * 100 > 8 ? `${((o.directRevenue / o.totalRevenue) * 100).toFixed(1)}%` : ''}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-orange-500" />
+                  <span className="text-gray-600">Affiliate — {fmt(o.affiliateRevenue)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <span className="text-gray-600">Direct — {fmt(o.directRevenue)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </AdminDashboardLayout>
   )
-}
-
-// Helper function to get country flag emoji
-const getCountryFlag = (countryCode: string): string => {
-  if (countryCode === '??' || !countryCode) return '🌍'
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0))
-  return String.fromCodePoint(...codePoints)
 }
 
 export default AnalyticsPage
