@@ -8,7 +8,8 @@ import {
   Copy,
   UserPlus,
   Clock,
-  Users
+  Users,
+  Trophy
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ import { getUserWithdrawals, Withdrawal } from '@/lib/withdrawals'
 import Link from 'next/link'
 import { useCurrency, CURRENCY_RATES } from '@/contexts/CurrencyContext'
 import { AffiliateDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+import { useLeaderboard } from '@/lib/hooks/useLeaderboard'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +34,7 @@ const AffiliateDashboard = () => {
   const { selectedCurrency, formatAmount, currencyLoading } = useCurrency()
 
   const urls = generateUrls()
+  const { leaderboard, currentUserRank, loading: leaderboardLoading } = useLeaderboard()
 
   const totalEarnings = getTotalEarnings()
   const currentBalanceValue = getAvailableEarnings()
@@ -243,6 +246,80 @@ const AffiliateDashboard = () => {
                 </Button>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Leaderboard Section */}
+      <div className="mb-8">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold flex items-center">
+                <Trophy className="w-5 h-5 mr-2 text-[#ed874a]" />
+                Leaderboard
+              </CardTitle>
+              <Link href="/dashboard/affiliate/leaderboard" className="text-sm text-[#ed874a] hover:underline font-medium">
+                View Full Leaderboard
+              </Link>
+            </div>
+            {currentUserRank && (
+              <p className="text-sm text-gray-500 mt-1">Your rank: <span className="font-semibold text-gray-900">#{currentUserRank}</span></p>
+            )}
+          </CardHeader>
+          <CardContent>
+            {leaderboardLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg animate-pulse">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                    </div>
+                    <div className="h-4 bg-gray-200 rounded w-16"></div>
+                  </div>
+                ))}
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                <Trophy className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p className="text-sm">No leaderboard data yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {leaderboard.slice(0, 10).map((entry) => (
+                  <div
+                    key={entry.user_id}
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      entry.isCurrentUser ? 'bg-orange-50 border border-[#ed874a]/30' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        entry.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                        entry.rank === 2 ? 'bg-gray-200 text-gray-700' :
+                        entry.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {entry.rank <= 3 ? entry.award : `#${entry.rank}`}
+                      </div>
+                      <div>
+                        <p className={`text-sm font-medium ${entry.isCurrentUser ? 'text-gray-900' : 'text-gray-700'}`}>
+                          {entry.name}{entry.isCurrentUser ? ' (You)' : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">{entry.level}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        ${entry.total_revenue >= 1000 ? `${(entry.total_revenue / 1000).toFixed(1)}K` : entry.total_revenue.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-gray-500">{entry.total_referrals} sales</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

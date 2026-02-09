@@ -8,7 +8,7 @@ interface LeaderboardEntry {
   user_id: string
   name: string
   level: string
-  total_earnings: number
+  total_revenue: number
   total_referrals: number
   award: string
   isCurrentUser?: boolean
@@ -52,12 +52,10 @@ export const useLeaderboard = (): LeaderboardData => {
         setLoading(true)
         setError(null)
 
-        // Fetch affiliate profiles ordered by earnings
+        // Fetch affiliate profiles with referral codes
         const { data: affiliateProfiles, error: profilesError } = await supabase
           .from('affiliate_profiles')
-          .select('id, total_earnings')
-          .order('total_earnings', { ascending: false })
-          .limit(50)
+          .select('id, referral_code')
 
         if (profilesError) {
           console.error('Failed to fetch affiliate profiles:', profilesError.message)
@@ -70,59 +68,90 @@ export const useLeaderboard = (): LeaderboardData => {
           return
         }
 
-        // Get all profile IDs
+        // Build referral_code -> user_id map
+        const codeToUserMap = new Map<string, string>()
+        affiliateProfiles.forEach((ap: any) => {
+          if (ap.referral_code) codeToUserMap.set(ap.referral_code, ap.id)
+        })
+
+        // Fetch completed payments and profiles in parallel
         const profileIds = affiliateProfiles.map((ap: any) => ap.id)
+        const [paymentsResult, profilesResult] = await Promise.all([
+          supabase
+            .from('payments')
+            .select('amount, metadata')
+            .eq('status', 'completed'),
+          supabase
+            .from('profiles')
+            .select('id, full_name, email, affiliate_onboarding_completed, available_roles, active_role, role')
+            .in('id', profileIds)
+        ])
 
-        // Fetch all profiles in one query
-        const { data: profiles, error: profilesFetchError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', profileIds)
-
-        if (profilesFetchError) {
-          console.error('Failed to fetch profiles:', profilesFetchError.message)
+        if (paymentsResult.error) {
+          console.error('Failed to fetch payments:', paymentsResult.error.message)
+        }
+        if (profilesResult.error) {
+          console.error('Failed to fetch profiles:', profilesResult.error.message)
         }
 
-        // Create a map of profile data for quick lookup
-        const profileMap = new Map<string, { full_name: string | null; email: string | null }>()
-        if (profiles) {
-          profiles.forEach((p: any) => {
-            profileMap.set(p.id, { full_name: p.full_name, email: p.email })
-          })
-        }
+        const payments = paymentsResult.data || []
+        const profiles = profilesResult.data || []
 
-        // Build leaderboard with names, filtering out entries without valid profiles
-        const leaderboardWithNames: LeaderboardEntry[] = []
-        let rank = 0
-        
-        for (const affiliate of affiliateProfiles) {
-          const profileData = profileMap.get((affiliate as any).id)
-          
-          // Skip affiliates without a matching profile (test/sample data)
-          if (!profileData || (!profileData.full_name && !profileData.email)) {
-            continue
+        // Create profile lookup map
+        const profileMap = new Map<string, any>()
+        profiles.forEach((p: any) => profileMap.set(p.id, p))
+
+        // Calculate total revenue per affiliate from payments
+        const revenueMap = new Map<string, number>()
+        const salesCountMap = new Map<string, number>()
+        payments.forEach((p: any) => {
+          const refCode = p.metadata?.referral_code
+          if (refCode && codeToUserMap.has(refCode)) {
+            const affiliateId = codeToUserMap.get(refCode)!
+            revenueMap.set(affiliateId, (revenueMap.get(affiliateId) || 0) + (parseFloat(p.amount) || 0))
+            salesCountMap.set(affiliateId, (salesCountMap.get(affiliateId) || 0) + 1)
           }
-          
-          rank++
-          const name = profileData.full_name || profileData.email?.split('@')[0] || 'Affiliate'
-          
-          leaderboardWithNames.push({
-            rank,
-            user_id: (affiliate as any).id,
-            name,
-            level: getAffiliateLevel(rank),
-            total_earnings: (affiliate as any).total_earnings || 0,
-            total_referrals: 0,
-            award: getAwardEmoji(rank),
-            isCurrentUser: user ? (affiliate as any).id === user.id : false
+        })
+
+        // Build leaderboard entries — only onboarded affiliates with valid profiles
+        const entries: LeaderboardEntry[] = []
+        for (const ap of affiliateProfiles) {
+          const profileData = profileMap.get((ap as any).id)
+          if (!profileData) continue
+          if (!profileData.affiliate_onboarding_completed) continue
+          if (!profileData.full_name && !profileData.email) continue
+
+          const isAffiliate =
+            profileData.role === 'affiliate' ||
+            profileData.active_role === 'affiliate' ||
+            profileData.available_roles?.includes('affiliate')
+          if (!isAffiliate) continue
+
+          entries.push({
+            rank: 0,
+            user_id: (ap as any).id,
+            name: profileData.full_name || profileData.email?.split('@')[0] || 'Affiliate',
+            level: '',
+            total_revenue: revenueMap.get((ap as any).id) || 0,
+            total_referrals: salesCountMap.get((ap as any).id) || 0,
+            award: '',
+            isCurrentUser: user ? (ap as any).id === user.id : false
           })
         }
 
-        setLeaderboard(leaderboardWithNames)
+        // Sort by total revenue descending and assign ranks
+        entries.sort((a, b) => b.total_revenue - a.total_revenue)
+        entries.forEach((entry, i) => {
+          entry.rank = i + 1
+          entry.level = getAffiliateLevel(entry.rank)
+          entry.award = getAwardEmoji(entry.rank)
+        })
+
+        setLeaderboard(entries)
 
         // Find current user's rank
         if (user) {
-          const userEntry = leaderboardWithNames.find(entry => entry.user_id === user.id)
+          const userEntry = entries.find(entry => entry.user_id === user.id)
           setCurrentUserRank(userEntry?.rank || null)
         }
 

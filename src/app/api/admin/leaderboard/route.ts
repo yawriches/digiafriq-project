@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     )
 
     if (affiliateUsers.length === 0) {
-      return NextResponse.json({ data: [], stats: { totalAffiliates: 0, totalEarnings: 0, totalReferrals: 0, activeAffiliates: 0 } })
+      return NextResponse.json({ data: [], stats: { totalAffiliates: 0, totalRevenue: 0, totalReferrals: 0, activeAffiliates: 0 } })
     }
 
     // Build maps for enrichment
@@ -135,10 +135,8 @@ export async function GET(request: NextRequest) {
       const salesCount = salesCountMap.get(user.id) || 0
       const salesAmount = salesAmountMap.get(user.id) || 0
 
-      // Use best available earnings: affiliate_profiles > commissions > payment sales
-      const totalEarnings = (ap?.total_earnings && parseFloat(ap.total_earnings) > 0)
-        ? parseFloat(ap.total_earnings)
-        : (commissionsEarnings > 0 ? commissionsEarnings : salesAmount)
+      // Total revenue = sum of all payment amounts from this affiliate's referrals
+      const totalRevenue = salesAmount
       const totalReferrals = ap?.lifetime_referrals || commissionsCount || salesCount
 
       return {
@@ -146,7 +144,7 @@ export async function GET(request: NextRequest) {
         name: user.full_name || user.email?.split('@')[0] || 'Unknown',
         email: user.email || '',
         level: ap?.affiliate_level || 'Starter',
-        total_earnings: totalEarnings,
+        total_revenue: totalRevenue,
         total_referrals: totalReferrals,
         active_referrals: ap?.active_referrals || 0,
         total_commissions: commissionsEarnings,
@@ -157,8 +155,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Sort by earnings descending, then assign ranks
-    unsorted.sort((a: any, b: any) => b.total_earnings - a.total_earnings)
+    // Sort by total revenue descending, then assign ranks
+    unsorted.sort((a: any, b: any) => b.total_revenue - a.total_revenue)
     const leaderboard = unsorted.map((entry: any, index: number) => ({
       ...entry,
       rank: index + 1,
@@ -168,7 +166,7 @@ export async function GET(request: NextRequest) {
     // Stats
     const stats = {
       totalAffiliates: leaderboard.length,
-      totalEarnings: leaderboard.reduce((sum: number, a: any) => sum + a.total_earnings, 0),
+      totalRevenue: leaderboard.reduce((sum: number, a: any) => sum + a.total_revenue, 0),
       totalReferrals: leaderboard.reduce((sum: number, a: any) => sum + a.total_referrals, 0),
       activeAffiliates: leaderboard.filter((a: any) => a.status === 'active').length
     }

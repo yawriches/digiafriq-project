@@ -31,7 +31,7 @@ interface LeaderboardEntry {
   name: string
   email: string
   level: string
-  total_earnings: number
+  total_revenue: number
   total_referrals: number
   active_referrals: number
   total_commissions: number
@@ -43,20 +43,20 @@ interface LeaderboardEntry {
 
 interface LeaderboardStats {
   totalAffiliates: number
-  totalEarnings: number
+  totalRevenue: number
   totalReferrals: number
   activeAffiliates: number
 }
 
 export default function LeaderboardManagementPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
-  const [stats, setStats] = useState<LeaderboardStats>({ totalAffiliates: 0, totalEarnings: 0, totalReferrals: 0, activeAffiliates: 0 })
+  const [stats, setStats] = useState<LeaderboardStats>({ totalAffiliates: 0, totalRevenue: 0, totalReferrals: 0, activeAffiliates: 0 })
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ total_earnings?: number; status?: string }>({})
+  const [editForm, setEditForm] = useState<{ total_revenue?: number; status?: string }>({})
   const [saving, setSaving] = useState(false)
-  const [sortField, setSortField] = useState<'total_earnings' | 'total_referrals' | 'rank'>('rank')
+  const [sortField, setSortField] = useState<'total_revenue' | 'total_referrals' | 'rank'>('rank')
   const [sortAsc, setSortAsc] = useState(true)
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export default function LeaderboardManagementPage() {
   const handleEdit = (entry: LeaderboardEntry) => {
     setEditingId(entry.user_id)
     setEditForm({
-      total_earnings: entry.total_earnings,
+      total_revenue: entry.total_revenue,
       status: entry.status
     })
   }
@@ -138,7 +138,7 @@ export default function LeaderboardManagementPage() {
     }
   }
 
-  const handleSort = (field: 'total_earnings' | 'total_referrals' | 'rank') => {
+  const handleSort = (field: 'total_revenue' | 'total_referrals' | 'rank') => {
     if (sortField === field) {
       setSortAsc(!sortAsc)
     } else {
@@ -156,7 +156,7 @@ export default function LeaderboardManagementPage() {
     .sort((a, b) => {
       const multiplier = sortAsc ? 1 : -1
       if (sortField === 'rank') return (a.rank - b.rank) * multiplier
-      if (sortField === 'total_earnings') return (a.total_earnings - b.total_earnings) * multiplier
+      if (sortField === 'total_revenue') return (a.total_revenue - b.total_revenue) * multiplier
       if (sortField === 'total_referrals') return (a.total_referrals - b.total_referrals) * multiplier
       return 0
     })
@@ -233,8 +233,8 @@ export default function LeaderboardManagementPage() {
                   <DollarSign className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Total Earnings</p>
-                  <p className="text-2xl font-bold text-gray-900">${stats.totalEarnings.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">Total Revenue</p>
+                  <p className="text-2xl font-bold text-gray-900">${stats.totalRevenue.toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
@@ -310,8 +310,8 @@ export default function LeaderboardManagementPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Affiliate</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Level</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      <button onClick={() => handleSort('total_earnings')} className="flex items-center gap-1 hover:text-gray-700">
-                        Earnings <SortIcon field="total_earnings" />
+                      <button onClick={() => handleSort('total_revenue')} className="flex items-center gap-1 hover:text-gray-700">
+                        Total Revenue <SortIcon field="total_revenue" />
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -359,17 +359,17 @@ export default function LeaderboardManagementPage() {
                           </Badge>
                         </td>
 
-                        {/* Earnings */}
+                        {/* Total Revenue */}
                         <td className="px-4 py-3">
                           {isEditing ? (
                             <Input
                               type="number"
-                              value={editForm.total_earnings ?? ''}
-                              onChange={(e) => setEditForm({ ...editForm, total_earnings: parseFloat(e.target.value) || 0 })}
+                              value={editForm.total_revenue ?? ''}
+                              onChange={(e) => setEditForm({ ...editForm, total_revenue: parseFloat(e.target.value) || 0 })}
                               className="w-28 h-8 text-sm"
                             />
                           ) : (
-                            <span className="font-semibold text-gray-900">${entry.total_earnings.toLocaleString()}</span>
+                            <span className="font-semibold text-gray-900">${entry.total_revenue.toLocaleString()}</span>
                           )}
                         </td>
 

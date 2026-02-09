@@ -8,12 +8,12 @@ import { useLeaderboard } from '@/lib/hooks/useLeaderboard'
 const LeaderboardPage = () => {
   const { leaderboard, currentUserRank, loading, error } = useLeaderboard()
 
-  // Format earnings for display
-  const formatEarnings = (earnings: number): string => {
-    if (earnings >= 1000) {
-      return `$${(earnings / 1000).toFixed(1)}K`
+  // Format revenue for display
+  const formatRevenue = (amount: number): string => {
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`
     }
-    return `$${earnings.toFixed(2)}`
+    return `$${amount.toFixed(2)}`
   }
 
   if (loading) {
@@ -85,7 +85,7 @@ const LeaderboardPage = () => {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-semibold text-gray-900">{formatEarnings(affiliate.total_earnings)}</div>
+                    <div className="text-lg font-semibold text-gray-900">{formatRevenue(affiliate.total_revenue)}</div>
                     <div className="text-xl">{affiliate.award}</div>
                   </div>
                 </div>
@@ -101,7 +101,7 @@ const LeaderboardPage = () => {
                   <th className="text-left py-4 px-6 font-semibold text-base">Rank</th>
                   <th className="text-left py-4 px-6 font-semibold text-base">Affiliate</th>
                   <th className="text-left py-4 px-6 font-semibold text-base">Level</th>
-                  <th className="text-right py-4 px-6 font-semibold text-base">Total Amount</th>
+                  <th className="text-right py-4 px-6 font-semibold text-base">Total Revenue</th>
                   <th className="text-center py-4 px-6 font-semibold text-base">Award</th>
                 </tr>
               </thead>
@@ -131,7 +131,7 @@ const LeaderboardPage = () => {
                       </span>
                     </td>
                     <td className="py-5 px-6 text-right">
-                      <span className="text-gray-600 font-medium text-base">***** USD</span>
+                      <span className="text-gray-600 font-medium text-base">{formatRevenue(affiliate.total_revenue)}</span>
                     </td>
                     <td className="py-5 px-6 text-center">
                       <span className="text-3xl">
