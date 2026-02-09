@@ -166,7 +166,7 @@ const AdminDashboard = () => {
                   <p className="text-gray-600 text-lg font-medium">Command center for your premium platform</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button className="p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all duration-200 border border-emerald-200">
+                  <button onClick={() => router.push('/dashboard/admin/notifications')} className="p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all duration-200 border border-emerald-200">
                     <Bell className="w-5 h-5 text-emerald-600" />
                   </button>
                   <button className="p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all duration-200 border border-emerald-200">

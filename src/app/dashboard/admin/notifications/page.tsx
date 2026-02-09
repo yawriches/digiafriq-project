@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   Info,
   CheckCircle,
-  XCircle
+  XCircle,
+  ArrowLeft
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import { 
@@ -29,6 +31,7 @@ import type { Notification } from '@/types/notifications'
 import { NotificationForm } from '@/components/notifications/NotificationForm'
 
 export default function AdminNotificationsPage() {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -135,9 +138,19 @@ export default function AdminNotificationsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-            <p className="text-gray-600">Manage system-wide notifications for users</p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/dashboard/admin')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+              <p className="text-gray-600">Manage system-wide notifications for users</p>
+            </div>
           </div>
           <Button 
             onClick={() => setShowForm(true)}

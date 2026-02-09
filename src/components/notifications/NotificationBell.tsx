@@ -230,7 +230,7 @@ export function NotificationBell() {
                   className="w-full text-sm text-gray-600 hover:text-gray-900"
                   onClick={() => {
                     setIsOpen(false)
-                    // Navigate to full notifications page if needed
+                    window.location.href = '/dashboard/admin/notifications'
                   }}
                 >
                   View all notifications ({notifications.length})
