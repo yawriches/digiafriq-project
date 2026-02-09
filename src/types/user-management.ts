@@ -121,6 +121,7 @@ export interface UserStats {
   adminsCount: number
   recentSignups: number
   totalRevenue: number
+  unpaidAccounts: number
 }
 
 export interface PaginationParams {
@@ -137,6 +138,8 @@ export interface FilterParams {
   country?: string
   dateFrom?: string
   dateTo?: string
+  affiliateStatus?: string
+  paymentStatus?: string
 }
 
 export interface PaginatedResponse<T> {

@@ -39,6 +39,8 @@ export async function fetchUsers(
     if (filters.country && filters.country !== 'all') params.set('country', filters.country)
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
     if (filters.dateTo) params.set('dateTo', filters.dateTo)
+    if (filters.affiliateStatus) params.set('affiliateStatus', filters.affiliateStatus)
+    if (filters.paymentStatus) params.set('paymentStatus', filters.paymentStatus)
 
     const response = await fetch(`/api/admin/users?${params.toString()}`, {
       headers: {
@@ -83,11 +85,12 @@ export async function fetchUserStats(): Promise<UserStats> {
       activeUsers: s.activeUsers || 0,
       suspendedUsers: s.suspendedUsers || 0,
       pendingUsers: s.pendingUsers || 0,
-      learnersCount: 0,
-      affiliatesCount: s.activeAffiliates || 0,
+      learnersCount: s.totalLearners || 0,
+      affiliatesCount: s.affiliatesOnboarded || 0,
       adminsCount: 0,
       recentSignups: 0,
-      totalRevenue: s.totalRevenue || 0
+      totalRevenue: s.totalRevenue || 0,
+      unpaidAccounts: s.unpaidAccounts || 0
     }
   } catch (error) {
     console.error('Error fetching user stats:', error)

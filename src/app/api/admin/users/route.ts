@@ -54,6 +54,18 @@ export async function GET(request: NextRequest) {
     const country = searchParams.get('country') || ''
     const dateFrom = searchParams.get('dateFrom') || ''
     const dateTo = searchParams.get('dateTo') || ''
+    const affiliateStatus = searchParams.get('affiliateStatus') || ''
+    const paymentStatus = searchParams.get('paymentStatus') || ''
+
+    // For payment-based filters, we need to know which users have payments
+    let paidUserIds: Set<string> | null = null
+    if (paymentStatus === 'paid' || paymentStatus === 'unpaid') {
+      const { data: paymentUsers } = await supabaseAdmin
+        .from('payments')
+        .select('user_id')
+        .eq('status', 'completed')
+      paidUserIds = new Set((paymentUsers || []).map((p: any) => p.user_id).filter(Boolean))
+    }
 
     // Build query using service role (bypasses RLS)
     let query = supabaseAdmin
@@ -78,14 +90,42 @@ export async function GET(request: NextRequest) {
     if (dateTo) {
       query = query.lte('created_at', dateTo)
     }
+    if (affiliateStatus === 'onboarded') {
+      query = query.eq('affiliate_onboarding_completed', true)
+    }
 
     query = query.order(sortBy, { ascending: sortOrder === 'asc' })
 
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    query = query.range(from, to)
+    // If we need payment-based filtering, fetch all matching then filter in-memory
+    let data: any[] | null = null
+    let error: any = null
+    let count: number | null = null
 
-    const { data, error, count } = await query
+    if (paidUserIds) {
+      // Fetch all matching profiles first (no pagination yet)
+      const allResult = await query
+      if (allResult.error) {
+        error = allResult.error
+      } else {
+        let filtered = allResult.data || []
+        if (paymentStatus === 'paid') {
+          filtered = filtered.filter((u: any) => paidUserIds!.has(u.id) && u.affiliate_onboarding_completed !== true)
+        } else if (paymentStatus === 'unpaid') {
+          filtered = filtered.filter((u: any) => !paidUserIds!.has(u.id))
+        }
+        count = filtered.length
+        const from = (page - 1) * limit
+        data = filtered.slice(from, from + limit)
+      }
+    } else {
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+      query = query.range(from, to)
+      const result = await query
+      data = result.data
+      error = result.error
+      count = result.count
+    }
 
     if (error) {
       console.error('Users fetch error:', error)

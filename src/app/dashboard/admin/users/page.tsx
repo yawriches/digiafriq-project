@@ -242,7 +242,7 @@ const UsersManagement = () => {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setFilters({}); setPagination({ ...pagination, page: 1 }) }}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -250,30 +250,18 @@ const UsersManagement = () => {
                   <p className="text-2xl font-bold text-gray-900">{stats.totalUsers.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 text-xl font-bold">👥</span>
+                  <Users className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setFilters({ ...filters, affiliateStatus: 'onboarded' }); setPagination({ ...pagination, page: 1 }) }}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Active Users</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.activeUsers.toLocaleString()}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Recent Signups</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.recentSignups.toLocaleString()}</p>
+                  <p className="text-sm text-gray-600">Total Affiliates</p>
+                  <p className="text-xs text-gray-400">Completed onboarding</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.affiliatesCount.toLocaleString()}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                   <UserPlus className="w-6 h-6 text-orange-600" />
@@ -281,15 +269,30 @@ const UsersManagement = () => {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setFilters({ ...filters, paymentStatus: 'paid' }); setPagination({ ...pagination, page: 1 }) }}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Revenue</p>
-                  <p className="text-2xl font-bold text-emerald-600">{formatAmount(stats.totalRevenue)}</p>
+                  <p className="text-sm text-gray-600">Total Learners</p>
+                  <p className="text-xs text-gray-400">Paid, not onboarded</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.learnersCount.toLocaleString()}</p>
                 </div>
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <span className="text-emerald-600 text-xl font-bold">💰</span>
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => { setFilters({ ...filters, paymentStatus: 'unpaid' }); setPagination({ ...pagination, page: 1 }) }}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Unpaid Accounts</p>
+                  <p className="text-xs text-gray-400">No payment made</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.unpaidAccounts.toLocaleString()}</p>
+                </div>
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -330,6 +333,25 @@ const UsersManagement = () => {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.affiliateStatus || 'all'} onValueChange={(value) => handleFilterChange('affiliateStatus', value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Affiliate Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Affiliate Status</SelectItem>
+                <SelectItem value="onboarded">Onboarded</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.paymentStatus || 'all'} onValueChange={(value) => handleFilterChange('paymentStatus', value === 'all' ? '' : value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Payment Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payment Status</SelectItem>
+                <SelectItem value="paid">Paid (Learners)</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
               </SelectContent>
             </Select>
             <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">

@@ -106,6 +106,27 @@ export async function GET(request: NextRequest) {
     // Affiliates who completed onboarding
     const affiliatesOnboarded = users.filter((u: any) => u.affiliate_onboarding_completed === true).length
 
+    // Learners: paid users who have NOT completed affiliate onboarding
+    const paidUserIds = new Set(payments.map((p: any) => p.metadata?.user_id).filter(Boolean))
+    // Also check the recentPayments query for user_ids
+    const allPaidUserIds = new Set<string>()
+    ;(recentPaymentsResult.data || []).forEach((p: any) => { if (p.user_id) allPaidUserIds.add(p.user_id) })
+    // Fetch all payment user_ids for accurate count
+    payments.forEach((p: any) => { if (p.metadata?.user_id) allPaidUserIds.add(p.metadata.user_id) })
+
+    // We need all payment user_ids - fetch separately
+    const { data: allPaymentUsers } = await supabaseAdmin
+      .from('payments')
+      .select('user_id')
+      .eq('status', 'completed')
+    const completedPaymentUserIds = new Set((allPaymentUsers || []).map((p: any) => p.user_id).filter(Boolean))
+
+    const totalLearners = users.filter((u: any) =>
+      completedPaymentUserIds.has(u.id) && u.affiliate_onboarding_completed !== true
+    ).length
+
+    const unpaidAccounts = users.filter((u: any) => !completedPaymentUserIds.has(u.id)).length
+
     // Split payments into affiliate sales vs direct
     const affiliateSales = payments.filter((p: any) => 
       p.payment_type === 'referral_membership' || 
@@ -163,6 +184,8 @@ export async function GET(request: NextRequest) {
         totalPayments: payments.length,
         totalCommissions,
         affiliatesOnboarded,
+        totalLearners,
+        unpaidAccounts,
         affiliateSales,
         directSales,
       },
