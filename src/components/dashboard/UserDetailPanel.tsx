@@ -245,7 +245,12 @@ export const UserDetailPanel: React.FC<UserDetailPanelProps> = ({
                         <p className="text-lg font-semibold text-gray-900">
                           {user.role === 'affiliate' || user.role === 'admin' 
                             ? formatAmount(user.total_commissions || 0)
-                            : formatAmount(payments?.data.reduce((sum, p) => sum + p.amount, 0) || 0)
+                            : formatAmount(payments?.data.reduce((sum, p) => {
+                                const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
+                                const cur = (p.currency || 'USD').toUpperCase()
+                                const usd = cur !== 'USD' && cur in RATES ? p.amount / RATES[cur] : p.amount
+                                return sum + usd
+                              }, 0) || 0)
                           }
                         </p>
                       </div>

@@ -385,21 +385,21 @@ export async function updateUserStatus(
   status: 'active' | 'suspended' | 'pending'
 ): Promise<void> {
   try {
-    // Note: status field doesn't exist in database yet
-    // This function will fail until the column is added
-    const { error, data } = await (supabase as any)
-      .from('profiles')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-      .select()
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) throw new Error('No session')
 
-    if (error) {
-      console.error('Supabase error:', error)
-      throw new Error(`Failed to update user status: ${error.message || 'Status field may not exist in database'}`)
-    }
-    
-    if (!data || data.length === 0) {
-      throw new Error('No user found with this ID or update failed')
+    const response = await fetch('/api/admin/users', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessionData.session.access_token}`
+      },
+      body: JSON.stringify({ user_id: userId, action: 'update_status', status })
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || `Failed to update user status (${response.status})`)
     }
   } catch (error) {
     console.error('Error updating user status:', error)
@@ -412,30 +412,21 @@ export async function updateUserRole(
   role: 'learner' | 'affiliate' | 'admin'
 ): Promise<void> {
   try {
-    const { error, data } = await (supabase as any)
-      .from('profiles')
-      .update({ 
-        role, 
-        active_role: role,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('id', userId)
-      .select()
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) throw new Error('No session')
 
-    if (error) {
-      console.error('Supabase error:', error)
-      let errorMessage = error.message || 'Unknown error'
-      
-      // Handle specific database trigger error
-      if (errorMessage.includes('affiliate_code') && errorMessage.includes('affiliate_profiles')) {
-        errorMessage = 'Cannot update to affiliate role: The affiliate system is not fully configured. Please contact your administrator to set up the affiliate_profiles table.'
-      }
-      
-      throw new Error(`Failed to update user role: ${errorMessage}`)
-    }
-    
-    if (!data || data.length === 0) {
-      throw new Error('No user found with this ID or update failed')
+    const response = await fetch('/api/admin/users', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessionData.session.access_token}`
+      },
+      body: JSON.stringify({ user_id: userId, action: 'update_role', role })
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || `Failed to update user role (${response.status})`)
     }
   } catch (error) {
     console.error('Error updating user role:', error)
@@ -469,21 +460,8 @@ export async function bulkUpdateUserStatus(
   status: 'active' | 'suspended' | 'pending'
 ): Promise<void> {
   try {
-    // Note: status field doesn't exist in database yet
-    const { error, data } = await (supabase as any)
-      .from('profiles')
-      .update({ status, updated_at: new Date().toISOString() })
-      .in('id', userIds)
-      .select()
-
-    if (error) {
-      console.error('Supabase error:', error)
-      throw new Error(`Failed to update user status: ${error.message || 'Status field may not exist in database'}`)
-    }
-    
-    if (!data || data.length === 0) {
-      throw new Error('No users found or updates failed')
-    }
+    // Update each user via the API endpoint
+    await Promise.all(userIds.map(id => updateUserStatus(id, status)))
   } catch (error) {
     console.error('Error bulk updating user status:', error)
     throw error

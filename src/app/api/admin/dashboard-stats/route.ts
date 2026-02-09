@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at, affiliate_onboarding_completed'),
       supabaseAdmin.from('courses').select('id'),
       supabaseAdmin.from('commissions').select('commission_amount, commission_currency, amount'),
-      supabaseAdmin.from('payments').select('id, amount, currency, status, paystack_reference, created_at, user_id').order('created_at', { ascending: false }).limit(10)
+      supabaseAdmin.from('payments').select('id, amount, currency, base_amount, base_currency, status, paystack_reference, created_at, user_id').order('created_at', { ascending: false }).limit(10)
     ])
 
     if (paymentsResult.error) {
@@ -131,10 +131,19 @@ export async function GET(request: NextRequest) {
     const userMap = new Map(users.map((u: any) => [u.id, u]))
     const recentPayments = recentPaymentsRaw.map((p: any) => {
       const user = userMap.get(p.user_id)
+      // Convert amount to USD for display
+      const currency = p.currency?.toUpperCase() || 'USD'
+      let usdAmount = p.amount
+      if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
+        usdAmount = p.base_amount
+      } else if (currency !== 'USD' && currency in RATES) {
+        usdAmount = p.amount / RATES[currency]
+      }
       return {
         id: p.id,
         amount: p.amount,
         currency: p.currency,
+        base_currency_amount: usdAmount,
         status: p.status,
         reference: p.paystack_reference || null,
         created_at: p.created_at,

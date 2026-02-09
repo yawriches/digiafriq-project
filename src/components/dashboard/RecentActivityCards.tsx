@@ -257,7 +257,14 @@ const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loadi
   }
 
   const formatAmount = (payment: Payment) => {
-    const usdAmount = payment.base_currency_amount || (payment.currency === 'USD' ? payment.amount : payment.amount / 10)
+    if (payment.base_currency_amount) {
+      return `$${payment.base_currency_amount.toFixed(2)} USD`
+    }
+    const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
+    const currency = payment.currency?.toUpperCase() || 'USD'
+    const usdAmount = currency !== 'USD' && currency in RATES
+      ? payment.amount / RATES[currency]
+      : payment.amount
     return `$${usdAmount.toFixed(2)} USD`
   }
 

@@ -336,7 +336,10 @@ const UsersManagement = () => {
               <Download className="w-4 h-4" />
               Export
             </Button>
-            <Button className="bg-[#ed874a] hover:bg-[#d76f32] flex items-center gap-2">
+            <Button 
+              className="bg-[#ed874a] hover:bg-[#d76f32] flex items-center gap-2"
+              onClick={() => window.location.href = '/dashboard/admin/add-user'}
+            >
               <UserPlus className="w-4 h-4" />
               Add User
             </Button>
