@@ -34,8 +34,7 @@ interface LeaderboardEntry {
   total_earnings: number
   total_referrals: number
   active_referrals: number
-  available_balance: number
-  commission_rate: number
+  total_commissions: number
   referral_code: string
   status: string
   onboarding_completed: boolean
@@ -55,7 +54,7 @@ export default function LeaderboardManagementPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ total_earnings?: number; commission_rate?: number; status?: string }>({})
+  const [editForm, setEditForm] = useState<{ total_earnings?: number; status?: string }>({})
   const [saving, setSaving] = useState(false)
   const [sortField, setSortField] = useState<'total_earnings' | 'total_referrals' | 'rank'>('rank')
   const [sortAsc, setSortAsc] = useState(true)
@@ -99,7 +98,6 @@ export default function LeaderboardManagementPage() {
     setEditingId(entry.user_id)
     setEditForm({
       total_earnings: entry.total_earnings,
-      commission_rate: entry.commission_rate,
       status: entry.status
     })
   }
@@ -321,8 +319,7 @@ export default function LeaderboardManagementPage() {
                         Referrals <SortIcon field="total_referrals" />
                       </button>
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Commissions</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Onboarded</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -386,23 +383,9 @@ export default function LeaderboardManagementPage() {
                           </div>
                         </td>
 
-                        {/* Balance */}
+                        {/* Total Commissions */}
                         <td className="px-4 py-3">
-                          <span className="text-gray-700">${entry.available_balance.toLocaleString()}</span>
-                        </td>
-
-                        {/* Commission Rate */}
-                        <td className="px-4 py-3">
-                          {isEditing ? (
-                            <Input
-                              type="number"
-                              value={editForm.commission_rate ?? ''}
-                              onChange={(e) => setEditForm({ ...editForm, commission_rate: parseFloat(e.target.value) || 0 })}
-                              className="w-20 h-8 text-sm"
-                            />
-                          ) : (
-                            <span className="text-gray-700">{entry.commission_rate}%</span>
-                          )}
+                          <span className="font-semibold text-gray-900">${entry.total_commissions.toLocaleString()}</span>
                         </td>
 
                         {/* Status */}
