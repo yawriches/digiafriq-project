@@ -506,7 +506,23 @@ export default function MembershipFormPage({
             {courses.length === 0 ? (
               <p className="text-gray-500 text-center py-4">No published courses available</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 p-3 border-2 border-dashed rounded-lg bg-gray-50">
+                  <Checkbox
+                    checked={courses.length > 0 && formData.selectedCourses.length === courses.length}
+                    onCheckedChange={(checked) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        selectedCourses: checked ? courses.map((c) => c.id) : [],
+                      }))
+                    }}
+                  />
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">Select All Courses</p>
+                    <p className="text-xs text-gray-500">{formData.selectedCourses.length} of {courses.length} selected</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {courses.map((course) => (
                   <div
                     key={course.id}
@@ -522,6 +538,7 @@ export default function MembershipFormPage({
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </CardContent>
