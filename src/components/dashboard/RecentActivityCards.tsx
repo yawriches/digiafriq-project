@@ -29,7 +29,6 @@ interface Payment {
   id: string
   amount: number
   currency: string
-  base_currency_amount?: number
   status: string
   reference: string | null
   created_at: string
@@ -257,15 +256,10 @@ const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loadi
   }
 
   const formatAmount = (payment: Payment) => {
-    if (payment.base_currency_amount) {
-      return `$${payment.base_currency_amount.toFixed(2)} USD`
-    }
-    const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
+    const symbols: Record<string, string> = { USD: '$', GHS: '₵', NGN: '₦', KES: 'KSh', ZAR: 'R', XOF: 'CFA', XAF: 'XAF' }
     const currency = payment.currency?.toUpperCase() || 'USD'
-    const usdAmount = currency !== 'USD' && currency in RATES
-      ? payment.amount / RATES[currency]
-      : payment.amount
-    return `$${usdAmount.toFixed(2)} USD`
+    const symbol = symbols[currency] || currency + ' '
+    return `${symbol}${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   if (loading) {
@@ -354,49 +348,29 @@ const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loadi
       </div>
 
       <div className="space-y-3">
-        {payments.map((payment, index) => (
+        {payments.map((payment) => (
           <div 
             key={payment.id} 
             className="group bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-orange-300 hover:shadow-sm transition-all duration-200 cursor-pointer"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="relative w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center group-hover:bg-orange-300 transition-colors">
-                  <CreditCard className="w-6 h-6 text-orange-700" />
-                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${
+              <div className="flex items-center space-x-3">
+                <div className="relative w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center group-hover:bg-orange-300 transition-colors">
+                  <CreditCard className="w-5 h-5 text-orange-700" />
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
                     payment.status === 'completed' ? 'bg-green-500' :
                     payment.status === 'pending' ? 'bg-yellow-500' :
                     'bg-red-500'
-                  }`}>
-                    {getStatusIcon(payment.status)}
-                  </div>
+                  }`} />
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">
-                      {payment.user?.email || payment.reference || `Transaction ${payment.id.slice(0, 8)}`}
-                    </p>
-                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(payment.status)}`}>
-                      {getStatusIcon(payment.status)}
-                      <span className="capitalize">{payment.status}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      <span className="font-medium text-gray-900">{formatAmount(payment)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(payment.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 truncate">
+                    {payment.user?.email || payment.reference || `Transaction ${payment.id.slice(0, 8)}`}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-2 hover:bg-orange-100 rounded-lg transition-colors">
-                  <MoreHorizontal className="w-4 h-4 text-gray-600" />
-                </button>
+              <div className="text-right ml-3 shrink-0">
+                <p className="font-semibold text-gray-900">{formatAmount(payment)}</p>
               </div>
             </div>
           </div>

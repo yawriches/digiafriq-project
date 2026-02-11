@@ -30,7 +30,6 @@ interface Payment {
   id: string
   amount: number
   currency: string
-  base_currency_amount?: number
   status: string
   reference: string | null
   created_at: string
@@ -79,12 +78,13 @@ export const useAdminData = (): AdminData => {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
-
     // For each payment, fetch user info (same as payments page)
+    // For guest checkouts, fall back to metadata for name/email
     const recentPayments: Payment[] = await Promise.all(
       (recentPaymentsRaw || []).map(async (p: any) => {
         let user = undefined
+
+        // Try profile lookup first
         if (p.user_id) {
           const { data: userData } = await supabase
             .from('profiles')
@@ -96,19 +96,20 @@ export const useAdminData = (): AdminData => {
           }
         }
 
-        const currency = p.currency?.toUpperCase() || 'USD'
-        let usdAmount = p.amount
-        if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
-          usdAmount = p.base_amount
-        } else if (currency !== 'USD' && currency in RATES) {
-          usdAmount = p.amount / RATES[currency]
+        // If no user found from profile, extract from payment metadata (guest checkout)
+        if (!user && p.metadata) {
+          const meta = p.metadata
+          const guestEmail = meta.guest_email || meta.email || meta.user_email || null
+          const guestName = meta.guest_name || meta.full_name || meta.user_name || null
+          if (guestEmail || guestName) {
+            user = { email: guestEmail || '', full_name: guestName }
+          }
         }
 
         return {
           id: p.id,
           amount: p.amount,
-          currency: p.currency,
-          base_currency_amount: usdAmount,
+          currency: p.currency || 'USD',
           status: p.status,
           reference: p.paystack_reference || p.provider_reference || null,
           created_at: p.created_at,
