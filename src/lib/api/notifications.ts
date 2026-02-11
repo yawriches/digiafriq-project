@@ -130,48 +130,98 @@ export async function deleteNotification(id: string): Promise<boolean> {
 }
 
 // User functions - Get notifications for current user
+// Lazily creates user_notification rows for any active notifications the user hasn't seen yet
 export async function getUserNotifications(): Promise<NotificationWithStatus[]> {
   try {
-    const { data: userNotifications, error } = await supabase
-      .from('user_notifications')
-      .select(`
-        id,
-        is_read,
-        read_at,
-        notification:notifications(*)
-      `)
-      .order('created_at', { ascending: false }) as any
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) return []
 
-    if (error) {
-      console.error('Error fetching user notifications:', error)
+    // Get the user's role to filter by target_audience
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, active_role')
+      .eq('id', user.id)
+      .single()
+
+    const userRole = profile?.active_role || profile?.role || 'learner'
+
+    // Fetch all active notifications relevant to this user
+    const { data: allNotifications, error: notifError } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+
+    if (notifError) {
+      console.error('Error fetching notifications:', notifError)
       return []
     }
 
-    // Transform the data to match our interface
-    const notifications: NotificationWithStatus[] = (userNotifications || [])
-      .filter((un: any) => un.notification) // Only include notifications that exist
-      .map((un: any) => ({
-        ...(un.notification as Notification),
-        is_read: un.is_read,
-        read_at: un.read_at,
-        user_notification_id: un.id
+    // Filter by target_audience
+    const relevantNotifications = (allNotifications || []).filter((n: any) => {
+      if (n.target_audience === 'all') return true
+      if (n.target_audience === 'learners' && userRole === 'learner') return true
+      if (n.target_audience === 'affiliates' && userRole === 'affiliate') return true
+      if (n.target_audience === 'admins' && userRole === 'admin') return true
+      return false
+    }).filter((n: any) => {
+      // Filter out expired notifications
+      if (n.expires_at && new Date(n.expires_at) < new Date()) return false
+      return true
+    })
+
+    if (relevantNotifications.length === 0) return []
+
+    // Fetch existing user_notification rows for this user
+    const { data: existingRows, error: existingError } = await supabase
+      .from('user_notifications')
+      .select('id, notification_id, is_read, read_at')
+      .eq('user_id', user.id)
+
+    if (existingError) {
+      console.error('Error fetching user_notifications:', existingError)
+    }
+
+    const existingMap = new Map(
+      (existingRows || []).map((r: any) => [r.notification_id, r])
+    )
+
+    // Lazily create user_notification rows for notifications the user hasn't seen
+    const missingNotificationIds = relevantNotifications
+      .filter((n: any) => !existingMap.has(n.id))
+      .map((n: any) => n.id)
+
+    if (missingNotificationIds.length > 0) {
+      const newRows = missingNotificationIds.map((notifId: string) => ({
+        notification_id: notifId,
+        user_id: user.id,
+        is_read: false,
       }))
 
-    // Deduplicate notifications by notification ID (keep the first occurrence)
-    const uniqueNotifications = notifications.reduce((acc: NotificationWithStatus[], current) => {
-      const existingIndex = acc.findIndex(item => item.id === current.id)
-      if (existingIndex === -1) {
-        acc.push(current)
-      } else {
-        // If duplicate found, keep the one that's unread (if any) to preserve user_notification_id
-        if (!current.is_read && acc[existingIndex].is_read) {
-          acc[existingIndex] = current
-        }
-      }
-      return acc
-    }, [])
+      const { data: insertedRows, error: insertError } = await supabase
+        .from('user_notifications')
+        .upsert(newRows, { onConflict: 'notification_id,user_id' })
+        .select('id, notification_id, is_read, read_at')
 
-    return uniqueNotifications
+      if (insertError) {
+        console.error('Error creating user_notification rows:', insertError)
+      } else if (insertedRows) {
+        insertedRows.forEach((r: any) => existingMap.set(r.notification_id, r))
+      }
+    }
+
+    // Build the final list
+    const result: NotificationWithStatus[] = relevantNotifications.map((n: any) => {
+      const userRow = existingMap.get(n.id)
+      return {
+        ...n,
+        is_read: userRow?.is_read ?? false,
+        read_at: userRow?.read_at ?? null,
+        user_notification_id: userRow?.id ?? null,
+      }
+    })
+
+    return result
   } catch (error) {
     console.error('Error fetching user notifications:', error)
     return []
@@ -181,14 +231,12 @@ export async function getUserNotifications(): Promise<NotificationWithStatus[]> 
 // User functions - Mark notification as read
 export async function markNotificationAsRead(userNotificationId: string): Promise<boolean> {
   try {
-    const updateData: Record<string, any> = {
-      is_read: true,
-      read_at: new Date().toISOString()
-    }
-
-    const { error } = await (supabase
+    const { error } = await supabase
       .from('user_notifications')
-      .update(updateData) as any)
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
       .eq('id', userNotificationId)
 
     if (error) {
@@ -206,14 +254,16 @@ export async function markNotificationAsRead(userNotificationId: string): Promis
 // User functions - Mark all notifications as read
 export async function markAllNotificationsAsRead(): Promise<boolean> {
   try {
-    const updateData: Record<string, any> = {
-      is_read: true,
-      read_at: new Date().toISOString()
-    }
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) return false
 
-    const { error } = await (supabase
+    const { error } = await supabase
       .from('user_notifications')
-      .update(updateData) as any)
+      .update({
+        is_read: true,
+        read_at: new Date().toISOString()
+      })
+      .eq('user_id', user.id)
       .eq('is_read', false)
 
     if (error) {
