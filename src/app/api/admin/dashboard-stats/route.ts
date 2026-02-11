@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       commissionsResult,
       recentPaymentsResult,
     ] = await Promise.all([
-      supabaseAdmin.from('payments').select('amount, currency, payment_type, metadata').eq('status', 'completed'),
+      supabaseAdmin.from('payments').select('*').eq('status', 'completed'),
       supabaseAdmin.from('profiles').select('id, email, full_name, role, active_role, available_roles, status, created_at, affiliate_onboarding_completed'),
       supabaseAdmin.from('courses').select('id'),
       supabaseAdmin.from('commissions').select('commission_amount, commission_currency, amount'),
@@ -73,15 +73,16 @@ export async function GET(request: NextRequest) {
     const commissions = commissionsResult.data || []
 
     // Calculate total revenue in USD
-    const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
-    const totalRevenue = payments.reduce((sum: number, p: any) => {
+    const RATES: Record<string, number> = { GHS: 14, NGN: 1600, XOF: 600, XAF: 600, EUR: 0.92, GBP: 0.79 }
+    const getUSD = (p: any): number => {
+      if (p.base_currency_amount && p.base_currency_amount > 0) return p.base_currency_amount
+      if (p.base_amount && p.base_amount > 0) return p.base_amount
       const currency = p.currency?.toUpperCase() || 'USD'
-      let usdAmount = p.amount
-      if (currency !== 'USD' && currency in RATES) {
-        usdAmount = p.amount / RATES[currency]
-      }
-      return sum + usdAmount
-    }, 0)
+      if (currency === 'USD') return p.amount || 0
+      if (currency in RATES) return (p.amount || 0) / RATES[currency]
+      return p.amount || 0
+    }
+    const totalRevenue = payments.reduce((sum: number, p: any) => sum + getUSD(p), 0)
 
     // User stats
     const affiliates = users.filter((u: any) => 

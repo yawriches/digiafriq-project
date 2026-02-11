@@ -55,10 +55,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Fetch all completed payments
+    // Fetch all completed payments (select all columns to not miss any amount fields)
     const { data: payments, error: paymentsError } = await supabaseAdmin
       .from('payments')
-      .select('id, amount, currency, base_amount, base_currency, payment_type, metadata, created_at, status')
+      .select('*')
       .eq('status', 'completed')
       .order('created_at', { ascending: true })
 
@@ -68,6 +68,16 @@ export async function GET(request: NextRequest) {
     }
 
     const allPayments = payments || []
+
+    // Helper: get USD amount from a payment, matching payments page logic
+    const getUSD = (p: any): number => {
+      // 1. Use base_currency_amount if available (pre-computed USD)
+      if (p.base_currency_amount && p.base_currency_amount > 0) return p.base_currency_amount
+      // 2. Use base_amount if available
+      if (p.base_amount && p.base_amount > 0) return p.base_amount
+      // 3. Convert from local currency
+      return toUSD(p.amount || 0, p.currency || 'USD')
+    }
 
     // Classify payments
     let totalRevenue = 0
@@ -87,12 +97,7 @@ export async function GET(request: NextRequest) {
     }
 
     allPayments.forEach((p: any) => {
-      let usdAmount: number
-      if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
-        usdAmount = p.base_amount
-      } else {
-        usdAmount = toUSD(p.amount, p.currency)
-      }
+      const usdAmount = getUSD(p)
 
       totalRevenue += usdAmount
 
@@ -119,6 +124,8 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    console.log('[Revenue API] Completed payments:', allPayments.length, '| Total revenue:', totalRevenue)
+
     // Daily data for last 30 days
     const dailyData: Record<string, { total: number; affiliate: number; direct: number; day: string }> = {}
     for (let i = 29; i >= 0; i--) {
@@ -130,12 +137,7 @@ export async function GET(request: NextRequest) {
     }
 
     allPayments.forEach((p: any) => {
-      let usdAmount: number
-      if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
-        usdAmount = p.base_amount
-      } else {
-        usdAmount = toUSD(p.amount, p.currency)
-      }
+      const usdAmount = getUSD(p)
 
       const key = new Date(p.created_at).toISOString().slice(0, 10)
       if (dailyData[key]) {
@@ -161,12 +163,7 @@ export async function GET(request: NextRequest) {
     let lastMonthRevenue = 0
 
     allPayments.forEach((p: any) => {
-      let usdAmount: number
-      if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
-        usdAmount = p.base_amount
-      } else {
-        usdAmount = toUSD(p.amount, p.currency)
-      }
+      const usdAmount = getUSD(p)
 
       const date = new Date(p.created_at)
       if (date >= thisMonth) {

@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       referralsResult,
     ] = await Promise.all([
       supabaseAdmin.from('profiles').select('id, created_at, country, role, active_role, available_roles, status, affiliate_onboarding_completed'),
-      supabaseAdmin.from('payments').select('id, amount, currency, base_amount, base_currency, payment_type, metadata, created_at, status, user_id').eq('status', 'completed').order('created_at', { ascending: true }),
+      supabaseAdmin.from('payments').select('*').eq('status', 'completed').order('created_at', { ascending: true }),
       supabaseAdmin.from('user_memberships').select('user_id, created_at, is_active, membership_id'),
       supabaseAdmin.from('commissions').select('id, commission_amount, commission_currency, status, created_at'),
       supabaseAdmin.from('courses').select('id, is_published'),
@@ -91,14 +91,19 @@ export async function GET(request: NextRequest) {
     const totalReferrals = referrals.length
     const successfulReferrals = referrals.filter((r: any) => r.status === 'completed' || r.status === 'converted').length
 
+    // Helper: get USD amount from a payment, matching payments page logic
+    const getUSD = (p: any): number => {
+      if (p.base_currency_amount && p.base_currency_amount > 0) return p.base_currency_amount
+      if (p.base_amount && p.base_amount > 0) return p.base_amount
+      return toUSD(p.amount || 0, p.currency || 'USD')
+    }
+
     // Revenue
     let totalRevenue = 0
     let affiliateRevenue = 0
     let directRevenue = 0
     payments.forEach((p: any) => {
-      const usd = p.base_amount && p.base_currency?.toUpperCase() === 'USD'
-        ? p.base_amount
-        : toUSD(p.amount, p.currency)
+      const usd = getUSD(p)
       totalRevenue += usd
       const isAff = p.payment_type === 'referral_membership' || p.metadata?.is_referral_signup === true || p.metadata?.referral_code
       if (isAff) affiliateRevenue += usd
@@ -145,8 +150,7 @@ export async function GET(request: NextRequest) {
       payments.forEach((p: any) => {
         const pd = new Date(p.created_at)
         if (pd >= d && pd < nextMonth) {
-          const usd = p.base_amount && p.base_currency?.toUpperCase() === 'USD'
-            ? p.base_amount : toUSD(p.amount, p.currency)
+          const usd = getUSD(p)
           mTotal += usd
           const isAff = p.payment_type === 'referral_membership' || p.metadata?.is_referral_signup === true || p.metadata?.referral_code
           if (isAff) mAff += usd
@@ -167,8 +171,7 @@ export async function GET(request: NextRequest) {
         const pd = new Date(p.created_at)
         if (pd >= d && pd < nextMonth) {
           count++
-          amount += p.base_amount && p.base_currency?.toUpperCase() === 'USD'
-            ? p.base_amount : toUSD(p.amount, p.currency)
+          amount += getUSD(p)
         }
       })
       paymentTrend.push({ month: label, count, amount })
@@ -192,8 +195,7 @@ export async function GET(request: NextRequest) {
       const country = profileCountryMap.get(p.user_id) || 'Unknown'
       const entry = countryMap.get(country)
       if (entry) {
-        entry.revenue += p.base_amount && p.base_currency?.toUpperCase() === 'USD'
-          ? p.base_amount : toUSD(p.amount, p.currency)
+        entry.revenue += getUSD(p)
       }
     })
     const countryData = Array.from(countryMap.values())
@@ -225,8 +227,7 @@ export async function GET(request: NextRequest) {
 
     let thisMonthRevenue = 0, lastMonthRevenue = 0
     payments.forEach((p: any) => {
-      const usd = p.base_amount && p.base_currency?.toUpperCase() === 'USD'
-        ? p.base_amount : toUSD(p.amount, p.currency)
+      const usd = getUSD(p)
       const d = new Date(p.created_at)
       if (d >= thisMonthStart) thisMonthRevenue += usd
       else if (d >= lastMonthStart && d <= lastMonthEnd) lastMonthRevenue += usd
