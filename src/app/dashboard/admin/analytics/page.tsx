@@ -62,9 +62,11 @@ const AnalyticsPage = () => {
   const [heatmap, setHeatmap] = useState<HeatmapRow[]>([])
   const [activeChart, setActiveChart] = useState<'users' | 'revenue' | 'payments'>('revenue')
 
+  const initialLoadDone = React.useRef(false)
+
   const fetchAnalytics = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!initialLoadDone.current) setLoading(true)
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) return
 
@@ -84,11 +86,18 @@ const AnalyticsPage = () => {
       console.error('Error fetching analytics:', error)
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [])
 
   useEffect(() => {
     fetchAnalytics()
+  }, [fetchAnalytics])
+
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchAnalytics, 15000)
+    return () => clearInterval(interval)
   }, [fetchAnalytics])
 
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
