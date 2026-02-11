@@ -152,7 +152,6 @@ export async function GET(request: NextRequest) {
     const userMap = new Map(users.map((u: any) => [u.id, u]))
     const recentPayments = recentPaymentsRaw.map((p: any) => {
       const user = userMap.get(p.user_id)
-      // Convert amount to USD for display
       const currency = p.currency?.toUpperCase() || 'USD'
       let usdAmount = p.amount
       if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {

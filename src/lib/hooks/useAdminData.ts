@@ -52,12 +52,12 @@ export const useAdminData = (): AdminData => {
   const key = 'admin-dashboard'
 
   const fetcher = useCallback(async () => {
-    // Get current session token for auth
     const { data: sessionData } = await supabase.auth.getSession()
     if (!sessionData.session) {
       throw new Error('No session')
     }
 
+    // Fetch dashboard stats from API
     const response = await fetch('/api/admin/dashboard-stats', {
       headers: {
         'Authorization': `Bearer ${sessionData.session.access_token}`
@@ -69,7 +69,58 @@ export const useAdminData = (): AdminData => {
       throw new Error(errorData.error || `Failed to fetch dashboard stats (${response.status})`)
     }
 
-    return response.json()
+    const apiData = await response.json()
+
+    // Fetch recent payments directly via Supabase client
+    // (same approach as the working payments page)
+    const { data: recentPaymentsRaw } = await supabase
+      .from('payments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    const RATES: Record<string, number> = { GHS: 14, NGN: 1600 }
+
+    // For each payment, fetch user info (same as payments page)
+    const recentPayments: Payment[] = await Promise.all(
+      (recentPaymentsRaw || []).map(async (p: any) => {
+        let user = undefined
+        if (p.user_id) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .eq('id', p.user_id)
+            .single()
+          if (userData) {
+            user = { email: userData.email, full_name: userData.full_name }
+          }
+        }
+
+        const currency = p.currency?.toUpperCase() || 'USD'
+        let usdAmount = p.amount
+        if (p.base_amount && p.base_currency?.toUpperCase() === 'USD') {
+          usdAmount = p.base_amount
+        } else if (currency !== 'USD' && currency in RATES) {
+          usdAmount = p.amount / RATES[currency]
+        }
+
+        return {
+          id: p.id,
+          amount: p.amount,
+          currency: p.currency,
+          base_currency_amount: usdAmount,
+          status: p.status,
+          reference: p.paystack_reference || p.provider_reference || null,
+          created_at: p.created_at,
+          user,
+        }
+      })
+    )
+
+    return {
+      ...apiData,
+      recentPayments,
+    }
   }, [])
 
   const { data, error, isLoading } = useSWR(key, fetcher, {
