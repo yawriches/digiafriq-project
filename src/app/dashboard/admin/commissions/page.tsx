@@ -12,7 +12,8 @@ import {
   Ban,
   ChevronLeft,
   ChevronRight,
-  CreditCard
+  CreditCard,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -65,9 +66,11 @@ const CommissionsManagement = () => {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
+  const initialLoadDone = React.useRef(false)
+
   const fetchCommissions = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!initialLoadDone.current) setLoading(true)
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) return
 
@@ -94,11 +97,20 @@ const CommissionsManagement = () => {
       toast.error('Failed to load commissions')
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [page, statusFilter, searchTerm])
 
   useEffect(() => {
     fetchCommissions()
+  }, [fetchCommissions])
+
+  // Auto-refresh stats every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCommissions()
+    }, 15000)
+    return () => clearInterval(interval)
   }, [fetchCommissions])
 
   const handleAction = async (commissionId: string, action: string) => {
@@ -267,6 +279,10 @@ const CommissionsManagement = () => {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" onClick={() => fetchCommissions()}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
             <Button variant="outline" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               Export CSV
