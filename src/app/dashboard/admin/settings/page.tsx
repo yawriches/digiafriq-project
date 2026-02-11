@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import { supabase } from '@/lib/supabase/client'
@@ -59,10 +60,14 @@ const SettingsPage = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [source, setSource] = useState<'database' | 'defaults'>('defaults')
+  const [dirty, setDirty] = useState(false)
+  const [lastSynced, setLastSynced] = useState<Date | null>(null)
+
+  const initialLoadDone = React.useRef(false)
 
   const fetchSettings = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!initialLoadDone.current) setLoading(true)
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) return
 
@@ -74,16 +79,27 @@ const SettingsPage = () => {
       const data = await response.json()
       setSettings(data.settings)
       setSource(data.source)
+      setDirty(false)
+      setLastSynced(new Date())
     } catch (error) {
       console.error('Error fetching settings:', error)
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [])
 
   useEffect(() => {
     fetchSettings()
   }, [fetchSettings])
+
+  // Auto-refresh every 15 seconds, but only if no unsaved changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!dirty && !saving) fetchSettings()
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [fetchSettings, dirty, saving])
 
   const handleSave = async () => {
     try {
@@ -105,6 +121,8 @@ const SettingsPage = () => {
       if (data.success) {
         toast.success(`Settings saved successfully (${data.savedCount} settings updated)`)
         setSource('database')
+        setDirty(false)
+        setLastSynced(new Date())
       } else {
         toast.error(data.message || 'Failed to save settings')
       }
@@ -118,10 +136,12 @@ const SettingsPage = () => {
 
   const update = (key: keyof Settings, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }))
+    setDirty(true)
   }
 
   const toggleBool = (key: keyof Settings) => {
     setSettings(prev => ({ ...prev, [key]: prev[key] === 'true' ? 'false' : 'true' }))
+    setDirty(true)
   }
 
   const Toggle = ({ settingKey, label, description }: { settingKey: keyof Settings; label: string; description: string }) => (
@@ -156,6 +176,24 @@ const SettingsPage = () => {
   return (
     <AdminDashboardLayout title="Platform Settings">
       <div className="space-y-6">
+        {/* Sync status */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {dirty && (
+              <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200">
+                Unsaved changes
+              </Badge>
+            )}
+            {!dirty && lastSynced && (
+              <span className="text-xs text-gray-400">Last synced: {lastSynced.toLocaleTimeString()}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${dirty ? 'bg-yellow-500' : 'bg-green-500'} animate-pulse`} />
+            <span className="text-xs text-gray-400">{dirty ? 'Unsaved' : 'Live sync'}</span>
+          </div>
+        </div>
+
         {/* Source indicator */}
         {source === 'defaults' && (
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
