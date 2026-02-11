@@ -9,7 +9,8 @@ import {
   Loader2,
   ArrowLeft,
   BarChart3,
-  Calendar
+  Calendar,
+  RefreshCw
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -48,9 +49,11 @@ export default function RevenuePage() {
   const [chartView, setChartView] = useState<ChartView>('monthly')
   const [chartType, setChartType] = useState<'total' | 'affiliate' | 'direct'>('total')
 
+  const initialLoadDone = React.useRef(false)
+
   const fetchRevenue = useCallback(async () => {
     try {
-      setLoading(true)
+      if (!initialLoadDone.current) setLoading(true)
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session) return
 
@@ -68,11 +71,18 @@ export default function RevenuePage() {
       console.error('Error fetching revenue:', error)
     } finally {
       setLoading(false)
+      initialLoadDone.current = true
     }
   }, [])
 
   useEffect(() => {
     fetchRevenue()
+  }, [fetchRevenue])
+
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchRevenue, 15000)
+    return () => clearInterval(interval)
   }, [fetchRevenue])
 
   const chartData = chartView === 'monthly' ? monthlyChart : dailyChart
@@ -109,6 +119,10 @@ export default function RevenuePage() {
             <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/admin')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => fetchRevenue()}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Revenue Overview</h1>
