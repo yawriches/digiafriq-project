@@ -131,60 +131,39 @@ export async function fetchUserById(userId: string): Promise<User | null> {
 
 export async function fetchReferralStats(userId: string): Promise<ReferralStats> {
   try {
-    // First try to get data from affiliate_profiles table
-    const { data: affiliateProfile, error: affiliateError } = await supabase
-      .from('affiliate_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    if (!affiliateError && affiliateProfile) {
-      // Use data from affiliate_profiles table
-      const { data: withdrawals, error: withdrawalError } = await supabase
+    // Calculate stats from payments, commissions, and withdrawals tables
+    const [referralPaymentsResult, commissionsResult, withdrawalsResult] = await Promise.all([
+      supabase
+        .from('payments')
+        .select('amount, status, user_id')
+        .eq('affiliate_id', userId),
+      supabase
+        .from('commissions')
+        .select('commission_amount, commission_currency')
+        .eq('affiliate_id', userId),
+      supabase
         .from('withdrawals')
         .select('amount_usd')
         .eq('user_id', userId)
         .eq('status', 'PAID')
+    ])
 
-      const totalWithdrawals = withdrawals?.reduce((sum: number, w: any) => sum + w.amount_usd, 0) || 0
-      const profile = affiliateProfile as any
+    const referralPayments = referralPaymentsResult.data || []
+    const commissions = commissionsResult.data || []
+    const withdrawals = withdrawalsResult.data || []
 
-      return {
-        total_referrals: profile.lifetime_referrals,
-        active_referrals: profile.active_referrals,
-        total_commissions: profile.total_earnings,
-        total_withdrawals: totalWithdrawals,
-        pending_commissions: profile.available_balance
-      }
-    }
+    // Get unique referrals from payments
+    const uniqueReferrals = new Set(referralPayments.map((p: any) => p.user_id).filter(Boolean))
 
-    // Fallback to calculating from payments table
-    const { data: referralPayments, error: referralError } = await supabase
-      .from('payments')
-      .select('amount, status, user_id')
-      .eq('affiliate_id', userId)
+    // Total commissions from commissions table
+    const totalCommissions = commissions.reduce((sum: number, c: any) => sum + (c.commission_amount || 0), 0)
 
-    if (referralError) throw referralError
-
-    // Get unique referrals
-    const uniqueReferrals = new Set((referralPayments || []).map((p: any) => p.user_id))
-    const completedPayments = (referralPayments || []).filter((p: any) => p.status === 'completed')
-    
-    // Calculate total commissions (assuming 10% commission rate)
-    const totalCommissions = completedPayments.reduce((sum: number, payment: any) => sum + (payment.amount * 0.1), 0)
-
-    // Get withdrawals from withdrawals table
-    const { data: withdrawals, error: withdrawalError } = await supabase
-      .from('withdrawals')
-      .select('amount_usd')
-      .eq('user_id', userId)
-      .eq('status', 'PAID')
-
-    const totalWithdrawals = withdrawals?.reduce((sum: number, w: any) => sum + w.amount_usd, 0) || 0
+    // Total withdrawals
+    const totalWithdrawals = withdrawals.reduce((sum: number, w: any) => sum + (w.amount_usd || 0), 0)
 
     return {
       total_referrals: uniqueReferrals.size,
-      active_referrals: uniqueReferrals.size, // For now, assume all are active
+      active_referrals: uniqueReferrals.size,
       total_commissions: totalCommissions,
       total_withdrawals: totalWithdrawals,
       pending_commissions: totalCommissions - totalWithdrawals
@@ -473,18 +452,38 @@ export async function bulkUpdateUserStatus(
 
 export async function fetchAffiliateProfile(userId: string): Promise<AffiliateProfile | null> {
   try {
-    const { data, error } = await supabase
-      .from('affiliate_profiles')
+    // Use profiles table instead of affiliate_profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (error) {
-      if (error.code === 'PGRST116') return null // No rows found
-      throw error
+    if (profileError) {
+      if (profileError.code === 'PGRST116') return null
+      throw profileError
     }
 
-    return data as AffiliateProfile
+    if (!profile) return null
+
+    // Get stats from commissions and payments
+    const stats = await fetchReferralStats(userId)
+
+    return {
+      id: profile.id,
+      referral_code: (profile as any).referral_code || '',
+      learner_link: '',
+      dcs_link: '',
+      total_earnings: stats.total_commissions,
+      lifetime_referrals: stats.total_referrals,
+      active_referrals: stats.active_referrals,
+      available_balance: stats.pending_commissions,
+      payout_method: (profile as any).payout_method || null,
+      bank_name: null,
+      bank_account: null,
+      momo_number: null,
+      momo_provider: null,
+    } as AffiliateProfile
   } catch (error) {
     console.error('Error fetching affiliate profile:', error)
     return null
