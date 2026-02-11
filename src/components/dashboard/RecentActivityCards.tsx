@@ -1,5 +1,6 @@
 "use client"
 import React from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   Users, 
   DollarSign, 
@@ -45,6 +46,7 @@ interface RecentUsersCardProps {
 }
 
 const RecentUsersCard: React.FC<RecentUsersCardProps> = ({ users, loading, error }) => {
+  const router = useRouter()
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'affiliate': return <Crown className="w-4 h-4" />
@@ -221,7 +223,7 @@ const RecentUsersCard: React.FC<RecentUsersCardProps> = ({ users, loading, error
       </div>
 
       <div className="mt-6 pt-4 border-t border-gray-200">
-        <button className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
+        <button onClick={() => router.push('/dashboard/admin/users')} className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
           <span>View all users</span>
           <ArrowUpRight className="w-4 h-4" />
         </button>
@@ -237,6 +239,7 @@ interface RecentPaymentsCardProps {
 }
 
 const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loading, error }) => {
+  const router = useRouter()
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed': return <CheckCircle className="w-4 h-4" />
@@ -367,6 +370,7 @@ const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loadi
                   <p className="text-sm text-gray-900 truncate">
                     {payment.user?.email || payment.reference || `Transaction ${payment.id.slice(0, 8)}`}
                   </p>
+                  <p className="text-xs text-gray-500">{new Date(payment.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
               <div className="text-right ml-3 shrink-0">
@@ -378,7 +382,7 @@ const RecentPaymentsCard: React.FC<RecentPaymentsCardProps> = ({ payments, loadi
       </div>
 
       <div className="mt-6 pt-4 border-t border-gray-200">
-        <button className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
+        <button onClick={() => router.push('/dashboard/admin/payments')} className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors">
           <span>View all payments</span>
           <ArrowUpRight className="w-4 h-4" />
         </button>

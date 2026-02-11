@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     // Recent users (last 5)
     const recentUsers = users
       .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5)
+      .slice(0, 10)
       .map((u: any) => ({
         id: u.id,
         email: u.email,
