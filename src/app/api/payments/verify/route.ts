@@ -184,72 +184,76 @@ class KoraProvider implements PaymentProvider {
 
   async verifyTransaction(reference: string): Promise<any> {
     console.log('🌐 Verifying with Kora API:', reference)
-    
-    // Correct Kora API endpoint from documentation
-    const endpoint = `https://api.korapay.com/merchant/api/v1/charges/${reference}`
-    
-    console.log(`🔍 Using Kora endpoint: ${endpoint}`)
-    
-    const response = await fetch(endpoint, {
-      method: 'GET', // Kora uses GET for verification
-      headers: {
-        'Authorization': `Bearer ${this.secretKey}`,
-        'Content-Type': 'application/json'
+
+    const endpoints = [
+      { label: 'charges', url: `https://api.korapay.com/merchant/api/v1/charges/${reference}` },
+      { label: 'charges-verify', url: `https://api.korapay.com/merchant/api/v1/charges/verify/${reference}` },
+      { label: 'payments', url: `https://api.korapay.com/merchant/api/v1/payments/${reference}` },
+    ]
+
+    let lastError: Error | null = null
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`🔍 Using Kora endpoint (${endpoint.label}): ${endpoint.url}`)
+
+        const response = await fetch(endpoint.url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.secretKey}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        console.log(`📨 Kora API response status (${endpoint.label}): ${response.status}`)
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Kora API error (${response.status}): ${errorText}`)
+        }
+
+        const responseText = await response.text()
+        let data: any = null
+        try {
+          data = responseText ? JSON.parse(responseText) : null
+        } catch (parseError) {
+          throw new Error(`Kora API returned invalid JSON (${endpoint.label}): ${responseText.substring(0, 200)}`)
+        }
+
+        if (!data || typeof data !== 'object') {
+          throw new Error(`Invalid Kora response (${endpoint.label}): not an object`)
+        }
+
+        if (!data.data) {
+          throw new Error(`Invalid Kora response (${endpoint.label}): missing data field`)
+        }
+
+        const koraStatus = data.data.status?.toLowerCase();
+        const normalizedStatus = (koraStatus === 'successful' || koraStatus === 'success') ? 'success' : koraStatus;
+
+        const normalizedResponse = {
+          status: true,
+          message: 'Verification successful',
+          data: {
+            ...data.data,
+            status: normalizedStatus,
+            reference: data.data.reference || reference,
+            amount: data.data.amount,
+            currency: data.data.currency,
+            paid_at: data.data.paid_at || data.data.created_at,
+            id: data.data.id || data.data.transaction_id
+          }
+        }
+
+        console.log(`✅ Normalized Kora response (${endpoint.label}):`, normalizedResponse)
+        return normalizedResponse
+      } catch (error) {
+        lastError = error as Error
+        console.error(`❌ Kora verification failed (${endpoint.label}):`, (error as Error).message)
       }
-    })
-
-    console.log(`📨 Kora API response status: ${response.status}`)
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`❌ Kora API error (${response.status}):`, errorText)
-      throw new Error(`Kora API error: ${response.status} - ${errorText}`)
     }
 
-    // Check if response is JSON before parsing
-    const contentType = response.headers.get('content-type')
-    console.log(`📄 Response content type: ${contentType}`)
-
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text()
-      console.error(`❌ Kora API returned non-JSON response:`, text.substring(0, 200))
-      throw new Error(`Kora API returned invalid response format. Expected JSON, got ${contentType || 'unknown'}`)
-    }
-
-    const data = await response.json()
-    console.log(`✅ Kora verification response:`, data)
-    
-    // Validate Kora response structure
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid Kora response: not an object')
-    }
-
-    // Kora response should have data.status field according to documentation
-    if (!data.data) {
-      throw new Error('Invalid Kora response: missing data field')
-    }
-
-    // Normalize Kora response to match our expected format
-    // Kora uses 'successful' while Paystack uses 'success' - normalize to 'success'
-    const koraStatus = data.data.status?.toLowerCase();
-    const normalizedStatus = (koraStatus === 'successful' || koraStatus === 'success') ? 'success' : koraStatus;
-    
-    const normalizedResponse = {
-      status: true, // Kora returns 200 for successful API calls
-      message: 'Verification successful',
-      data: {
-        ...data.data,
-        status: normalizedStatus, // Normalized to 'success' for consistency
-        reference: data.data.reference || reference,
-        amount: data.data.amount,
-        currency: data.data.currency,
-        paid_at: data.data.paid_at || data.data.created_at,
-        id: data.data.id || data.data.transaction_id
-      }
-    }
-
-    console.log(`✅ Normalized Kora response:`, normalizedResponse)
-    return normalizedResponse
+    throw lastError || new Error('Kora verification failed')
   }
 }
 
@@ -1340,9 +1344,17 @@ export async function POST(request: NextRequest) {
 
       console.log(`🌐 Starting verification with ${provider.getProviderName()} API...`)
 
+      const referenceToVerify = payment.provider_reference || reference
+      if (referenceToVerify !== reference) {
+        console.log('🔁 Using provider_reference for verification:', {
+          requestReference: reference,
+          providerReference: referenceToVerify
+        })
+      }
+
       let verificationData
       try {
-        verificationData = await provider.verifyTransaction(reference)
+        verificationData = await provider.verifyTransaction(referenceToVerify)
         console.log('📊 Provider verification response:', JSON.stringify(verificationData, null, 2))
       } catch (verificationError) {
         console.error('❌ ERROR: Failed to verify with provider:', verificationError)
