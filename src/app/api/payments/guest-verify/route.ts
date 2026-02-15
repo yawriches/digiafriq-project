@@ -777,6 +777,35 @@ export async function POST(request: NextRequest) {
       hasDCS: metadata.has_digital_cashflow_addon 
     })
 
+    // Deactivate any existing expired memberships for this user (renewal flow)
+    if (userId) {
+      const { data: existingMemberships, error: fetchExistingError } = await supabaseAdmin
+        .from('user_memberships')
+        .select('id, expires_at, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true) as any
+
+      if (!fetchExistingError && existingMemberships?.length > 0) {
+        const expiredIds = existingMemberships
+          .filter((m: any) => new Date(m.expires_at) <= new Date())
+          .map((m: any) => m.id)
+
+        if (expiredIds.length > 0) {
+          console.log('🔄 [guest-verify] Deactivating expired memberships for renewal:', expiredIds)
+          const { error: deactivateError } = await supabaseAdmin
+            .from('user_memberships')
+            .update({ is_active: false })
+            .in('id', expiredIds) as any
+
+          if (deactivateError) {
+            console.error('⚠️ Failed to deactivate expired memberships (non-blocking):', deactivateError)
+          } else {
+            console.log('✅ Deactivated', expiredIds.length, 'expired membership(s)')
+          }
+        }
+      }
+    }
+
     const { error: membershipError } = await supabaseAdmin
       .from('user_memberships')
       .insert({

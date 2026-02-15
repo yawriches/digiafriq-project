@@ -61,9 +61,9 @@ const getCountryCurrency = (country: string): Currency => {
 const getAvailableProviders = (country: string): PaymentProvider[] => {
   const countryLower = country.toLowerCase().trim();
   
-  // Ghana users can choose between Paystack and Kora
+  // Ghana uses Paystack only
   if (countryLower === 'ghana' || countryLower.includes('ghana')) {
-    return ['paystack', 'kora'];
+    return ['paystack'];
   }
   
   // All other countries use Kora only

@@ -26,6 +26,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '@/lib/supabase/auth'
 import MembershipActivatedBanner from '@/components/MembershipActivatedBanner'
+import { MembershipExpiryBanner } from '@/components/dashboard/MembershipExpiryBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import ProfileCompletionModal from '@/components/dashboard/ProfileCompletionModal'
 import { supabase } from '@/lib/supabase/client'
@@ -502,6 +503,9 @@ const LearnerDashboardLayout = ({ children, title = "Dashboard" }: LearnerDashbo
             </div>
           </div>
         </header>
+
+        {/* Membership Expiry Warning */}
+        <MembershipExpiryBanner />
 
         {/* Dark Page Content - Mobile optimized */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 min-h-0 bg-gray-50">

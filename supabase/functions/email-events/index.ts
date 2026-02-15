@@ -13,6 +13,8 @@ const TEMPLATES: Record<
   | 'commission.html'
   | 'membership-purchase.html'
   | 'membership-upgrade.html'
+  | 'membership-expiry-warning.html'
+  | 'membership-expired.html'
   | 'payout.html'
   | 'payout-request.html',
   string
@@ -520,6 +522,162 @@ const TEMPLATES: Record<
 </body>
 </html>
 `,
+  'membership-expiry-warning.html': `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Digiafriq Membership Expires Soon</title>
+  <style>
+    body { margin:0; padding:0; background:#f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color:#1e293b; }
+    .wrap { max-width:600px; margin:40px auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 25px rgba(0,0,0,0.07); }
+    .header { background:#ffffff; padding:28px 32px; text-align:center; color:#1e293b; border-bottom:1px solid #e2e8f0; }
+    .logo { width:120px; height:auto; display:block; margin:0 auto; }
+    .content { padding:40px 32px; }
+    h1 { margin:0 0 16px 0; font-size:24px; font-weight:700; color:#1e293b; }
+    p { margin:16px 0; line-height:1.6; color:#475569; font-size:15px; }
+    .cta { display:inline-block; margin-top:24px; padding:14px 24px; background:#ea580c; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; }
+    .warning-box { background:#fffbeb; border:1px solid #fbbf24; border-radius:8px; padding:16px 20px; margin:24px 0; }
+    .warning-box p { color:#92400e; margin:0; font-size:14px; }
+    .divider { height:1px; background:#e2e8f0; margin:32px 0; }
+    .section-title { margin:0 0 12px 0; font-size:18px; font-weight:600; color:#1e293b; }
+    .footer { padding:24px 32px; border-top:1px solid #e2e8f0; color:#64748b; font-size:13px; line-height:1.6; text-align:center; }
+    a { color:#ea580c; text-decoration:none; }
+    .emoji { font-size:1.2em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <img src="https://cdn.jsdelivr.net/gh/learnmorenade/digiafriq@e0d2e6031073b113aec46bbe179e9139bfe5b5e1/public/digiafriqlogo.png" alt="Digiafriq" class="logo">
+    </div>
+    <div class="content">
+      <h1>Your Membership Expires in {{daysRemaining}} Day{{daysSuffix}} <span class="emoji">⏳</span></h1>
+
+      <p>Hi {{name}},</p>
+
+      <p>This is a friendly reminder that your <strong>AI Cashflow Program</strong> membership will expire on <strong>{{expiryDate}}</strong>.</p>
+
+      <div class="warning-box">
+        <p><strong>⚠️ What happens when your membership expires:</strong></p>
+        <p style="margin-top:8px;">You will lose access to courses, tools, and platform features. However, all your progress, earnings, and credentials will be safely preserved.</p>
+      </div>
+
+      <p>Renew now to maintain uninterrupted access to everything you've built:</p>
+
+      <a href="{{renewalUrl}}" class="cta">Renew My Membership →</a>
+
+      <div class="divider"></div>
+
+      <div class="section-title">🛡️ Your Data Is Safe</div>
+      <p>Even if your membership expires, your course progress, affiliate earnings, and account data are never deleted. Renew anytime to pick up right where you left off.</p>
+
+      <p>👉 Join the community: <a href="{{communityUrl}}">{{communityUrl}}</a></p>
+
+      <div class="divider"></div>
+
+      <div class="section-title">🛠 Need Support?</div>
+      <p>
+        📧 <a href="mailto:support@digiafriq.com">support@digiafriq.com</a><br />
+        🐦 Twitter (X): <a href="https://x.com/digiafriq" target="_blank" rel="noopener noreferrer">@digiafriq</a><br />
+        💬 Live chat on your dashboard
+      </p>
+
+      <p>Warm regards,<br />The Digiafriq Team</p>
+    </div>
+    <div class="footer">
+      <div>© {{year}} Digiafriq. All Rights Reserved.</div>
+      <div>This is an automated transactional email.</div>
+    </div>
+  </div>
+</body>
+</html>
+`,
+  'membership-expired.html': `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Digiafriq Membership Has Expired</title>
+  <style>
+    body { margin:0; padding:0; background:#f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color:#1e293b; }
+    .wrap { max-width:600px; margin:40px auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 25px rgba(0,0,0,0.07); }
+    .header { background:#ffffff; padding:28px 32px; text-align:center; color:#1e293b; border-bottom:1px solid #e2e8f0; }
+    .logo { width:120px; height:auto; display:block; margin:0 auto; }
+    .content { padding:40px 32px; }
+    h1 { margin:0 0 16px 0; font-size:24px; font-weight:700; color:#1e293b; }
+    p { margin:16px 0; line-height:1.6; color:#475569; font-size:15px; }
+    .cta { display:inline-block; margin-top:24px; padding:14px 24px; background:#ea580c; color:#ffffff !important; text-decoration:none; border-radius:8px; font-weight:600; font-size:15px; }
+    .expired-box { background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:16px 20px; margin:24px 0; }
+    .expired-box p { color:#991b1b; margin:0; font-size:14px; }
+    .safe-box { background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:16px 20px; margin:24px 0; }
+    .safe-box p { color:#166534; margin:0; font-size:14px; }
+    .divider { height:1px; background:#e2e8f0; margin:32px 0; }
+    .section-title { margin:0 0 12px 0; font-size:18px; font-weight:600; color:#1e293b; }
+    .footer { padding:24px 32px; border-top:1px solid #e2e8f0; color:#64748b; font-size:13px; line-height:1.6; text-align:center; }
+    a { color:#ea580c; text-decoration:none; }
+    .emoji { font-size:1.2em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <img src="https://cdn.jsdelivr.net/gh/learnmorenade/digiafriq@e0d2e6031073b113aec46bbe179e9139bfe5b5e1/public/digiafriqlogo.png" alt="Digiafriq" class="logo">
+    </div>
+    <div class="content">
+      <h1>Your Membership Has Expired <span class="emoji">⚠️</span></h1>
+
+      <p>Hi {{name}},</p>
+
+      <p>Your <strong>AI Cashflow Program</strong> membership expired on <strong>{{expiryDate}}</strong>. Your access to courses, tools, and platform features has been restricted.</p>
+
+      <div class="expired-box">
+        <p><strong>🔒 Content access is currently restricted.</strong></p>
+        <p style="margin-top:8px;">You can still log in, but you'll be redirected to the renewal page until your membership is reactivated.</p>
+      </div>
+
+      <div class="safe-box">
+        <p><strong>🛡️ Your data is safe!</strong></p>
+        <p style="margin-top:8px;">All your course progress, affiliate earnings, credentials, and settings are preserved. Nothing has been deleted.</p>
+      </div>
+
+      <p>Renew now to instantly regain full access:</p>
+
+      <a href="{{renewalUrl}}" class="cta">Renew My Membership Now →</a>
+
+      <div class="divider"></div>
+
+      <div class="section-title">What You Get Back Instantly</div>
+      <p>
+        ✅ Full course access & progress<br />
+        ✅ Affiliate dashboard & earnings<br />
+        ✅ All platform tools & features<br />
+        ✅ Community access
+      </p>
+
+      <p>👉 Join the community: <a href="{{communityUrl}}">{{communityUrl}}</a></p>
+
+      <div class="divider"></div>
+
+      <div class="section-title">🛠 Need Support?</div>
+      <p>
+        📧 <a href="mailto:support@digiafriq.com">support@digiafriq.com</a><br />
+        🐦 Twitter (X): <a href="https://x.com/digiafriq" target="_blank" rel="noopener noreferrer">@digiafriq</a><br />
+        💬 Live chat on your dashboard
+      </p>
+
+      <p>We'd love to have you back! <span class="emoji">🚀</span></p>
+
+      <p>Warm regards,<br />The Digiafriq Team</p>
+    </div>
+    <div class="footer">
+      <div>© {{year}} Digiafriq. All Rights Reserved.</div>
+      <div>This is an automated transactional email.</div>
+    </div>
+  </div>
+</body>
+</html>
+`,
 }
 
 type ZeptoMailPayload = {
@@ -582,6 +740,8 @@ async function sendEmail(params: {
     | 'commission.html'
     | 'membership-purchase.html'
     | 'membership-upgrade.html'
+    | 'membership-expiry-warning.html'
+    | 'membership-expired.html'
     | 'payout.html'
     | 'payout-request.html'
   placeholders: Record<string, unknown>
@@ -943,6 +1103,72 @@ serve(async (req: Request) => {
           amount,
           currency,
           referenceId,
+          communityUrl,
+          year,
+        },
+      })
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (type === 'membership_expiry_warning') {
+      const name = requireString(payload?.name, 'name')
+      const daysRemaining = payload?.daysRemaining ?? 7
+      const daysSuffix = Number(daysRemaining) === 1 ? '' : 's'
+      const expiryDate = requireString(payload?.expiryDate, 'expiryDate')
+
+      const renewalUrl = typeof payload?.renewalUrl === 'string' && payload.renewalUrl.trim()
+        ? payload.renewalUrl
+        : buildAppUrl('/dashboard/learner/membership')
+
+      const communityUrl = typeof payload?.communityUrl === 'string' && payload.communityUrl.trim()
+        ? payload.communityUrl
+        : 'https://t.me/digiafriq'
+
+      await sendEmail({
+        to,
+        subject: `⏳ Your Digiafriq Membership Expires in ${daysRemaining} Day${daysSuffix}`,
+        templateName: 'membership-expiry-warning.html',
+        placeholders: {
+          name,
+          daysRemaining,
+          daysSuffix,
+          expiryDate,
+          renewalUrl,
+          communityUrl,
+          year,
+        },
+      })
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (type === 'membership_expired') {
+      const name = requireString(payload?.name, 'name')
+      const expiryDate = requireString(payload?.expiryDate, 'expiryDate')
+
+      const renewalUrl = typeof payload?.renewalUrl === 'string' && payload.renewalUrl.trim()
+        ? payload.renewalUrl
+        : buildAppUrl('/dashboard/learner/membership')
+
+      const communityUrl = typeof payload?.communityUrl === 'string' && payload.communityUrl.trim()
+        ? payload.communityUrl
+        : 'https://t.me/digiafriq'
+
+      await sendEmail({
+        to,
+        subject: '⚠️ Your Digiafriq Membership Has Expired — Renew Now',
+        templateName: 'membership-expired.html',
+        placeholders: {
+          name,
+          expiryDate,
+          renewalUrl,
           communityUrl,
           year,
         },

@@ -273,6 +273,7 @@ const SignupPage = () => {
                           <option value="Nigeria">Nigeria</option>
                           <option value="Ghana">Ghana</option>
                           <option value="Kenya">Kenya</option>
+                          <option value="Cameroon">Cameroon</option>
                           <option value="South Africa">South Africa</option>
                           <option value="Egypt">Egypt</option>
                           <option value="Morocco">Morocco</option>

@@ -1,333 +1,446 @@
 "use client"
-import React, { useMemo } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Users, 
-  BookOpen, 
-  DollarSign, 
+import {
+  Users,
+  BookOpen,
+  DollarSign,
   TrendingUp,
+  TrendingDown,
   UserPlus,
-  ShoppingCart,
   Award,
-  Activity,
   Link2,
   BarChart3,
-  PieChart,
-  Calendar,
   Clock,
-  ArrowUpRight,
-  ArrowDownRight,
-  Plus,
-  Settings,
-  Bell,
-  Search,
-  Filter,
-  Download,
+  ArrowRight,
   RefreshCw,
-  Eye,
-  Zap,
-  Target,
   Globe,
   CreditCard,
-  Star,
   Crown,
-  GraduationCap
+  Loader2,
+  FileText,
+  Settings,
+  Bell,
+  Activity,
+  UserCheck,
+  ChevronRight
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
-import { useAdminData } from '@/lib/hooks/useAdminData'
-import { useCurrency } from '@/contexts/CurrencyContext'
-import { CURRENCY_RATES } from '@/contexts/CurrencyContext'
-import { RevenueTrendCard, UserGrowthCard, SummaryStatsCard } from '@/components/dashboard/AdminCharts'
-import { RecentUsersCard, RecentPaymentsCard } from '@/components/dashboard/RecentActivityCards'
-import { AdminDashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
+import { supabase } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
 
+interface DashboardData {
+  stats: {
+    totalUsers: number
+    activeUsers: number
+    totalRevenue: number
+    activeCourses: number
+    activeAffiliates: number
+    totalPayments: number
+    totalCommissions: number
+    affiliatesOnboarded: number
+    affiliateSales: number
+    directSales: number
+    totalLearners: number
+    unpaidAccounts: number
+  }
+  recentUsers: { id: string; email: string; full_name: string | null; role: string; created_at: string }[]
+  recentPayments: {
+    id: string; amount: number; currency: string; status: string; created_at: string;
+    user?: { email: string; full_name: string | null }
+  }[]
+}
+
 const AdminDashboard = () => {
   const router = useRouter()
-  const { stats, recentUsers, recentPayments, loading, error } = useAdminData()
-  const { selectedCurrency, formatAmount } = useCurrency()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const initialLoadDone = React.useRef(false)
 
-  // Generate enhanced chart data - must be before early return to maintain hook order
-  const chartData = useMemo(() => {
-    const revenueData = [
-      { label: 'Mon', value: stats.totalRevenue * 0.12 },
-      { label: 'Tue', value: stats.totalRevenue * 0.15 },
-      { label: 'Wed', value: stats.totalRevenue * 0.18 },
-      { label: 'Thu', value: stats.totalRevenue * 0.14 },
-      { label: 'Fri', value: stats.totalRevenue * 0.20 },
-      { label: 'Sat', value: stats.totalRevenue * 0.11 },
-      { label: 'Sun', value: stats.totalRevenue * 0.10 }
-    ]
+  const fetchDashboard = useCallback(async () => {
+    try {
+      if (!initialLoadDone.current) setLoading(true)
+      const { data: sessionData } = await supabase.auth.getSession()
+      if (!sessionData.session) return
 
-    const userData = [
-      { label: 'Mon', value: Math.floor(stats.totalUsers * 0.12) },
-      { label: 'Tue', value: Math.floor(stats.totalUsers * 0.15) },
-      { label: 'Wed', value: Math.floor(stats.totalUsers * 0.18) },
-      { label: 'Thu', value: Math.floor(stats.totalUsers * 0.14) },
-      { label: 'Fri', value: Math.floor(stats.totalUsers * 0.20) },
-      { label: 'Sat', value: Math.floor(stats.totalUsers * 0.11) },
-      { label: 'Sun', value: Math.floor(stats.totalUsers * 0.10) }
-    ]
+      const headers = { 'Authorization': `Bearer ${sessionData.session.access_token}` }
+      const response = await fetch('/api/admin/dashboard-stats', { headers })
+      if (!response.ok) throw new Error('Failed to fetch')
+      const apiData = await response.json()
 
-    return { revenueData, userData }
-  }, [stats])
+      // Fetch recent payments with user info
+      const { data: recentPaymentsRaw } = await supabase
+        .from('payments')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(8)
 
-  if (loading) {
-    return <AdminDashboardSkeleton />
+      const recentPayments = await Promise.all(
+        (recentPaymentsRaw || []).map(async (p: any) => {
+          let user = undefined
+          if (p.user_id) {
+            const { data: userData } = await supabase
+              .from('profiles').select('id, full_name, email').eq('id', p.user_id).single()
+            if (userData) user = { email: userData.email, full_name: userData.full_name }
+          }
+          if (!user && p.metadata) {
+            const meta = p.metadata
+            const guestEmail = meta.guest_email || meta.email || null
+            const guestName = meta.guest_name || meta.full_name || null
+            if (guestEmail || guestName) user = { email: guestEmail || '', full_name: guestName }
+          }
+          return {
+            id: p.id, amount: p.amount, currency: p.currency || 'USD',
+            status: p.status, created_at: p.created_at, user,
+          }
+        })
+      )
+
+      setData({ ...apiData, recentPayments })
+      setLastUpdated(new Date())
+    } catch (error) {
+      console.error('Dashboard fetch error:', error)
+    } finally {
+      setLoading(false)
+      initialLoadDone.current = true
+    }
+  }, [])
+
+  useEffect(() => { fetchDashboard() }, [fetchDashboard])
+  useEffect(() => {
+    const interval = setInterval(fetchDashboard, 15000)
+    return () => clearInterval(interval)
+  }, [fetchDashboard])
+
+  const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const fmtNum = (n: number) => n.toLocaleString()
+  const timeAgo = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'Just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    return `${days}d ago`
   }
 
-  const premiumStatCards = [
-    {
-      title: "Total Revenue",
-      value: formatAmount(stats.totalRevenue),
-      subtitle: CURRENCY_RATES[selectedCurrency].name,
-      icon: DollarSign,
-      gradient: "from-emerald-500 via-green-500 to-teal-500",
-      iconBg: "bg-gradient-to-br from-emerald-100 to-green-100",
-      iconColor: "text-emerald-600",
-    },
-    {
-      title: "Total Users",
-      value: stats.totalUsers.toLocaleString(),
-      subtitle: "Platform Members",
-      icon: Users,
-      gradient: "from-blue-500 via-indigo-500 to-purple-500",
-      iconBg: "bg-gradient-to-br from-blue-100 to-indigo-100",
-      iconColor: "text-blue-600",
-    },
-    {
-      title: "Affiliates Onboarded",
-      value: stats.affiliatesOnboarded.toLocaleString(),
-      subtitle: "Completed Onboarding",
-      icon: Crown,
-      gradient: "from-orange-500 via-amber-500 to-yellow-500",
-      iconBg: "bg-gradient-to-br from-orange-100 to-amber-100",
-      iconColor: "text-orange-600",
-    },
-    {
-      title: "Affiliate Sales",
-      value: stats.affiliateSales.toLocaleString(),
-      subtitle: "Via Referrals",
-      icon: Link2,
-      gradient: "from-violet-500 via-purple-500 to-fuchsia-500",
-      iconBg: "bg-gradient-to-br from-violet-100 to-purple-100",
-      iconColor: "text-violet-600",
-    },
-    {
-      title: "Direct Website Sales",
-      value: stats.directSales.toLocaleString(),
-      subtitle: "Website Purchases",
-      icon: Globe,
-      gradient: "from-cyan-500 via-teal-500 to-emerald-500",
-      iconBg: "bg-gradient-to-br from-cyan-100 to-teal-100",
-      iconColor: "text-cyan-600",
-    }
-  ]
-
-  const quickActions = [
-    { title: "Payment", icon: CreditCard, color: "bg-green-500 hover:bg-green-600", href: "/dashboard/admin/payments" },
-    { title: "Add User", icon: UserPlus, color: "bg-blue-500 hover:bg-blue-600", href: "/dashboard/admin/add-user" },
-    { title: "Add Courses", icon: BookOpen, color: "bg-purple-500 hover:bg-purple-600", href: "/dashboard/admin/courses/create" },
-    { title: "View Analytics", icon: BarChart3, color: "bg-orange-500 hover:bg-orange-600", href: "/dashboard/admin/analytics" },
-  ]
-
-  
   if (loading) {
     return (
-      <AdminDashboardLayout title="Admin Dashboard">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading dashboard data...</p>
-          </div>
+      <AdminDashboardLayout title="Dashboard">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
+          <span className="ml-3 text-gray-600">Loading dashboard...</span>
         </div>
       </AdminDashboardLayout>
     )
   }
 
+  const s = data?.stats || {
+    totalUsers: 0, activeUsers: 0, totalRevenue: 0, activeCourses: 0,
+    activeAffiliates: 0, totalPayments: 0, totalCommissions: 0,
+    affiliatesOnboarded: 0, affiliateSales: 0, directSales: 0,
+    totalLearners: 0, unpaidAccounts: 0,
+  }
+
+  const totalSales = s.affiliateSales + s.directSales
+  const affPct = totalSales > 0 ? ((s.affiliateSales / totalSales) * 100).toFixed(0) : '0'
+  const directPct = totalSales > 0 ? ((s.directSales / totalSales) * 100).toFixed(0) : '0'
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminDashboardLayout title="Admin Dashboard">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="bg-white rounded-3xl p-8 text-gray-900 relative overflow-hidden border border-gray-200 shadow-lg">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-50/50 via-teal-50/50 to-green-50/50"></div>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-emerald-100/20 via-teal-100/20 to-transparent rounded-full -translate-y-48 translate-x-48"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-green-100/20 to-transparent rounded-full translate-y-32 -translate-x-32"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-6">
+    <AdminDashboardLayout title="Dashboard">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Real-time platform metrics {lastUpdated && <span>&middot; Updated {lastUpdated.toLocaleTimeString()}</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchDashboard}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/admin/reports')}>
+              <FileText className="w-4 h-4 mr-2" />
+              Reports
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/admin/settings')}>
+              <Settings className="w-4 h-4 mr-1.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Primary KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/dashboard/admin/revenue')}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent">
-                    Welcome back, Admin
-                  </h1>
-                  <p className="text-gray-600 text-lg font-medium">Command center for your premium platform</p>
+                  <p className="text-sm font-medium text-emerald-100">Total Revenue</p>
+                  <p className="text-2xl font-bold mt-1">{fmt(s.totalRevenue)}</p>
+                  <p className="text-xs text-emerald-200 mt-1">{fmtNum(s.totalPayments)} payments</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => router.push('/dashboard/admin/notifications')} className="p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all duration-200 border border-emerald-200">
-                    <Bell className="w-5 h-5 text-emerald-600" />
-                  </button>
-                  <button className="p-3 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all duration-200 border border-emerald-200">
-                    <Settings className="w-5 h-5 text-emerald-600" />
-                  </button>
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <DollarSign className="w-6 h-6" />
                 </div>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-500 to-indigo-600 text-white cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/dashboard/admin/users')}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-100">Total Users</p>
+                  <p className="text-2xl font-bold mt-1">{fmtNum(s.totalUsers)}</p>
+                  <p className="text-xs text-blue-200 mt-1">{fmtNum(s.activeUsers)} active</p>
+                </div>
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md bg-gradient-to-br from-orange-500 to-amber-600 text-white cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/dashboard/admin/commissions')}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-100">Commissions</p>
+                  <p className="text-2xl font-bold mt-1">{fmt(s.totalCommissions)}</p>
+                  <p className="text-xs text-orange-200 mt-1">{fmtNum(s.affiliatesOnboarded)} affiliates</p>
+                </div>
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Award className="w-6 h-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md bg-gradient-to-br from-purple-500 to-violet-600 text-white cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/dashboard/admin/analytics')}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-100">Total Sales</p>
+                  <p className="text-2xl font-bold mt-1">{fmtNum(totalSales)}</p>
+                  <p className="text-xs text-purple-200 mt-1">{fmtNum(s.activeCourses)} courses</p>
+                </div>
+                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Quick Actions</h2>
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 border border-gray-300">
-                <RefreshCw className="w-4 h-4" />
-                <span className="text-sm font-medium">Refresh</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all duration-200">
-                <Download className="w-4 h-4" />
-                <span className="text-sm font-medium">Export</span>
-              </button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {quickActions.map((action, index) => (
-              <button
-                key={index}
-                onClick={() => router.push(action.href)}
-                className={`${action.color} text-white p-6 rounded-2xl transition-all duration-200 hover:scale-105 hover:shadow-lg group`}
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-3 group-hover:bg-white/30 transition-colors border border-white/30">
-                    <action.icon className="w-6 h-6" />
+        {/* Secondary Stats + Sales Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* User Breakdown */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-500 uppercase tracking-wide">User Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { label: 'Active Users', value: fmtNum(s.activeUsers), icon: <UserCheck className="w-4 h-4 text-green-500" />, color: 'bg-green-50' },
+                { label: 'Affiliates', value: fmtNum(s.activeAffiliates), icon: <Crown className="w-4 h-4 text-orange-500" />, color: 'bg-orange-50' },
+                { label: 'Onboarded Affiliates', value: fmtNum(s.affiliatesOnboarded), icon: <Award className="w-4 h-4 text-purple-500" />, color: 'bg-purple-50' },
+                { label: 'Learners', value: fmtNum(s.totalLearners || 0), icon: <BookOpen className="w-4 h-4 text-blue-500" />, color: 'bg-blue-50' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 ${item.color} rounded-lg flex items-center justify-center`}>{item.icon}</div>
+                    <span className="text-sm text-gray-600">{item.label}</span>
                   </div>
-                  <span className="font-semibold">{action.title}</span>
+                  <span className="text-sm font-semibold text-gray-900">{item.value}</span>
                 </div>
-              </button>
-            ))}
-          </div>
-        </div>
+              ))}
+            </CardContent>
+          </Card>
 
-        {/* Premium Statistics Cards */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Platform Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {premiumStatCards.map((stat, index) => (
-              <div
-                key={index}
-                className="relative bg-white border border-gray-200 rounded-3xl p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 hover:scale-105 group overflow-hidden"
-              >
-                {/* Background Pattern */}
-                <div className="absolute inset-0 opacity-5">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-400 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+          {/* Sales Breakdown */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Sales Breakdown</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500" />
+                    <span className="text-sm text-gray-600">Affiliate Sales</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold text-gray-900">{fmtNum(s.affiliateSales)}</span>
+                    <span className="text-xs text-gray-400 ml-1.5">({affPct}%)</span>
+                  </div>
                 </div>
-                
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`w-12 h-12 ${stat.iconBg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-white/50 shadow-sm`}>
-                      <stat.icon className={`w-6 h-6 ${stat.iconColor}`} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500" />
+                    <span className="text-sm text-gray-600">Direct Sales</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold text-gray-900">{fmtNum(s.directSales)}</span>
+                    <span className="text-xs text-gray-400 ml-1.5">({directPct}%)</span>
+                  </div>
+                </div>
+                {/* Split bar */}
+                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden flex">
+                  <div className="bg-orange-500 h-full transition-all duration-500" style={{ width: `${affPct}%` }} />
+                  <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${directPct}%` }} />
+                </div>
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Total Sales</span>
+                    <span className="text-lg font-bold text-gray-900">{fmtNum(totalSales)}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {[
+                { label: 'Payments', icon: CreditCard, color: 'text-green-600 bg-green-50', href: '/dashboard/admin/payments' },
+                { label: 'Add User', icon: UserPlus, color: 'text-blue-600 bg-blue-50', href: '/dashboard/admin/add-user' },
+                { label: 'Create Course', icon: BookOpen, color: 'text-purple-600 bg-purple-50', href: '/dashboard/admin/courses/create' },
+                { label: 'Analytics', icon: BarChart3, color: 'text-orange-600 bg-orange-50', href: '/dashboard/admin/analytics' },
+                { label: 'Notifications', icon: Bell, color: 'text-rose-600 bg-rose-50', href: '/dashboard/admin/notifications' },
+              ].map((action, i) => (
+                <button
+                  key={i}
+                  onClick={() => router.push(action.href)}
+                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${action.color}`}>
+                      <action.icon className="w-4 h-4" />
                     </div>
+                    <span className="text-sm font-medium text-gray-700">{action.label}</span>
                   </div>
-                  
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                    <p className="text-sm font-medium text-gray-600 mt-1">{stat.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{stat.subtitle}</p>
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
 
-                  {/* Accent Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-1 mt-4">
-                    <div 
-                      className={`bg-gradient-to-r ${stat.gradient} h-1 rounded-full`}
-                      style={{ width: '100%' }}
-                    ></div>
-                  </div>
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Recent Users */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Recent Users</CardTitle>
+                <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:text-gray-600" onClick={() => router.push('/dashboard/admin/users')}>
+                  View All <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(data?.recentUsers || []).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">No recent users</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data?.recentUsers || []).slice(0, 6).map((user, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">
+                          {(user.full_name || user.email || '?')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">{user.full_name || 'No name'}</p>
+                          <p className="text-xs text-gray-400 truncate max-w-[180px]">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 capitalize">{user.role}</Badge>
+                        <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(user.created_at)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Payments */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Recent Payments</CardTitle>
+                <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:text-gray-600" onClick={() => router.push('/dashboard/admin/payments')}>
+                  View All <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
               </div>
-            ))}
-          </div>
+            </CardHeader>
+            <CardContent>
+              {(data?.recentPayments || []).length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">No recent payments</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data?.recentPayments || []).slice(0, 6).map((payment, i) => {
+                    const statusColor = payment.status === 'completed' ? 'bg-green-100 text-green-700'
+                      : payment.status === 'pending' ? 'bg-yellow-100 text-yellow-700'
+                      : 'bg-gray-100 text-gray-600'
+                    const currencySymbol: Record<string, string> = { USD: '$', GHS: '₵', NGN: '₦', EUR: '€', GBP: '£' }
+                    const sym = currencySymbol[payment.currency?.toUpperCase()] || payment.currency || '$'
+                    return (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${payment.status === 'completed' ? 'bg-green-50' : 'bg-gray-50'}`}>
+                            <CreditCard className={`w-4 h-4 ${payment.status === 'completed' ? 'text-green-500' : 'text-gray-400'}`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
+                              {payment.user?.full_name || payment.user?.email || 'Guest'}
+                            </p>
+                            <p className="text-xs text-gray-400">{timeAgo(payment.created_at)}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gray-900">{sym}{payment.amount?.toLocaleString()}</p>
+                          <Badge className={`text-[10px] px-1.5 py-0 ${statusColor}`}>{payment.status}</Badge>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Enhanced Charts Section */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics & Trends</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 rounded-3xl shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 overflow-hidden">
-              <RevenueTrendCard
-                revenue={stats.totalRevenue}
-                growth={23.8}
-                chartData={chartData.revenueData}
-                selectedCurrency={selectedCurrency}
-                formatAmount={formatAmount}
-              />
+        {/* Footer Status */}
+        <div className="flex items-center justify-between py-3 px-1 border-t border-gray-100">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs text-gray-400">Live</span>
             </div>
-            <div className="bg-white border border-gray-200 rounded-3xl shadow-lg hover:shadow-blue-500/10 transition-all duration-300 overflow-hidden">
-              <UserGrowthCard
-                users={stats.totalUsers}
-                growth={12.5}
-                chartData={chartData.userData}
-              />
-            </div>
+            <span className="text-xs text-gray-400">Auto-refreshes every 15s</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Clock className="w-3 h-3" />
+            {lastUpdated?.toLocaleTimeString() || '—'}
           </div>
         </div>
-
-        {/* Enhanced Activity Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Recent Activity</h2>
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 border border-gray-300">
-                <Filter className="w-4 h-4" />
-                <span className="text-sm font-medium">Filter</span>
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200 border border-gray-300">
-                <Eye className="w-4 h-4" />
-                <span className="text-sm font-medium">View All</span>
-              </button>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 rounded-3xl shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 overflow-hidden">
-              <RecentUsersCard users={recentUsers} loading={loading} error={error} />
-            </div>
-            <div className="bg-white border border-gray-200 rounded-3xl shadow-lg hover:shadow-orange-500/10 transition-all duration-300 overflow-hidden">
-              <RecentPaymentsCard payments={recentPayments} loading={loading} error={error} />
-            </div>
-          </div>
-        </div>
-
-        {/* System Status Footer */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-gray-700">System Status: Operational</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock className="w-4 h-4" />
-                <span>Last updated: {new Date().toLocaleTimeString()}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Globe className="w-4 h-4" />
-                <span>99.9% Uptime</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Zap className="w-4 h-4" />
-                <span>Fast Response</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </AdminDashboardLayout>
-    </div>
+      </div>
+    </AdminDashboardLayout>
   )
 }
 

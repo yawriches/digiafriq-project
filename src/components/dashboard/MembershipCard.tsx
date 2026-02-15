@@ -16,9 +16,11 @@ interface MembershipCardProps {
   }
   onSelect: (membershipId: string) => void
   selected?: boolean
+  isRenewal?: boolean
+  renewalPrice?: number
 }
 
-export function MembershipCard({ membership, onSelect, selected }: MembershipCardProps) {
+export function MembershipCard({ membership, onSelect, selected, isRenewal, renewalPrice }: MembershipCardProps) {
   const handleSubscribe = () => {
     onSelect(membership.id)
   }
@@ -37,11 +39,21 @@ export function MembershipCard({ membership, onSelect, selected }: MembershipCar
         <div className="space-y-6">
           <div className="space-y-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold">${membership.price}</span>
-              <span className="text-muted-foreground">per year</span>
+              {isRenewal && renewalPrice !== undefined ? (
+                <>
+                  <span className="text-4xl font-bold text-[#ed874a]">${renewalPrice}</span>
+                  <span className="text-lg text-muted-foreground line-through">${membership.price}</span>
+                  <span className="text-muted-foreground">per year</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-bold">${membership.price}</span>
+                  <span className="text-muted-foreground">per year</span>
+                </>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Full access to AI Cashflow Program
+              {isRenewal ? 'Renewal — Full access to AI Cashflow Program' : 'Full access to AI Cashflow Program'}
             </p>
           </div>
 
@@ -62,7 +74,7 @@ export function MembershipCard({ membership, onSelect, selected }: MembershipCar
           className="w-full py-6 text-lg bg-[#ed874a] hover:bg-[#ed874a]/90 text-white" 
           onClick={handleSubscribe}
         >
-          Get Started
+          {isRenewal ? 'Renew Now' : 'Get Started'}
         </Button>
       </CardFooter>
     </Card>

@@ -31,6 +31,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/supabase/auth'
 import { useCurrency } from '@/contexts/CurrencyContext'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { MembershipExpiryBanner } from '@/components/dashboard/MembershipExpiryBanner'
 
 interface SidebarItem {
   title: string
@@ -511,6 +512,9 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
             </div>
           </div>
         </header>
+
+        {/* Membership Expiry Warning */}
+        <MembershipExpiryBanner />
 
         {/* Dark Page Content - Mobile optimized */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 min-h-0 bg-gray-50">
