@@ -160,9 +160,15 @@ class KoraProvider implements PaymentProvider {
     console.log('🌐 Verifying with Kora API:', reference)
 
     const endpoints = [
-      { label: 'charges', url: `https://api.korapay.com/merchant/api/v1/charges/${reference}` },
-      { label: 'charges-verify', url: `https://api.korapay.com/merchant/api/v1/charges/verify/${reference}` },
-      { label: 'payments', url: `https://api.korapay.com/merchant/api/v1/payments/${reference}` },
+      { label: 'charges', url: `https://api.korapay.com/merchant/api/v1/charges/${reference}`, method: 'GET' },
+      { label: 'charges-verify', url: `https://api.korapay.com/merchant/api/v1/charges/verify/${reference}`, method: 'GET' },
+      {
+        label: 'charges-verify-post',
+        url: 'https://api.korapay.com/merchant/api/v1/charges/verify',
+        method: 'POST',
+        body: { reference }
+      },
+      { label: 'payments', url: `https://api.korapay.com/merchant/api/v1/payments/${reference}`, method: 'GET' },
     ]
 
     let lastError: Error | null = null
@@ -172,11 +178,12 @@ class KoraProvider implements PaymentProvider {
         console.log(`🔍 Using Kora endpoint (${endpoint.label}): ${endpoint.url}`)
 
         const response = await fetch(endpoint.url, {
-          method: 'GET',
+          method: endpoint.method,
           headers: {
             'Authorization': `Bearer ${this.secretKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          body: endpoint.method === 'POST' ? JSON.stringify(endpoint.body) : undefined
         })
 
         console.log(`📨 Kora API response status (${endpoint.label}): ${response.status}`)
