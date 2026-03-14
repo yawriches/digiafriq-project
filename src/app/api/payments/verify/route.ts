@@ -1052,13 +1052,15 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Declare verificationData in broader scope
+      let verificationData: any = null
+      
       // If payment doesn't exist, we need to create it after verification
       if (!paymentError && !payment) {
         console.log('❌ PAYMENT RECORD NOT FOUND: No payment record exists in database for reference:', reference)
         console.log('🔄 Will create payment record if verification succeeds')
         
         // Try to verify with all providers to find which one has the transaction
-        let verificationData = null
         let providerUsed = null
 
         // Helper to check if payment status indicates success (handles both 'success' and 'successful')
@@ -1140,6 +1142,26 @@ export async function POST(request: NextRequest) {
             console.log('🔄 Duplicate payment detected, trying to find existing record...')
             const { data: existingPayment } = await supabase
               .from('payments')
+              .select()
+              .eq('provider_reference', reference)
+              .single()
+            
+            if (existingPayment) {
+              console.log('✅ Found existing payment record, using it for membership creation')
+              return await processMembershipCreation(existingPayment, verificationData)
+            }
+          }
+          
+          return NextResponse.json({
+            success: false,
+            message: 'Payment verification failed - could not create payment record',
+            details: createError.message
+          }, { status: 500 })
+        }
+
+        const payment = newPayment
+      }
+      
       // Continue with membership creation
       return await processMembershipCreation(payment, verificationData)
 
