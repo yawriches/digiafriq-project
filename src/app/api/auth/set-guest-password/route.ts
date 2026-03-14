@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit, getRateLimitIdentifier, RATE_LIMITS } from '@/lib/utils/rate-limit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,14 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const rlResult = rateLimit(getRateLimitIdentifier(request, 'set-pwd'), RATE_LIMITS.auth)
+  if (!rlResult.success) {
+    return NextResponse.json(
+      { success: false, message: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rlResult.resetAt - Date.now()) / 1000)) } }
+    )
+  }
+
   try {
     const { email, password } = await request.json()
 

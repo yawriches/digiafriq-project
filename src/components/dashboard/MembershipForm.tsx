@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { X, Plus, Trash2, Users, Crown } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Course {
@@ -125,7 +125,7 @@ export default function MembershipForm({ membership, onClose, onSuccess }: Membe
         .eq('membership_package_id', membershipId)
 
       if (error) throw error
-      const courseIds = data?.map(item => item.course_id) || []
+      const courseIds = data?.map((item: any) => item.course_id) || []
       setFormData(prev => ({ ...prev, selectedCourses: courseIds }))
     } catch (error) {
       console.error('Error fetching membership courses:', error)
@@ -141,8 +141,8 @@ export default function MembershipForm({ membership, onClose, onSuccess }: Membe
 
       if (error) throw error
       
-      const promotions = data?.map(item => item.promotable_membership_id) || []
-      const rates = data?.reduce((acc, item) => ({
+      const promotions = data?.map((item: any) => item.promotable_membership_id) || []
+      const rates = data?.reduce((acc: any, item: any) => ({
         ...acc,
         [item.promotable_membership_id]: item.commission_rate
       }), {}) || {}

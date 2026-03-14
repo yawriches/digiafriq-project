@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/supabase/auth'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { MembershipCard } from '@/components/dashboard/MembershipCard'
 import { PremiumMembershipCard } from '@/components/dashboard/PremiumMembershipCard'
 import { Loader2, ShieldCheck, BookOpen, TrendingUp, RefreshCw } from 'lucide-react'

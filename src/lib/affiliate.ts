@@ -1,4 +1,4 @@
-import { supabase } from './supabase/client'
+import { supabase, db } from './supabase/client'
 import { Database } from './supabase/types'
 
 type AffiliateProfile = Database['public']['Tables']['affiliate_profiles']['Row']
@@ -50,7 +50,7 @@ export async function createAffiliateProfile(): Promise<AffiliateProfile> {
   if (!user) throw new Error('User not authenticated')
 
   // First update user role to affiliate
-  const { error: profileError } = await supabase
+  const { error: profileError } = await db
     .from('profiles')
     .update({ role: 'affiliate' })
     .eq('id', user.id)
@@ -76,7 +76,7 @@ export async function updateAffiliateProfile(updates: Partial<AffiliateProfile>)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('affiliate_profiles')
     .update(updates)
     .eq('id', user.id)
@@ -92,7 +92,7 @@ export async function getAffiliateStats() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  const { data, error } = await supabase.rpc('get_affiliate_stats', {
+  const { data, error } = await db.rpc('get_affiliate_stats', {
     affiliate_id_param: user.id
   })
 
@@ -105,7 +105,7 @@ export async function getAffiliateCommissions(): Promise<CommissionWithDetails[]
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('commissions')
     .select(`
       *,
@@ -133,7 +133,7 @@ export async function getAffiliatePayouts(): Promise<PayoutWithCommissions[]> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('payouts')
     .select(`
       *,
@@ -210,7 +210,7 @@ export async function requestPayout(amount: number) {
   if (!user) throw new Error('User not authenticated')
 
   // Get affiliate profile for bank details
-  const { data: affiliate, error: affiliateError } = await supabase
+  const { data: affiliate, error: affiliateError } = await db
     .from('affiliate_profiles')
     .select('*')
     .eq('id', user.id)
@@ -223,7 +223,7 @@ export async function requestPayout(amount: number) {
   }
 
   // Create payout request
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('payouts')
     .insert({
       affiliate_id: user.id,
@@ -258,7 +258,7 @@ export async function getCommissionSummary(period: 'week' | 'month' | 'year' = '
       break
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('commissions')
     .select('amount, status, created_at')
     .eq('affiliate_id', user.id)
@@ -274,7 +274,7 @@ export async function getCommissionSummary(period: 'week' | 'month' | 'year' = '
     count: data.length
   }
 
-  data.forEach(commission => {
+  data.forEach((commission: any) => {
     summary.total += commission.amount
     switch (commission.status) {
       case 'pending':
@@ -297,7 +297,7 @@ export async function getTopPerformingCourses(limit = 5) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('User not authenticated')
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('commissions')
     .select(`
       course_id,
@@ -316,7 +316,7 @@ export async function getTopPerformingCourses(limit = 5) {
   // Group by course and calculate totals
   const courseMap = new Map()
   
-  data.forEach(commission => {
+  data.forEach((commission: any) => {
     const courseId = commission.course_id
     if (courseMap.has(courseId)) {
       const existing = courseMap.get(courseId)

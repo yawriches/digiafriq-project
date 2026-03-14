@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Users, Crown } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Course {
@@ -26,7 +26,7 @@ interface MembershipPackage {
   price: number
   currency?: string
   duration_months: number
-  member_type: 'learner'
+  member_type: string
   is_active: boolean
   features: string[]
 }
@@ -37,7 +37,7 @@ type MembershipInsert = {
   price: number
   currency: string
   duration_months: number
-  member_type: 'learner'
+  member_type: string
   is_active: boolean
   features: string[]
 }
@@ -292,7 +292,7 @@ export default function MembershipFormPage({
 
     setLoading(true)
     try {
-      const membershipData: MembershipInsert = {
+      const membershipData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),

@@ -5,7 +5,7 @@ import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import MembershipFormPage from '@/components/dashboard/MembershipFormPage'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface MembershipPackage {

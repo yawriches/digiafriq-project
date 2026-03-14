@@ -16,7 +16,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Category {

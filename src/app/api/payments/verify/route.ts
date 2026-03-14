@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit, getRateLimitIdentifier, RATE_LIMITS } from '@/lib/utils/rate-limit'
 // completeReferral is implemented inline below using the service-role client
 // (the version in @/lib/supabase/referrals uses the anon client, blocked by RLS)
 import { processCommission } from '@/lib/commissions/process-commission'
@@ -131,152 +132,8 @@ async function sendMembershipReceiptEmail(params: {
   console.log('📧 email-events result (membership_purchase)', { ok })
 }
 
-// Payment provider interfaces
-interface PaymentProvider {
-  verifyTransaction(reference: string): Promise<any>
-  getProviderName(): string
-}
-
-// Paystack provider implementation
-class PaystackProvider implements PaymentProvider {
-  private secretKey: string
-
-  constructor(secretKey: string) {
-    this.secretKey = secretKey
-  }
-
-  getProviderName(): string {
-    return 'paystack'
-  }
-
-  async verifyTransaction(reference: string): Promise<any> {
-    console.log('🌐 Verifying with Paystack API:', reference)
-    
-    const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.secretKey}`,
-        'Content-Type': 'application/json'
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error(`Paystack API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log('📊 Paystack verification response:', data)
-    return data
-  }
-}
-
-// Kora provider implementation
-class KoraProvider implements PaymentProvider {
-  private secretKey: string
-
-  constructor(secretKey: string) {
-    this.secretKey = secretKey
-  }
-
-  getProviderName(): string {
-    return 'kora'
-  }
-
-  async verifyTransaction(reference: string): Promise<any> {
-    console.log('🌐 Verifying with Kora API:', reference)
-
-    const endpoints = [
-      { label: 'charges', url: `https://api.korapay.com/merchant/api/v1/charges/${reference}`, method: 'GET' },
-      { label: 'charges-verify', url: `https://api.korapay.com/merchant/api/v1/charges/verify/${reference}`, method: 'GET' },
-      {
-        label: 'charges-verify-post',
-        url: 'https://api.korapay.com/merchant/api/v1/charges/verify',
-        method: 'POST',
-        body: { reference }
-      },
-      { label: 'payments', url: `https://api.korapay.com/merchant/api/v1/payments/${reference}`, method: 'GET' },
-    ]
-
-    let lastError: Error | null = null
-
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`🔍 Using Kora endpoint (${endpoint.label}): ${endpoint.url}`)
-
-        const response = await fetch(endpoint.url, {
-          method: endpoint.method,
-          headers: {
-            'Authorization': `Bearer ${this.secretKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: endpoint.method === 'POST' ? JSON.stringify(endpoint.body) : undefined
-        })
-
-        console.log(`📨 Kora API response status (${endpoint.label}): ${response.status}`)
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`Kora API error (${response.status}): ${errorText}`)
-        }
-
-        const responseText = await response.text()
-        let data: any = null
-        try {
-          data = responseText ? JSON.parse(responseText) : null
-        } catch (parseError) {
-          throw new Error(`Kora API returned invalid JSON (${endpoint.label}): ${responseText.substring(0, 200)}`)
-        }
-
-        if (!data || typeof data !== 'object') {
-          throw new Error(`Invalid Kora response (${endpoint.label}): not an object`)
-        }
-
-        if (!data.data) {
-          throw new Error(`Invalid Kora response (${endpoint.label}): missing data field`)
-        }
-
-        const koraStatus = data.data.status?.toLowerCase();
-        const normalizedStatus = (koraStatus === 'successful' || koraStatus === 'success') ? 'success' : koraStatus;
-
-        const normalizedResponse = {
-          status: true,
-          message: 'Verification successful',
-          data: {
-            ...data.data,
-            status: normalizedStatus,
-            reference: data.data.reference || reference,
-            amount: data.data.amount,
-            currency: data.data.currency,
-            paid_at: data.data.paid_at || data.data.created_at,
-            id: data.data.id || data.data.transaction_id
-          }
-        }
-
-        console.log(`✅ Normalized Kora response (${endpoint.label}):`, normalizedResponse)
-        return normalizedResponse
-      } catch (error) {
-        lastError = error as Error
-        console.error(`❌ Kora verification failed (${endpoint.label}):`, (error as Error).message)
-      }
-    }
-
-    throw lastError || new Error('Kora verification failed')
-  }
-}
-
-// Payment provider factory
-class PaymentProviderFactory {
-  static create(provider: string): PaymentProvider {
-    switch (provider.toLowerCase()) {
-      case 'paystack':
-        return new PaystackProvider(process.env.PAYSTACK_SECRET_KEY!)
-      case 'kora':
-        return new KoraProvider(process.env.KORA_SECRET_KEY!)
-      default:
-        throw new Error(`Unsupported payment provider: ${provider}`)
-    }
-  }
-}
+// Payment providers imported from shared module (single source of truth)
+import { PaymentProviderFactory, type PaymentProvider } from '@/lib/payments/providers'
 
 // Helper function to process commission creation for referrals
 async function processReferralCommissions(payment: any, verificationData: any) {
@@ -1042,6 +899,14 @@ async function processMembershipCreation(payment: any, verificationData: any) {
 }
 
 export async function POST(request: NextRequest) {
+  const rlResult = rateLimit(getRateLimitIdentifier(request, 'pay-verify'), RATE_LIMITS.paymentVerify)
+  if (!rlResult.success) {
+    return NextResponse.json(
+      { success: false, message: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((rlResult.resetAt - Date.now()) / 1000)) } }
+    )
+  }
+
   try {
     const { reference, user_id } = await request.json()
 
@@ -1275,171 +1140,6 @@ export async function POST(request: NextRequest) {
             console.log('🔄 Duplicate payment detected, trying to find existing record...')
             const { data: existingPayment } = await supabase
               .from('payments')
-              .select('*')
-              .eq('provider_reference', reference)
-              .single() as any
-              
-            if (existingPayment) {
-              console.log('✅ Found existing payment record:', existingPayment)
-              return await processMembershipCreation(existingPayment, verificationData)
-            } else {
-              return NextResponse.json({
-                success: false,
-                message: 'Payment record conflict',
-                details: 'Duplicate payment reference detected'
-              })
-            }
-          } else {
-            return NextResponse.json({
-              success: false,
-              message: 'Failed to create payment record',
-              details: createError.message
-            })
-          }
-        } else {
-          console.log('✅ Fallback payment record created successfully:', newPayment)
-          return await processMembershipCreation(newPayment, verificationData)
-        }
-      }
-
-      if (!payment) {
-        console.error('❌ PAYMENT RECORD NOT FOUND: No payment record exists in database for reference:', reference)
-        console.error('❌ This means the payment initialization may have failed or the record was not saved')
-        return NextResponse.json(
-          { success: false, message: 'Payment record not found in database', details: 'Payment was successful but record not saved in system' },
-          { status: 404 }
-        )
-      }
-
-      // If payment is already completed, return success
-      if (payment.status === 'completed') {
-        console.log('✅ PAYMENT ALREADY VERIFIED - No action needed')
-        console.log('📋 Payment details:', {
-          id: payment.id,
-          amount: payment.amount,
-          currency: payment.currency,
-          membership_package_id: payment.membership_package_id
-        })
-        return NextResponse.json({
-          success: true,
-          message: 'Payment already verified',
-          payment: {
-            id: payment.id,
-            amount: payment.amount,
-            currency: payment.currency,
-            status: payment.status,
-            membership_package_id: payment.membership_package_id || null
-          }
-        })
-      }
-
-      console.log('🔄 Payment not completed yet, proceeding with provider verification')
-      console.log('💳 Current payment status:', payment.status)
-      console.log('💳 Payment provider:', payment.payment_provider)
-
-      // Verify with the appropriate payment provider
-      let provider: PaymentProvider
-      try {
-        provider = PaymentProviderFactory.create(payment.payment_provider || 'paystack')
-      } catch (providerError) {
-        console.error('❌ CONFIGURATION ERROR: Unsupported payment provider:', payment.payment_provider)
-        return NextResponse.json(
-          { success: false, message: 'Unsupported payment provider', details: (providerError as Error).message },
-          { status: 500 }
-        )
-      }
-
-      console.log(`🌐 Starting verification with ${provider.getProviderName()} API...`)
-
-      const referenceToVerify = payment.provider_reference || reference
-      if (referenceToVerify !== reference) {
-        console.log('🔁 Using provider_reference for verification:', {
-          requestReference: reference,
-          providerReference: referenceToVerify
-        })
-      }
-
-      let verificationData
-      try {
-        verificationData = await provider.verifyTransaction(referenceToVerify)
-        console.log('📊 Provider verification response:', JSON.stringify(verificationData, null, 2))
-      } catch (verificationError) {
-        console.error('❌ ERROR: Failed to verify with provider:', verificationError)
-        console.error('❌ Full verification error:', JSON.stringify(verificationError, null, 2))
-        return NextResponse.json(
-          { success: false, message: 'Payment verification failed with provider', details: (verificationError as Error).message },
-          { status: 500 }
-        )
-      }
-
-      // Check for successful payment - accept both 'success' and 'successful' (Kora uses 'successful')
-      const paymentStatus = verificationData.data.status?.toLowerCase();
-      const isSuccessful = paymentStatus === 'success' || paymentStatus === 'successful';
-      
-      if (!verificationData.status || !isSuccessful) {
-        console.log('❌ PROVIDER VERIFICATION FAILED')
-        console.log('❌ Provider response:', {
-          status: verificationData.status,
-          message: verificationData.message,
-          dataStatus: verificationData.data.status,
-          normalizedStatus: paymentStatus,
-          isSuccessful,
-          data: verificationData.data
-        })
-      
-        console.log('🔄 Updating payment status to failed in database...')
-        
-        // Update payment status to failed
-        const { error: updateError } = await supabase
-          .from('payments')
-          .update({ 
-            status: 'failed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', payment.id) as any
-
-        if (updateError) {
-          console.error('❌ DATABASE ERROR: Failed to update payment status to failed:', updateError)
-        }
-
-        return NextResponse.json({
-          success: false,
-          message: 'Payment verification failed',
-          details: `Payment status: ${verificationData.data.status || 'unknown'}`
-        })
-      }
-
-      console.log('✅ PROVIDER VERIFICATION SUCCESSFUL')
-      console.log('💰 Payment details from provider:', {
-        amount: verificationData.data.amount,
-        currency: verificationData.data.currency,
-        paid_at: verificationData.data.paid_at,
-        transaction_id: verificationData.data.id
-      })
-
-      console.log('🔄 Updating payment status to completed in database...')
-      
-      // Update payment status to completed
-      const { error: updateError } = await supabase
-        .from('payments')
-        .update({ 
-          status: 'completed',
-          paid_at: verificationData.data.paid_at || new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', payment.id) as any
-
-      if (updateError) {
-        console.error('❌ DATABASE ERROR: Failed to update payment status:', updateError)
-        console.error('❌ Full update error:', JSON.stringify(updateError, null, 2))
-        return NextResponse.json(
-          { success: false, message: 'Failed to update payment status', details: updateError.message },
-          { status: 500 }
-        )
-      }
-
-      console.log('✅ Payment status updated to completed successfully')
-
       // Continue with membership creation
       return await processMembershipCreation(payment, verificationData)
 

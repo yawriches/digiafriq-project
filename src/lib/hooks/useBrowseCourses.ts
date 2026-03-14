@@ -1,7 +1,7 @@
 "use client"
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/supabase/auth'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { cache } from '@/lib/utils/cache'
 
 interface Course {
@@ -108,7 +108,7 @@ export const useBrowseCourses = (): BrowseCoursesData => {
             `)
             .eq('is_published', true)
             .order('created_at', { ascending: false })
-            .then(result => {
+            .then((result: any) => {
               // Calculate actual lesson count from modules/lessons
               if (result.data) {
                 result.data = result.data.map((course: any) => {
@@ -134,7 +134,7 @@ export const useBrowseCourses = (): BrowseCoursesData => {
             .from('enrollments')
             .select('course_id')
             .eq('user_id', user.id)
-            .then(result => result)
+            .then((result: any) => result)
         )
       } else {
         promises.push(Promise.resolve({ data: enrolledIds.map(id => ({ course_id: id })), error: null }))

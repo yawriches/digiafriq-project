@@ -181,7 +181,7 @@ const AffiliateDashboardLayout = ({ children, title = "Dashboard" }: AffiliateDa
   // Get available roles from profile
   const availableRoles = (profile as any)?.available_roles || [profile?.role]
   // Force active role to 'affiliate' since we're in affiliate dashboard
-  const activeRole: 'affiliate' | 'learner' = 'affiliate'
+  const activeRole: string = 'affiliate'
 
   const handleRoleSwitch = async (role: 'affiliate' | 'learner') => {
     if (role === activeRole || switchingRole) return

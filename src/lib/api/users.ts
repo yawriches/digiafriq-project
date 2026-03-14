@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import type { Database } from '@/lib/supabase/types'
 import { CURRENCY_RATES } from '@/contexts/CurrencyContext'
 import type { 
@@ -483,7 +483,7 @@ export async function fetchAffiliateProfile(userId: string): Promise<AffiliatePr
       bank_account: null,
       momo_number: null,
       momo_provider: null,
-    } as AffiliateProfile
+    } as unknown as AffiliateProfile
   } catch (error) {
     console.error('Error fetching affiliate profile:', error)
     return null

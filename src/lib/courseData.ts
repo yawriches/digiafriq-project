@@ -1,5 +1,5 @@
 // Course data functions - fetches real data from Supabase
-import { supabase } from './supabase/client';
+import { db as supabase } from './supabase/client';
 
 export interface Lesson {
   id: string;

@@ -1,6 +1,6 @@
 "use client"
 import { useCallback } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { useSWR, swrDefaults } from '@/lib/hooks/swr'
 
 interface AdminStats {

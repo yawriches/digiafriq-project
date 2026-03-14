@@ -22,9 +22,11 @@ export type Database = {
           commission_rate: number
           total_earnings: number
           total_referrals: number
+          available_balance: number
           bank_name: string | null
           account_number: string | null
-          member_type: Database['public']['Enums']['user_role']
+          account_name: string | null
+          member_type: string
           is_active: boolean
           features: string[]
           created_at: string
@@ -39,6 +41,7 @@ export type Database = {
           commission_rate?: number
           total_earnings?: number
           total_referrals?: number
+          available_balance?: number
           bank_name?: string | null
           account_number?: string | null
           account_name?: string | null
@@ -52,6 +55,7 @@ export type Database = {
           commission_rate?: number
           total_earnings?: number
           total_referrals?: number
+          available_balance?: number
           bank_name?: string | null
           account_number?: string | null
           account_name?: string | null
@@ -328,7 +332,7 @@ export type Database = {
           updated_at?: string
         }
       }
-      notifications: {
+      membership_packages: {
         Row: {
           id: string
           name: string
@@ -340,17 +344,68 @@ export type Database = {
           is_active: boolean
           features: string[]
           created_at: string
+          updated_at: string
           has_digital_cashflow: boolean
           digital_cashflow_price: number
         }
         Insert: {
           id?: string
+          name: string
+          description: string
+          price: number
+          currency?: string
+          duration_months: number
+          member_type: 'learner' | 'affiliate'
+          is_active?: boolean
+          features?: string[]
+          created_at?: string
+          updated_at?: string
+          has_digital_cashflow?: boolean
+          digital_cashflow_price?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string
+          price?: number
+          currency?: string
+          duration_months?: number
+          member_type?: 'learner' | 'affiliate'
+          is_active?: boolean
+          features?: string[]
+          created_at?: string
+          updated_at?: string
+          has_digital_cashflow?: boolean
+          digital_cashflow_price?: number
+        }
+      }
+      notifications: {
+        Row: {
+          id: string
           user_id: string
+          title: string
+          message: string
+          type: string
+          is_read: boolean
+          action_url: string | null
+          target_audience: string | null
+          priority: string | null
+          is_active: boolean
+          expires_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
           title: string
           message: string
           type?: string
           is_read?: boolean
           action_url?: string | null
+          target_audience?: string | null
+          priority?: string | null
+          is_active?: boolean
+          expires_at?: string | null
           created_at?: string
         }
         Update: {
@@ -361,6 +416,36 @@ export type Database = {
           type?: string
           is_read?: boolean
           action_url?: string | null
+          target_audience?: string | null
+          priority?: string | null
+          is_active?: boolean
+          expires_at?: string | null
+          created_at?: string
+        }
+      }
+      user_notifications: {
+        Row: {
+          id: string
+          user_id: string
+          notification_id: string
+          is_read: boolean
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          notification_id: string
+          is_read?: boolean
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          notification_id?: string
+          is_read?: boolean
+          read_at?: string | null
           created_at?: string
         }
       }
@@ -426,14 +511,19 @@ export type Database = {
         Row: {
           id: string
           user_id: string
-          course_id: string
+          course_id: string | null
+          membership_package_id: string | null
           affiliate_id: string | null
           amount: number
           currency: string
+          base_currency_amount: number | null
+          payment_provider: string | null
+          provider_reference: string | null
           paystack_reference: string | null
           paystack_transaction_id: string | null
           status: 'pending' | 'completed' | 'failed' | 'refunded'
           payment_method: string | null
+          metadata: Json | null
           paid_at: string | null
           created_at: string
           updated_at: string
@@ -441,14 +531,19 @@ export type Database = {
         Insert: {
           id?: string
           user_id: string
-          course_id: string
+          course_id?: string | null
+          membership_package_id?: string | null
           affiliate_id?: string | null
           amount: number
           currency?: string
+          base_currency_amount?: number | null
+          payment_provider?: string | null
+          provider_reference?: string | null
           paystack_reference?: string | null
           paystack_transaction_id?: string | null
           status?: 'pending' | 'completed' | 'failed' | 'refunded'
           payment_method?: string | null
+          metadata?: Json | null
           paid_at?: string | null
           created_at?: string
           updated_at?: string
@@ -456,14 +551,19 @@ export type Database = {
         Update: {
           id?: string
           user_id?: string
-          course_id?: string
+          course_id?: string | null
+          membership_package_id?: string | null
           affiliate_id?: string | null
           amount?: number
           currency?: string
+          base_currency_amount?: number | null
+          payment_provider?: string | null
+          provider_reference?: string | null
           paystack_reference?: string | null
           paystack_transaction_id?: string | null
           status?: 'pending' | 'completed' | 'failed' | 'refunded'
           payment_method?: string | null
+          metadata?: Json | null
           paid_at?: string | null
           created_at?: string
           updated_at?: string
@@ -480,6 +580,10 @@ export type Database = {
           available_roles: ('learner' | 'affiliate' | 'admin')[]
           phone: string | null
           country: string | null
+          status: string | null
+          affiliate_onboarding_completed: boolean | null
+          referral_code: string | null
+          affiliate_id: string | null
           learner_has_paid: boolean | null
           learner_payment_date: string | null
           learner_payment_amount: number | null
@@ -497,6 +601,10 @@ export type Database = {
           available_roles?: ('learner' | 'affiliate' | 'admin')[]
           phone?: string | null
           country?: string | null
+          status?: string | null
+          affiliate_onboarding_completed?: boolean | null
+          referral_code?: string | null
+          affiliate_id?: string | null
           learner_has_paid?: boolean | null
           learner_payment_date?: string | null
           learner_payment_amount?: number | null
@@ -514,6 +622,10 @@ export type Database = {
           available_roles?: ('learner' | 'affiliate' | 'admin')[]
           phone?: string | null
           country?: string | null
+          status?: string | null
+          affiliate_onboarding_completed?: boolean | null
+          referral_code?: string | null
+          affiliate_id?: string | null
           learner_has_paid?: boolean | null
           learner_payment_date?: string | null
           learner_payment_amount?: number | null
@@ -612,9 +724,522 @@ export type Database = {
           created_at?: string
         }
       }
+      user_memberships: {
+        Row: {
+          id: string
+          user_id: string
+          membership_package_id: string
+          is_active: boolean
+          starts_at: string
+          expires_at: string
+          payment_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          membership_package_id: string
+          is_active?: boolean
+          starts_at?: string
+          expires_at: string
+          payment_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          membership_package_id?: string
+          is_active?: boolean
+          starts_at?: string
+          expires_at?: string
+          payment_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      referral_codes: {
+        Row: {
+          id: string
+          user_id: string
+          code: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          code: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          code?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      referrals: {
+        Row: {
+          id: string
+          referrer_id: string
+          referred_id: string
+          referral_code: string
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          referrer_id: string
+          referred_id: string
+          referral_code: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          referrer_id?: string
+          referred_id?: string
+          referral_code?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      affiliate_links: {
+        Row: {
+          id: string
+          affiliate_id: string
+          membership_id: string | null
+          code: string
+          clicks: number
+          conversions: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          affiliate_id: string
+          membership_id?: string | null
+          code: string
+          clicks?: number
+          conversions?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          affiliate_id?: string
+          membership_id?: string | null
+          code?: string
+          clicks?: number
+          conversions?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      contests: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          start_date: string
+          end_date: string
+          prize_description: string | null
+          status: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          start_date: string
+          end_date: string
+          prize_description?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          start_date?: string
+          end_date?: string
+          prize_description?: string | null
+          status?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      contest_participations: {
+        Row: {
+          id: string
+          contest_id: string
+          user_id: string
+          score: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contest_id: string
+          user_id: string
+          score?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contest_id?: string
+          user_id?: string
+          score?: number
+          created_at?: string
+        }
+      }
+      categories: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug?: string
+          description?: string | null
+          type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          type?: string | null
+          created_at?: string
+        }
+      }
+      tutorials: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          instructor: string | null
+          thumbnail_url: string | null
+          category: string | null
+          level: string | null
+          duration: string | null
+          is_published: boolean
+          is_featured: boolean
+          order_index: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          instructor?: string | null
+          thumbnail_url?: string | null
+          category?: string | null
+          level?: string | null
+          duration?: string | null
+          is_published?: boolean
+          is_featured?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          instructor?: string | null
+          thumbnail_url?: string | null
+          category?: string | null
+          level?: string | null
+          duration?: string | null
+          is_published?: boolean
+          is_featured?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      tutorial_modules: {
+        Row: {
+          id: string
+          tutorial_id: string
+          title: string
+          description: string | null
+          order_index: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tutorial_id: string
+          title: string
+          description?: string | null
+          order_index: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tutorial_id?: string
+          title?: string
+          description?: string | null
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      tutorial_lessons: {
+        Row: {
+          id: string
+          module_id: string
+          title: string
+          description: string | null
+          content: string | null
+          video_url: string | null
+          lesson_type: string
+          duration: number | null
+          order_index: number
+          is_preview: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          module_id: string
+          title: string
+          description?: string | null
+          content?: string | null
+          video_url?: string | null
+          lesson_type?: string
+          duration?: number | null
+          order_index: number
+          is_preview?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          module_id?: string
+          title?: string
+          description?: string | null
+          content?: string | null
+          video_url?: string | null
+          lesson_type?: string
+          duration?: number | null
+          order_index?: number
+          is_preview?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      programs: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          thumbnail_url: string | null
+          is_published: boolean
+          order_index: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          thumbnail_url?: string | null
+          is_published?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          thumbnail_url?: string | null
+          is_published?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      platform_settings: {
+        Row: {
+          id: string
+          key: string
+          value: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          value: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          value?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      withdrawals: {
+        Row: {
+          id: string
+          user_id: string
+          amount_usd: number
+          amount_local: number | null
+          currency: string
+          status: string
+          reference: string | null
+          bank_name: string | null
+          account_number: string | null
+          account_name: string | null
+          batch_id: string | null
+          paid_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          amount_usd: number
+          amount_local?: number | null
+          currency?: string
+          status?: string
+          reference?: string | null
+          bank_name?: string | null
+          account_number?: string | null
+          account_name?: string | null
+          batch_id?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount_usd?: number
+          amount_local?: number | null
+          currency?: string
+          status?: string
+          reference?: string | null
+          bank_name?: string | null
+          account_number?: string | null
+          account_name?: string | null
+          batch_id?: string | null
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      withdrawal_batches: {
+        Row: {
+          id: string
+          status: string
+          total_amount: number
+          currency: string
+          withdrawal_count: number
+          finalized_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          status?: string
+          total_amount: number
+          currency: string
+          withdrawal_count: number
+          finalized_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          status?: string
+          total_amount?: number
+          currency?: string
+          withdrawal_count?: number
+          finalized_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      withdrawal_audit_log: {
+        Row: {
+          id: string
+          batch_id: string | null
+          withdrawal_id: string | null
+          admin_id: string
+          action: string
+          details: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id?: string | null
+          withdrawal_id?: string | null
+          admin_id: string
+          action: string
+          details?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string | null
+          withdrawal_id?: string | null
+          admin_id?: string
+          action?: string
+          details?: Json | null
+          created_at?: string
+        }
+      }
     }
     Views: {
-      [_ in never]: never
+      blog_posts_with_tags: {
+        Row: {
+          id: string
+          title: string
+          slug: string
+          excerpt: string | null
+          content: string
+          author_id: string
+          status: 'draft' | 'published' | 'archived'
+          featured_image: string | null
+          meta_title: string | null
+          meta_description: string | null
+          published_at: string | null
+          views: number
+          created_at: string
+          updated_at: string
+          tags: Json | null
+        }
+      }
     }
     Functions: {
       calculate_course_progress: {

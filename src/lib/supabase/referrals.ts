@@ -1,4 +1,4 @@
-import { supabase } from './client';
+import { db as supabase } from './client';
 
 export interface ReferralCode {
   id: string;

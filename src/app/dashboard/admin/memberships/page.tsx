@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Edit, Trash2, Users, Crown, DollarSign, Calendar, Eye } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 // import MembershipDetails from '@/components/dashboard/MembershipDetails'
 
@@ -17,7 +17,7 @@ interface MembershipPackage {
   price: number
   currency: string
   duration_months: number
-  member_type: 'member'
+  member_type: 'learner' | 'affiliate'
   is_active: boolean
   features: string[]
   created_at: string

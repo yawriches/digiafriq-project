@@ -10,6 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 
+// Untyped client for queries with joins/relations that the hand-maintained
+// types.ts can't express. Use this instead of `as any` casts throughout.
+// TODO: Remove once types are generated via `supabase gen types typescript`
+export const db = supabase as any
+
 // Helper function to get the current user
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser()

@@ -1,25 +1,65 @@
-import { supabase } from './supabase/client'
-import { Database } from './supabase/types'
+import { db } from './supabase/client'
 
-type Course = Database['public']['Tables']['courses']['Row']
-type Module = Database['public']['Tables']['modules']['Row']
-type Lesson = Database['public']['Tables']['lessons']['Row']
-type Enrollment = Database['public']['Tables']['enrollments']['Row']
-type LessonProgress = Database['public']['Tables']['lesson_progress']['Row']
+// Use db (untyped) client throughout — this file heavily uses join queries
+// that the hand-maintained types.ts can't express relationships for.
+// TODO: Switch back to typed client once types are generated via `supabase gen types typescript`
+const supabase = db
 
-export interface CourseWithModules extends Course {
-  modules: (Module & {
-    lessons: Lesson[]
-  })[]
+export interface CourseWithModules {
+  id: string
+  title: string
+  description: string | null
+  thumbnail_url: string | null
+  price: number
+  instructor_id: string | null
+  is_published: boolean
+  total_lessons: number
+  estimated_duration: number | null
+  category: string | null
+  tags: string[] | null
+  created_at: string
+  updated_at: string
+  modules: {
+    id: string
+    course_id: string
+    title: string
+    description: string | null
+    order_index: number
+    created_at: string
+    updated_at: string
+    lessons: {
+      id: string
+      module_id: string
+      title: string
+      description: string | null
+      content: string | null
+      video_url: string | null
+      file_url: string | null
+      lesson_type: string
+      duration: number | null
+      order_index: number
+      is_preview: boolean
+      instructor_notes: string | null
+      created_at: string
+      updated_at: string
+    }[]
+  }[]
 }
 
-export interface EnrollmentWithCourse extends Enrollment {
-  courses: Course
+export interface EnrollmentWithCourse {
+  id: string
+  user_id: string
+  course_id: string
+  enrolled_at: string
+  completed_at: string | null
+  progress_percentage: number
+  last_accessed_lesson_id: string | null
+  courses: any
 }
 
 // Get all published courses
 export async function getPublishedCourses() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('courses')
     .select(`
       *,
@@ -59,10 +99,10 @@ export async function getCourseWithContent(courseId: string): Promise<CourseWith
 
   // Sort modules and lessons by order_index
   if (data.modules) {
-    data.modules.sort((a, b) => a.order_index - b.order_index)
-    data.modules.forEach(module => {
+    data.modules.sort((a: any, b: any) => a.order_index - b.order_index)
+    data.modules.forEach((module: any) => {
       if (module.lessons) {
-        module.lessons.sort((a, b) => a.order_index - b.order_index)
+        module.lessons.sort((a: any, b: any) => a.order_index - b.order_index)
       }
     })
   }

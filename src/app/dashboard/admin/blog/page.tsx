@@ -35,7 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/lib/supabase/auth'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 
@@ -114,7 +114,7 @@ const BlogManagement = () => {
 
       // Get author names and tags for each post
       const postsWithAuthorsAndTags = await Promise.all(
-        (posts || []).map(async (post) => {
+        (posts || []).map(async (post: any) => {
           // Get tags for this post
           const { data: postTags } = await supabase
             .from('blog_post_tags')

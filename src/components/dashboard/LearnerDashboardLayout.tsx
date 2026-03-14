@@ -29,7 +29,7 @@ import MembershipActivatedBanner from '@/components/MembershipActivatedBanner'
 import { MembershipExpiryBanner } from '@/components/dashboard/MembershipExpiryBanner'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import ProfileCompletionModal from '@/components/dashboard/ProfileCompletionModal'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 
 interface SidebarItem {
   title: string

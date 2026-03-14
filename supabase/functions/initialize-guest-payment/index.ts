@@ -156,9 +156,9 @@ class CountryUtils {
 
   static getAvailableProviders(country: string): string[] {
     const countryLower = country.toLowerCase().trim();
-    // Ghana users can choose between Paystack and Kora
+    // Ghana uses Paystack only
     if (countryLower === 'ghana') {
-      return ['paystack', 'kora'];
+      return ['paystack'];
     }
     // All other countries use Kora only
     return ['kora'];

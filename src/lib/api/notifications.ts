@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import type { 
   Notification, 
   UserNotification, 
@@ -212,7 +212,7 @@ export async function getUserNotifications(): Promise<NotificationWithStatus[]> 
 
     // Build the final list
     const result: NotificationWithStatus[] = relevantNotifications.map((n: any) => {
-      const userRow = existingMap.get(n.id)
+      const userRow: any = existingMap.get(n.id)
       return {
         ...n,
         is_read: userRow?.is_read ?? false,

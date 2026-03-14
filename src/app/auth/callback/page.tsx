@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { processStoredReferral } from '@/lib/auth/account-creation'
 import { CheckCircle, Loader2, AlertCircle, Crown, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'

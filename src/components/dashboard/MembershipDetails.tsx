@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { X, Edit, Users, Crown, DollarSign, Calendar, BookOpen, TrendingUp } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 
 interface Course {
   id: string
@@ -89,7 +89,7 @@ export default function MembershipDetails({ membership, onClose, onEdit }: Membe
 
       if (error) throw error
       
-      const courseList = data?.map(item => item.courses).filter(Boolean) || []
+      const courseList = data?.map((item: any) => item.courses).filter(Boolean) || []
       setCourses(courseList as Course[])
     } catch (error) {
       console.error('Error fetching course access:', error)
@@ -113,7 +113,7 @@ export default function MembershipDetails({ membership, onClose, onEdit }: Membe
 
       if (error) throw error
       
-      const packageList = data?.map(item => ({
+      const packageList = data?.map((item: any) => ({
         id: item.membership_packages.id,
         name: item.membership_packages.name,
         price: item.membership_packages.price,
@@ -137,7 +137,7 @@ export default function MembershipDetails({ membership, onClose, onEdit }: Membe
       if (membersError) throw membersError
 
       const totalMembers = membersData?.length || 0
-      const activeMembers = membersData?.filter(m => 
+      const activeMembers = membersData?.filter((m: any) => 
         m.is_active && new Date(m.expires_at) > new Date()
       ).length || 0
 
@@ -151,13 +151,13 @@ export default function MembershipDetails({ membership, onClose, onEdit }: Membe
       if (paymentsError) throw paymentsError
 
       // Calculate revenue (this is simplified - you might want to link payments to memberships more directly)
-      const totalRevenue = paymentsData?.reduce((sum, payment) => sum + payment.amount, 0) || 0
+      const totalRevenue = paymentsData?.reduce((sum: number, payment: any) => sum + payment.amount, 0) || 0
       
       const currentMonth = new Date()
       currentMonth.setDate(1)
-      const monthlyRevenue = paymentsData?.filter(payment => 
+      const monthlyRevenue = paymentsData?.filter((payment: any) => 
         new Date(payment.paid_at) >= currentMonth
-      ).reduce((sum, payment) => sum + payment.amount, 0) || 0
+      ).reduce((sum: number, payment: any) => sum + payment.amount, 0) || 0
 
       setStats({
         totalMembers,

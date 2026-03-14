@@ -71,36 +71,30 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard/learner', req.url))
   }
 
-  // Admin role-based access control
-  if (session && path.startsWith('/dashboard/admin')) {
+  // Dashboard access control — single profile query for both admin and learner checks
+  const isDashboardPath = session && (path.startsWith('/dashboard/admin') || path.startsWith('/dashboard/learner') || path.startsWith('/dashboard/affiliate'))
+  
+  if (isDashboardPath) {
+    // Single DB query to get user role
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', session.user.id)
       .single()
 
+    const userRole = profile?.role
+
     // Admin access control
-    if (profile?.role !== 'admin') {
+    if (path.startsWith('/dashboard/admin') && userRole !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard/learner', req.url))
     }
-  }
 
-  // Learner dashboard membership check — block expired/unpaid users
-  if (session && path.startsWith('/dashboard/learner')) {
-    const isMembershipPage = path === '/dashboard/learner/membership'
-    const isCheckoutPage = path.startsWith('/dashboard/learner/membership/checkout')
-    const isPaymentRelatedPage = isMembershipPage || isCheckoutPage
+    // Learner dashboard membership check — block expired/unpaid users
+    if (path.startsWith('/dashboard/learner') && userRole !== 'admin') {
+      const isMembershipPage = path === '/dashboard/learner/membership'
+      const isCheckoutPage = path.startsWith('/dashboard/learner/membership/checkout')
 
-    if (!isPaymentRelatedPage) {
-      // Check if user is admin (admins bypass membership check)
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single()
-
-      if (profileData?.role !== 'admin') {
-        // Check for active, non-expired membership
+      if (!isMembershipPage && !isCheckoutPage) {
         const { count } = await supabase
           .from('user_memberships')
           .select('id', { count: 'exact', head: true })

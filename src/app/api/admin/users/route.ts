@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyAdmin } from '@/lib/auth/admin-check'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,32 +15,10 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify the requesting user is an admin
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if requesting user is admin
-    const { data: adminProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('available_roles, active_role, role')
-      .eq('id', user.id)
-      .single()
-
-    const isAdmin = adminProfile?.available_roles?.includes('admin') || 
-                    adminProfile?.active_role === 'admin' || 
-                    adminProfile?.role === 'admin'
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    // Verify the requesting user is an admin (standardized check)
+    const adminCheck = await verifyAdmin(request)
+    if (!adminCheck.isAdmin) {
+      return adminCheck.error!
     }
 
     // Parse query params

@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/supabase/auth'
-import { supabase, uploadImage } from '@/lib/supabase/client'
+import { db as supabase, uploadImage } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { 
   Save, 
@@ -323,8 +323,8 @@ const NewBlogPost = () => {
                   <Input
                     id="publishedAt"
                     type="datetime-local"
-                    value={formData.publishedAt}
-                    onChange={(e) => setFormData(prev => ({ ...prev, publishedAt: e.target.value }))}
+                    value={formData.published_at}
+                    onChange={(e) => setFormData(prev => ({ ...prev, published_at: e.target.value }))}
                   />
                 </div>
               )}
@@ -340,11 +340,11 @@ const NewBlogPost = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {formData.featuredImage ? (
+              {formData.featured_image ? (
                 <div className="space-y-3">
                   <div className="relative">
                     <img 
-                      src={formData.featuredImage} 
+                      src={formData.featured_image} 
                       alt="Featured" 
                       className="w-full h-32 object-cover rounded-lg"
                     />
@@ -352,15 +352,15 @@ const NewBlogPost = () => {
                       variant="destructive"
                       size="sm"
                       className="absolute top-2 right-2"
-                      onClick={() => setFormData(prev => ({ ...prev, featuredImage: '' }))}
+                      onClick={() => setFormData(prev => ({ ...prev, featured_image: '' }))}
                     >
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                   <Input
                     placeholder="Image URL"
-                    value={formData.featuredImage}
-                    onChange={(e) => setFormData(prev => ({ ...prev, featuredImage: e.target.value }))}
+                    value={formData.featured_image}
+                    onChange={(e) => setFormData(prev => ({ ...prev, featured_image: e.target.value }))}
                   />
                 </div>
               ) : (
@@ -386,8 +386,8 @@ const NewBlogPost = () => {
                   <div className="text-center text-sm text-gray-500">or</div>
                   <Input
                     placeholder="Enter image URL"
-                    value={formData.featuredImage}
-                    onChange={(e) => setFormData(prev => ({ ...prev, featuredImage: e.target.value }))}
+                    value={formData.featured_image}
+                    onChange={(e) => setFormData(prev => ({ ...prev, featured_image: e.target.value }))}
                   />
                 </div>
               )}

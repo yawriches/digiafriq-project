@@ -1,137 +1,141 @@
 "use client"
-import { motion } from "framer-motion"
-
-// Add shimmer animation
-const shimmerAnimation = `
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-  .animate-shimmer {
-    animation: shimmer 3s ease-in-out infinite;
-  }
-`
+import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight, Users, BookOpen, ChevronDown, Lightbulb, Wrench, TrendingUp, Quote, Coins, Network, Clock } from "lucide-react"
+import {
+  ArrowRight,
+  Users,
+  BookOpen,
+  ChevronDown,
+  Lightbulb,
+  TrendingUp,
+  Coins,
+  Clock,
+  CheckCircle2,
+  Star,
+  GraduationCap,
+  Zap,
+  Shield,
+} from "lucide-react"
 import { useState } from "react"
 import { useBlogPosts } from "@/lib/hooks/useBlogPosts"
 
-const platformFeatures = [
-  { 
-    icon: BookOpen, 
-    title: "Learning Vault", 
-    description: "Structured AI skill training focused on practical use cases and monetization." 
+const stats = [
+  { value: "2,500+", label: "Active Learners" },
+  { value: "15+", label: "AI Programs" },
+  { value: "12", label: "African Countries" },
+]
+
+const whyChooseUs = [
+  {
+    icon: GraduationCap,
+    title: "Structured Learning Paths",
+    description: "Step-by-step programs designed for real-world application, not just theory.",
+    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=600&q=80",
   },
-  { 
-    icon: Wrench, 
-    title: "Tools & Resources", 
-    description: "Templates, prompts, frameworks, and workflows to accelerate execution." 
+  {
+    icon: Coins,
+    title: "Monetization Built-In",
+    description: "Every skill you learn comes with a clear pathway to generate income.",
+    image: "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=600&q=80",
   },
-  { 
-    icon: Users, 
-    title: "Community & Support", 
-    description: "A growing network of learners, builders, and earners supporting each other." 
+  {
+    icon: Users,
+    title: "Community-Driven Growth",
+    description: "Join a network of ambitious Africans building real businesses with AI.",
+    image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=600&q=80",
   },
-  { 
-    icon: TrendingUp, 
-    title: "Growth Pathways", 
-    description: "Optional advanced programs and systems for those ready to scale further." 
+  {
+    icon: Shield,
+    title: "Trusted & Credible",
+    description: "No hype. No empty promises. Just proven systems that deliver results.",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&q=80",
   },
 ]
 
 const processSteps = [
-  { 
-    number: "01", 
-    title: "Join a Digiafriq Program", 
-    description: "Begin with the AI Cashflow System as your foundation." 
+  {
+    number: "01",
+    title: "Join a Program",
+    description: "Begin with the AI Cashflow Program as your foundation for practical AI skills.",
+    icon: BookOpen,
   },
-  { 
-    number: "02", 
-    title: "Learn Practical AI Skills", 
-    description: "Follow structured lessons designed for real-world application." 
+  {
+    number: "02",
+    title: "Learn & Practice",
+    description: "Follow structured lessons with hands-on projects designed for real-world application.",
+    icon: Lightbulb,
   },
-  { 
-    number: "03", 
-    title: "Apply & Monetize", 
-    description: "Use your skills to create services, products, or income opportunities." 
+  {
+    number: "03",
+    title: "Apply & Earn",
+    description: "Use your new skills to create services, products, or income opportunities immediately.",
+    icon: Zap,
   },
-  { 
-    number: "04", 
-    title: "Grow Within the Platform", 
-    description: "Access advanced tools, systems, and optional growth programs." 
+  {
+    number: "04",
+    title: "Scale & Grow",
+    description: "Access advanced tools, systems, and growth programs to scale your income.",
+    icon: TrendingUp,
   },
 ]
 
 const testimonials = [
-  { 
-    name: "Kwame A.", 
-    content: "Digiafriq gave me structure and clarity. I finally understood how to use AI skills practically." 
+  {
+    name: "Kwame Asante",
+    role: "Digital Marketer, Ghana",
+    content: "Digiafriq gave me structure and clarity. Within 3 months, I was earning from AI-powered services I never knew I could offer.",
+    avatar: "https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?w=150&q=80",
+    rating: 5,
   },
-  { 
-    name: "Fatima S.", 
-    content: "The platform feels serious and well thought out. Not hype, just real systems." 
+  {
+    name: "Fatima Suleiman",
+    role: "Content Creator, Nigeria",
+    content: "The platform feels serious and well thought out. Not hype, just real systems that actually work. My income has tripled.",
+    avatar: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&q=80",
+    rating: 5,
   },
-  { 
-    name: "Nana K.", 
-    content: "I started with the AI Cashflow System and now understand how to build income around skills." 
+  {
+    name: "Nana Kweku",
+    role: "Freelancer, Kenya",
+    content: "I started with the AI Cashflow Program and now run a full AI consulting practice. Digiafriq changed my career trajectory.",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&q=80",
+    rating: 5,
   },
 ]
 
 const faqs = [
   {
     question: "What is Digiafriq?",
-    answer: "Digiafriq is an AI skills and monetization platform focused on practical learning and sustainable income pathways."
+    answer: "Digiafriq is an AI skills and monetization platform focused on practical learning and sustainable income pathways. We help individuals across Africa learn high-demand AI skills and turn them into real income streams.",
   },
   {
     question: "Where do I start?",
-    answer: "Most members begin with the AI Cashflow System, which serves as the platform's recommended entry point."
+    answer: "Most members begin with the AI Cashflow Program, which serves as the platform's recommended entry point. It covers foundational AI skills and provides clear monetization frameworks.",
   },
   {
     question: "Is Digiafriq only for beginners?",
-    answer: "No. The platform supports beginners through to advanced learners, depending on the programs accessed."
+    answer: "No. The platform supports beginners through to advanced learners with different programs and resources for each level. Whether you're just starting or looking to scale, there's a pathway for you.",
   },
   {
     question: "Is there a separate membership fee?",
-    answer: "Access to Digiafriq's core system is included when you join a qualifying program."
+    answer: "Access to Digiafriq's core system is included when you join a qualifying program. There are no hidden fees or surprise charges.",
+  },
+  {
+    question: "How quickly can I start earning?",
+    answer: "Many of our members start applying their skills within the first few weeks. The timeline depends on your commitment and the program you choose, but our systems are designed for practical, immediate application.",
+  },
+  {
+    question: "Do I need prior tech experience?",
+    answer: "Not at all. Our programs are designed for complete beginners. We guide you step by step through everything you need to know, from basic concepts to advanced monetization strategies.",
   },
 ]
 
-const beliefs = [
-  "Skills matter more than hype",
-  "Systems matter more than shortcuts",
-  "Long-term income beats quick wins"
-]
-
-const platformPillars = [
-  "Skill development",
-  "Monetization frameworks",
-  "Community accountability",
-  "Scalable systems"
-]
-
-const whatIsDigiafriqFeatures = [
-  {
-    icon: Lightbulb,
-    title: "Skill Development",
-    description: "Acquire in-demand AI skills to enhance your capabilities."
-  },
-  {
-    icon: Coins,
-    title: "Monetization Frameworks", 
-    description: "Learn proven strategies to generate income from your AI expertise."
-  },
-  {
-    icon: Users,
-    title: "Community Accountability",
-    description: "Engage in a supportive community that fosters accountability."
-  },
-  {
-    icon: Network,
-    title: "Scalable Systems",
-    description: "Access frameworks that facilitate sustainable business growth."
-  }
+const spotlightFeatures = [
+  "Practical AI skill training modules",
+  "Monetization frameworks & templates",
+  "Access to community & support",
+  "Tools, prompts & workflow resources",
 ]
 
 export default function Home() {
@@ -139,133 +143,81 @@ export default function Home() {
   const { posts: blogPosts, loading: blogLoading } = useBlogPosts(3)
 
   return (
-    <div className="min-h-screen relative bg-white overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.3, 0.5, 0.3]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, -90, 0],
-            opacity: [0.2, 0.4, 0.2]
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-[#ed874a]/20 to-[#d76f32]/20 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            y: [0, -30, 0],
-            opacity: [0.1, 0.3, 0.1]
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-[#ed874a]/10 to-[#d76f32]/10 rounded-full blur-3xl"
-        />
-      </div>
+    <div className="min-h-screen bg-white">
 
-      {/* 1. Hero Section (Authority First) */}
-      <section className="relative min-h-[90vh] flex items-center py-4 lg:py-8 z-10">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 w-full relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left: Text Content */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-6"
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* HERO SECTION — Premium, centered, Starlink-inspired */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="relative h-screen flex flex-col items-center justify-center overflow-hidden">
+        {/* Cinematic Background */}
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=85"
+            alt="Technology network"
+            className="w-full h-full object-cover scale-105"
+          />
+          <div className="absolute inset-0 bg-black/65" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/70" />
+        </div>
+
+        {/* Centered Content */}
+        <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="text-[#ed874a] text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-6"
+          >
+            AI Skills &middot; Real Income &middot; Africa
+          </motion.p>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.25 }}
+            className="text-3xl sm:text-4xl lg:text-[3.25rem] font-bold leading-[1.15] tracking-tight text-white"
+          >
+            Master AI Skills.
+            <br />
+            <span className="text-[#ed874a]">Build Real Income.</span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.45 }}
+            className="mt-5 text-[15px] sm:text-base text-gray-300 leading-relaxed max-w-xl mx-auto"
+          >
+            Structured programs that help thousands of Africans learn practical AI
+            skills and turn them into sustainable income streams.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.65 }}
+            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
+          >
+            <Button
+              size="lg"
+              className="bg-white text-gray-900 hover:bg-gray-100 px-7 py-5 rounded-full font-semibold text-sm shadow-lg transition-all duration-300 hover:-translate-y-0.5"
+              asChild
             >
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-                className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight"
-              >
-                <span className="text-gray-900">Learn AI Skills.</span>
-                <br />
-                <span className="bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] bg-clip-text text-transparent">
-                  Monetize Them.
-                </span>
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-                className="text-base sm:text-lg text-gray-600 leading-relaxed max-w-xl"
-              >
-                Digiafriq helps Africans learn AI skills and turn them into real income. Simple, credible, and instantly understandable.
-              </motion.p>
-
-              {/* CTA */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.7 }}
-                className="pt-4"
-              >
-                <Button
-                  size="lg"
-                  className="group relative bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-8 py-6 rounded-xl font-semibold text-base shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
-                  asChild
-                >
-                  <Link href="/signup" className="flex items-center justify-center">
-                    <span>Start Learning</span>
-                    <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
-              </motion.div>
-
-              {/* Supporting line */}
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.9 }}
-                className="text-sm text-gray-500"
-              >
-                Practical skills • Real-world application • Sustainable income
-              </motion.p>
-            </motion.div>
-
-            {/* Right: Hero Image */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="relative flex justify-center lg:justify-end"
+              <Link href="/signup" className="flex items-center">
+                Get Started
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-white/40 bg-white/5 text-white hover:bg-white/15 hover:border-white/60 px-7 py-5 rounded-full font-semibold text-sm backdrop-blur-sm transition-all duration-300"
+              asChild
             >
-              <motion.div
-                animate={{ y: [0, -20, 0] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="relative w-full max-w-2xl"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#ed874a]/20 to-[#d76f32]/20 rounded-full blur-3xl scale-110" />
-                <motion.img
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.3 }}
-                  src="/herosectionimage.png" 
-                  alt="AI Skills and Monetization Platform"
-                  className="relative w-full h-auto drop-shadow-2xl"
-                />
-                <motion.div
-                  animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute -top-8 -right-8 w-20 h-20 bg-gradient-to-br from-[#ed874a] to-[#d76f32] rounded-2xl opacity-20 blur-xl"
-                />
-                <motion.div
-                  animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                  className="absolute -bottom-8 -left-8 w-24 h-24 bg-gradient-to-tr from-[#ed874a] to-[#d76f32] rounded-full opacity-20 blur-xl"
-                />
-              </motion.div>
-            </motion.div>
-          </div>
+              <Link href="#how-it-works">How It Works</Link>
+            </Button>
+          </motion.div>
+
         </div>
 
         {/* Scroll Indicator */}
@@ -276,329 +228,362 @@ export default function Home() {
           className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20"
         >
           <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="flex flex-col items-center gap-2 cursor-pointer group"
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
           >
-            <span className="text-xs font-medium text-gray-500 group-hover:text-[#ed874a] transition-colors">Scroll to explore</span>
-            <ChevronDown className="w-5 h-5 text-gray-400 group-hover:text-[#ed874a] transition-colors" />
+            <ChevronDown className="w-5 h-5 text-gray-500" />
           </motion.div>
         </motion.div>
       </section>
 
-      {/* 2. What Digiafriq Is (Clarity & Positioning) */}
-      <section className="py-20 relative z-10">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* ABOUT / WHAT IS DIGIAFRIQ */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 relative z-10 bg-gray-50">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
-          {/* Background Africa Map */}
-          <div className="absolute inset-0 opacity-5 pointer-events-none">
-            <img 
-              src="/africa-map.png" 
-              alt="Africa Map Background" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center relative z-10"
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-6">
-              What Is Digiafriq?
-            </h2>
-            <p className="text-lg text-gray-600 leading-relaxed mb-12 max-w-3xl mx-auto">
-              Digiafriq is a <span className="font-semibold text-gray-900">skill-to-income</span> platform that empowers individuals to learn practical AI applications and monetize those skills ethically and sustainably.
-            </p>
-            
-            {/* Feature Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-              {whatIsDigiafriqFeatures.map((feature, index) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg p-6 text-center hover:shadow-xl transition-all duration-300"
-                >
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#ed874a]/20 to-[#d76f32]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <feature.icon className="w-8 h-8 text-[#ed874a]" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {feature.description}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
-            
-            <p className="text-base text-gray-500 font-medium">
-              Designed with the African market in mind.
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* 3. Start With the AI Cashflow System - SPOTLIGHT */}
-      <section id="ai-cashflow-program" className="py-24 relative z-10 bg-gradient-to-br from-[#fef3e8] via-white to-[#fef8f0]">
-        {/* Spotlight Background Effects */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <motion.div
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.1, 0.2, 0.1]
-            }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-20 right-20 w-64 h-64 bg-gradient-to-br from-[#ed874a]/30 to-[#d76f32]/30 rounded-full blur-3xl"
-          />
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.1, 0.15, 0.1]
-            }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-            className="absolute bottom-20 left-20 w-72 h-72 bg-gradient-to-tr from-[#ed874a]/25 to-[#d76f32]/25 rounded-full blur-3xl"
-          />
-        </div>
-
-        {/* Spotlight Badge - Premium Design */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
-        >
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-[#ed874a] via-[#d76f32] to-[#ed874a] text-white px-6 py-3 rounded-full text-sm font-bold shadow-2xl border border-white/20 backdrop-blur-sm relative overflow-hidden">
-            {/* Animated gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-50"></div>
-            
-            {/* Premium icon */}
-            <div className="relative z-10">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            </div>
-            
-            {/* Text */}
-            <span className="relative z-10 tracking-wider uppercase">
-              SPOTLIGHT PROGRAM
-            </span>
-            
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-          </div>
-        </motion.div>
-
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left: Text Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+            {/* Left: Image Grid */}
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="space-y-6"
+              transition={{ duration: 0.7 }}
+              viewport={{ once: true }}
+              className="relative"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                Start With the <br />
-                AI Cashflow Program
-              </h2>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                The AI Cashflow Program is Digiafriq's flagship entry program. It is designed to help new members understand how AI skills can be applied and monetized in practical ways.
-              </p>
-              <p className="text-lg text-gray-600 leading-relaxed">
-                It serves as the recommended starting point for anyone entering the Digiafriq ecosystem and unlocks access to the platform's core tools, resources, and community.
-              </p>
-              
-              <Button
-                size="lg"
-                className="group relative bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-10 py-5 rounded-xl font-bold text-lg shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110 border-2 border-white/50"
-                asChild
-              >
-                <Link href="/ai-cashflow-system" className="flex items-center">
-                  Learn About the AI Cashflow Program
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
+                  <div className="rounded-xl overflow-hidden">
+                    <img
+                      src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80"
+                      alt="Professional woman working with AI"
+                      className="w-full h-44 object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="rounded-xl overflow-hidden">
+                    <img
+                      src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=400&q=80"
+                      alt="Team collaboration"
+                      className="w-full h-56 object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3 pt-6">
+                  <div className="rounded-xl overflow-hidden">
+                    <img
+                      src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&q=80"
+                      alt="Workshop session"
+                      className="w-full h-56 object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="rounded-xl overflow-hidden">
+                    <img
+                      src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&q=80"
+                      alt="Digital workspace"
+                      className="w-full h-44 object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                </div>
+              </div>
             </motion.div>
 
-            {/* Right: Illustration */}
+            {/* Right: Content */}
             <motion.div
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              className="relative flex justify-center lg:justify-end"
+              transition={{ duration: 0.7, delay: 0.15 }}
+              viewport={{ once: true }}
+              className="space-y-5"
             >
-              <div className="relative w-full max-w-lg">
-                {/* Monitor with Chart */}
-                <div className="relative">
-                  <img 
-                    src="/ai-cashflow-monitor.png" 
-                    alt="AI Cashflow System Monitor showing growth chart"
-                    className="w-full h-auto"
-                  />
-                  
-                  {/* Floating Elements */}
-                  <motion.div
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute -top-8 -right-4 w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-200"
-                  >
-                    <span className="text-xl font-bold text-[#ed874a]">AI</span>
-                  </motion.div>
-                  
-                  <motion.div
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                    className="absolute -top-4 -left-4 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-gray-200"
-                  >
-                    <span className="text-lg font-bold text-green-600">$</span>
-                  </motion.div>
-                  
-                  <motion.div
-                    animate={{ rotate: [0, 5, 0] }}
-                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-4 -right-8 w-10 h-10 bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-gray-200"
-                  >
-                    <Wrench className="w-5 h-5 text-[#ed874a]" />
-                  </motion.div>
-                </div>
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a]">
+                About Digiafriq
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug">
+                The Platform That Turns
+                <span className="text-[#ed874a]"> AI Skills </span>
+                Into Income
+              </h2>
+              <p className="text-[15px] text-gray-600 leading-relaxed">
+                Digiafriq empowers individuals across Africa to learn practical AI applications and monetize those skills ethically and sustainably. Structured learning, proven monetization frameworks, and a powerful community.
+              </p>
+              <div className="space-y-3 pt-1">
+                {[
+                  "Practical, hands-on AI training programs",
+                  "Proven monetization strategies & frameworks",
+                  "Tools, templates & resources for immediate application",
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-[#ed874a] mt-0.5 shrink-0" />
+                    <span className="text-sm text-gray-700">{item}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-3">
+                <Button
+                  className="bg-gray-900 hover:bg-gray-800 text-white px-6 py-5 rounded-full font-semibold text-sm transition-all duration-300 hover:-translate-y-0.5"
+                  asChild
+                >
+                  <Link href="/about" className="flex items-center">
+                    Learn More
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
+                </Button>
               </div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      
-      
-      {/* 6. How Digiafriq Works (Process Clarity) */}
-      <section id="how-it-works" className="py-20 relative z-10">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* WHY CHOOSE DIGIAFRIQ */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 relative z-10 bg-white">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            viewport={{ once: true }}
+            className="text-center mb-14"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              From Learning to Earning
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a] mb-3">
+              Why Digiafriq
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+              Everything You Need to Succeed
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              A clear pathway from skill acquisition to income generation.
+            <p className="text-[15px] text-gray-600 max-w-xl mx-auto">
+              We don&apos;t just teach AI skills. We give you the complete system to turn knowledge into income.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {whyChooseUs.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.08 }}
+                viewport={{ once: true }}
+                className="group"
+              >
+                <div className="relative bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all duration-400 overflow-hidden h-full">
+                  <div className="relative h-44 overflow-hidden">
+                    <img
+                      src={feature.image}
+                      alt={feature.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+                    <div className="absolute bottom-3 left-3">
+                      <div className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center">
+                        <feature.icon className="w-5 h-5 text-[#ed874a]" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <h3 className="text-base font-semibold text-gray-900 mb-1.5 group-hover:text-[#ed874a] transition-colors">
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* AI CASHFLOW PROGRAM SPOTLIGHT */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section id="ai-cashflow-program" className="py-20 relative z-10 bg-gray-900 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-[#ed874a]/8 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#d76f32]/8 rounded-full blur-3xl" />
+        </div>
+
+        <div className="mx-auto max-w-6xl px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
+            {/* Left Content */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7 }}
+              viewport={{ once: true }}
+              className="space-y-6"
+            >
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a]">
+                Flagship Program
+              </p>
+
+              <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug">
+                Start With the
+                <span className="block text-[#ed874a]">AI Cashflow Program</span>
+              </h2>
+
+              <p className="text-[15px] text-gray-400 leading-relaxed">
+                The AI Cashflow Program is Digiafriq&apos;s flagship entry point — designed to help you learn how AI skills can be applied and monetized in practical ways.
+              </p>
+
+              <div className="space-y-2.5">
+                {spotlightFeatures.map((feature, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.35, delay: 0.2 + i * 0.08 }}
+                    viewport={{ once: true }}
+                    className="flex items-center gap-2.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-[#ed874a] shrink-0" />
+                    <span className="text-sm text-gray-400">{feature}</span>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  className="group bg-[#ed874a] hover:bg-[#d76f32] text-white px-6 py-5 rounded-full font-semibold text-sm transition-all duration-300 hover:-translate-y-0.5"
+                  asChild
+                >
+                  <Link href="/ai-cashflow-system" className="flex items-center">
+                    Explore the Program
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
+
+            {/* Right: Program Image */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.7, delay: 0.15 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="relative bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-5">
+                <img
+                  src="/ai-cashflow-monitor.png"
+                  alt="AI Cashflow Program Dashboard"
+                  className="w-full h-auto rounded-lg"
+                />
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* HOW IT WORKS */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section id="how-it-works" className="py-20 relative z-10 bg-white">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center mb-14"
+          >
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a] mb-3">
+              How It Works
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+              From Learning to Earning
+            </h2>
+            <p className="text-[15px] text-gray-600 max-w-xl mx-auto">
+              A clear, proven pathway from skill acquisition to sustainable income.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative">
+            <div className="hidden lg:block absolute top-12 left-[14%] right-[14%] h-px bg-gray-200" />
+
             {processSteps.map((step, index) => (
               <motion.div
                 key={step.number}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="relative"
+                transition={{ duration: 0.45, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="relative text-center"
               >
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 shadow-lg h-full">
-                  <div className="text-4xl font-bold bg-gradient-to-r from-[#ed874a] to-[#d76f32] bg-clip-text text-transparent mb-4">
-                    {step.number}
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <div className="relative z-10 w-12 h-12 mx-auto mb-5 bg-[#ed874a] rounded-xl flex items-center justify-center">
+                  <step.icon className="w-5 h-5 text-white" />
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 hover:border-[#ed874a]/20 hover:shadow-md transition-all duration-300 h-full">
+                  <span className="text-xs font-semibold text-[#ed874a] mb-1.5 block">Step {step.number}</span>
+                  <h3 className="text-sm font-bold text-gray-900 mb-2">
                     {step.title}
                   </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="text-gray-600 text-xs leading-relaxed">
                     {step.description}
                   </p>
                 </div>
-                {index < processSteps.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-[#ed874a] to-[#d76f32]" />
-                )}
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* 7. Community & Social Proof (Trust Layer) */}
-      <section className="py-20 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* TESTIMONIALS */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 relative z-10 bg-gray-50">
         <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            viewport={{ once: true }}
+            className="text-center mb-12"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              A Growing Community Across Africa
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a] mb-3">
+              Testimonials
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+              Trusted by Learners Across Africa
             </h2>
+            <p className="text-[15px] text-gray-600 max-w-xl mx-auto">
+              Real stories from real people building real income with AI skills.
+            </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((testimonial, index) => (
               <motion.div
                 key={testimonial.name}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.45, delay: index * 0.1 }}
+                viewport={{ once: true }}
               >
-                <Card className="h-full bg-white/80 backdrop-blur-sm border border-gray-200 shadow-lg">
-                  <CardContent className="pt-6">
-                    <Quote className="w-8 h-8 text-[#ed874a]/30 mb-4" />
-                    <p className="text-gray-700 leading-relaxed mb-6 italic">
-                      &ldquo;{testimonial.content}&rdquo;
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      — {testimonial.name}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      
-      {/* 9. FAQ (Confidence & Transparency) */}
-      <section id="faq" className="py-20 relative z-10 bg-gradient-to-br from-slate-50 via-white to-orange-50">
-        <div className="mx-auto max-w-3xl px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Frequently Asked Questions
-            </h2>
-          </motion.div>
-
-          <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-              >
-                <div 
-                  className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 shadow-sm overflow-hidden cursor-pointer"
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                >
-                  <div className="flex items-center justify-between p-6">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {faq.question}
-                    </h3>
-                    <ChevronDown 
-                      className={`w-5 h-5 text-gray-500 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} 
-                    />
+                <div className="bg-white rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-all duration-300 h-full flex flex-col">
+                  <div className="flex gap-0.5 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-[#ed874a] text-[#ed874a]" />
+                    ))}
                   </div>
-                  {openFaq === index && (
-                    <div className="px-6 pb-6">
-                      <p className="text-gray-600 leading-relaxed">
-                        {faq.answer}
-                      </p>
+
+                  <p className="text-sm text-gray-700 leading-relaxed mb-5 flex-1">
+                    &ldquo;{testimonial.content}&rdquo;
+                  </p>
+
+                  <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                    <img
+                      src={testimonial.avatar}
+                      alt={testimonial.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{testimonial.name}</p>
+                      <p className="text-xs text-gray-500">{testimonial.role}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -606,41 +591,136 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 10. Latest Blog Section */}
-      <section id="blog" className="py-20 relative z-10">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* FAQ SECTION */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section id="faq" className="py-20 relative z-10 bg-white">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-14">
+            {/* Left: Heading & Image */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="space-y-5"
+            >
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a]">
+                FAQ
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug">
+                Questions?
+                <span className="block text-[#ed874a]">We&apos;ve Got Answers.</span>
+              </h2>
+              <p className="text-[15px] text-gray-600 leading-relaxed">
+                Everything you need to know about Digiafriq. Can&apos;t find what you&apos;re looking for? Reach out to our support team.
+              </p>
+              <div className="relative rounded-xl overflow-hidden hidden lg:block">
+                <img
+                  src="https://images.unsplash.com/photo-1553877522-43269d4ea984?w=600&q=80"
+                  alt="Support team"
+                  className="w-full h-56 object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <div className="absolute bottom-5 left-5">
+                  <Button
+                    variant="outline"
+                    className="bg-white/90 backdrop-blur-sm border-white/50 text-gray-900 hover:bg-white text-sm px-5 py-2 rounded-full"
+                    asChild
+                  >
+                    <Link href="/contact">Contact Support</Link>
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Right: FAQ Accordion */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              viewport={{ once: true }}
+              className="space-y-3"
+            >
+              {faqs.map((faq, index) => (
+                <div
+                  key={index}
+                  className={`bg-gray-50 rounded-lg border transition-all duration-300 overflow-hidden cursor-pointer ${
+                    openFaq === index ? "border-[#ed874a]/30 shadow-sm" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                >
+                  <div className="flex items-center justify-between p-4">
+                    <h3 className="text-sm font-semibold text-gray-900 pr-4">
+                      {faq.question}
+                    </h3>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                      openFaq === index ? "bg-[#ed874a] text-white rotate-180" : "bg-gray-200 text-gray-500"
+                    }`}>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <AnimatePresence>
+                    {openFaq === index && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="px-4 pb-4">
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            {faq.answer}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* BLOG SECTION */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section id="blog" className="py-20 relative z-10 bg-gray-50">
+        <div className="mx-auto max-w-6xl px-6 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-16"
+            viewport={{ once: true }}
+            className="text-center mb-12"
           >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Latest from Our Blog
+            <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#ed874a] mb-3">
+              Our Blog
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+              Latest Insights & Resources
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Stay updated with the latest insights, tips, and success stories from the digital world.
+            <p className="text-[15px] text-gray-600 max-w-xl mx-auto">
+              Expert insights, tutorials, and success stories from the AI and digital skills world.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {blogLoading ? (
-              // Loading skeleton
               Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="animate-pulse">
-                  <Card className="h-full border-0 shadow-md overflow-hidden bg-white">
-                    <div className="h-48 bg-gray-200"></div>
-                    <CardHeader className="pb-4">
-                      <div className="h-6 bg-gray-200 rounded mb-3"></div>
+                  <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
+                    <div className="h-44 bg-gray-200" />
+                    <div className="p-5 space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-1/3" />
+                      <div className="h-5 bg-gray-200 rounded" />
                       <div className="space-y-2">
-                        <div className="h-4 bg-gray-200 rounded"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-200 rounded" />
+                        <div className="h-3 bg-gray-200 rounded w-3/4" />
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="h-4 bg-gray-200 rounded w-20"></div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               ))
             ) : (
@@ -649,100 +729,132 @@ export default function Home() {
                   key={post.slug}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  transition={{ duration: 0.45, delay: index * 0.08 }}
+                  viewport={{ once: true }}
                 >
-                  <Card className="h-full hover:shadow-lg transition-shadow duration-300 border-0 shadow-md overflow-hidden bg-white">
-                    {/* Blog Image */}
-                    <div className="relative h-48 overflow-hidden">
-                      <img 
-                        src={post.featured_image || '/blog/default-blog.jpg'} 
-                        alt={post.title}
-                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                      />
-                      <div className="absolute top-4 left-4">
-                        <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1">
-                          <div className="flex items-center text-sm text-[#ed874a] font-medium">
-                            <Clock className="w-3 h-3 mr-1" />
-                            {new Date(post.published_at).toLocaleDateString('en-US', { 
-                              day: 'numeric', 
-                              month: 'short', 
-                              year: 'numeric' 
+                  <Link href={`/blog/${post.slug}`} className="block group">
+                    <div className="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-lg hover:border-[#ed874a]/20 transition-all duration-300 h-full">
+                      <div className="relative h-44 overflow-hidden">
+                        <img
+                          src={post.featured_image || '/blog/default-blog.jpg'}
+                          alt={post.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute top-3 left-3">
+                          <span className="bg-white/90 backdrop-blur-sm text-gray-600 text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(post.published_at).toLocaleDateString('en-US', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
                             })}
-                          </div>
+                          </span>
                         </div>
                       </div>
+
+                      <div className="p-5">
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-[#ed874a] transition-colors">
+                          {post.title}
+                        </h3>
+                        <p className="text-gray-600 text-xs leading-relaxed line-clamp-3 mb-3">
+                          {post.excerpt}
+                        </p>
+                        <span className="inline-flex items-center text-[#ed874a] font-medium text-xs group-hover:gap-1.5 transition-all">
+                          Read Article
+                          <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
+                        </span>
+                      </div>
                     </div>
-                    
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 hover:text-[#ed874a] transition-colors">
-                        {post.title}
-                      </CardTitle>
-                      <CardContent className="text-gray-600 text-base leading-relaxed line-clamp-3">
-                        {post.excerpt}
-                      </CardContent>
-                    </CardHeader>
-                    
-                    <CardContent className="pt-0">
-                      <Button 
-                        variant="ghost" 
-                        className="text-[#ed874a] hover:text-[#d76f32] hover:bg-[#ed874a]/5 p-0 h-auto font-medium"
-                        asChild
-                      >
-                        <Link href={`/blog/${post.slug}`} className="flex items-center">
-                          Read More
-                          <ArrowRight className="w-4 h-4 ml-1" />
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  </Link>
                 </motion.div>
               ))
             )}
           </div>
 
-          {/* View All Blogs CTA */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-center mt-12"
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+            className="text-center mt-10"
           >
             <Button
-              size="lg"
-              className="bg-gradient-to-r from-[#ed874a] to-[#d76f32] hover:from-[#d76f32] hover:to-[#ed874a] text-white px-8 py-3"
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:border-[#ed874a] hover:text-[#ed874a] px-6 py-4 rounded-full font-semibold text-sm transition-all duration-300"
               asChild
             >
-              <Link href="/blog">
-                View All Blog Posts
-                <ArrowRight className="w-4 h-4 ml-2" />
+              <Link href="/blog" className="flex items-center">
+                View All Articles
+                <ArrowRight className="w-3.5 h-3.5 ml-2" />
               </Link>
             </Button>
           </motion.div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 border-t border-gray-200 relative z-10">
-        <div className="mx-auto max-w-6xl px-6 lg:px-8">
-          <div className="text-center">
-            <p className="text-lg font-bold text-gray-900 mb-2">
-              Digiafriq
-            </p>
-            <p className="text-sm text-gray-500 mb-6">
-              Africa&apos;s AI Skills & Monetization Platform
-            </p>
-            <div className="flex justify-center gap-6 text-sm text-gray-600">
-              <Link href="/about" className="hover:text-[#ed874a] transition-colors">About</Link>
-              <Link href="/contact" className="hover:text-[#ed874a] transition-colors">Contact</Link>
-              <Link href="/privacy" className="hover:text-[#ed874a] transition-colors">Privacy</Link>
-              <Link href="/terms" className="hover:text-[#ed874a] transition-colors">Terms</Link>
-            </div>
-            <p className="text-xs text-gray-400 mt-6">
-              © {new Date().getFullYear()} Digiafriq. All rights reserved.
-            </p>
-          </div>
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* FINAL CTA SECTION */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 relative z-10 overflow-hidden">
+        <div className="absolute inset-0">
+          <img
+            src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1920&q=80"
+            alt="Community"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/70" />
         </div>
-      </footer>
+
+        <div className="relative z-10 mx-auto max-w-2xl px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            viewport={{ once: true }}
+            className="space-y-6"
+          >
+            <h2 className="text-2xl sm:text-3xl font-bold text-white leading-snug">
+              Ready to Turn AI Skills
+              <span className="block text-[#ed874a]">Into Real Income?</span>
+            </h2>
+            <p className="text-[15px] text-gray-300 max-w-lg mx-auto leading-relaxed">
+              Join thousands of ambitious Africans already building their future with Digiafriq.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <Button
+                className="group bg-white text-gray-900 hover:bg-gray-100 px-7 py-5 rounded-full font-semibold text-sm shadow-lg transition-all duration-300 hover:-translate-y-0.5"
+                asChild
+              >
+                <Link href="/signup" className="flex items-center justify-center">
+                  Get Started Now
+                  <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="border-white/40 bg-white/5 text-white hover:bg-white/15 hover:border-white/60 px-7 py-5 rounded-full font-semibold text-sm backdrop-blur-sm transition-all duration-300"
+                asChild
+              >
+                <Link href="/contact">Talk to Us</Link>
+              </Button>
+            </div>
+            <div className="flex items-center justify-center gap-6 pt-4 text-gray-400 text-xs">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
+                Free to start
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
+                No hidden fees
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
+                Cancel anytime
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   )
 }

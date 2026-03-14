@@ -5,9 +5,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveExtensions: [".tsx", ".ts", ".jsx", ".js", ".json", ".css"]
   },
-  // Ignore TypeScript errors during build for development
+  // Strip console.log/debug in production builds (keep warn/error)
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production'
+      ? { exclude: ['warn', 'error'] }
+      : false,
+  },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Image configuration for external domains
   images: {
@@ -63,8 +68,45 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Cache API responses for 60 seconds with stale-while-revalidate
-        source: '/api/:path*',
+        // Prevent caching on payment and auth API routes
+        source: '/api/payments/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/api/admin/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        // Cache read-only public API routes briefly
+        source: '/api/blog/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=60, stale-while-revalidate=300',
+          },
+        ],
+      },
+      {
+        source: '/api/programs/:path*',
         headers: [
           {
             key: 'Cache-Control',

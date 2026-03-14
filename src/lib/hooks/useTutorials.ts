@@ -11,6 +11,7 @@ interface Tutorial {
   duration: string
   category: string
   level: string
+  type: string // video, article, webinar, etc.
   difficulty: string // alias for level for backward compatibility
   views: number
   rating: number

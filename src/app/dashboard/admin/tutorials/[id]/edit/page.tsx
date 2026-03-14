@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 import TutorialFormTabs from '@/components/admin/TutorialFormTabs'
-import { supabase } from '@/lib/supabase/client'
+import { db as supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 interface Lesson {
