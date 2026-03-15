@@ -107,7 +107,7 @@ export default function AboutPage() {
               {/* Founder Image */}
               <div className="lg:col-span-2 relative h-80 lg:h-auto">
                 <img
-                  src="/RichesAdusei.jpg"
+                  src="https://raw.githubusercontent.com/yawriches/digiafriq-project/main/public/RichesAdusei.JPG"
                   alt="Riches Adusei - Founder & CEO"
                   className="w-full h-full object-cover"
                 />

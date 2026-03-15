@@ -838,20 +838,6 @@ export default function Home() {
                 <Link href="/contact">Talk to Us</Link>
               </Button>
             </div>
-            <div className="flex items-center justify-center gap-6 pt-4 text-gray-400 text-xs">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
-                Free to start
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
-                No hidden fees
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#ed874a]" />
-                Cancel anytime
-              </span>
-            </div>
           </motion.div>
         </div>
       </section>

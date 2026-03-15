@@ -190,10 +190,10 @@ const SignupPage = () => {
                 </Link>
               </div>
               <h1 className="text-4xl font-bold text-gray-900 mb-3">
-                Create your account
+                Create Your Account
               </h1>
               <p className="text-lg text-gray-600">
-                Join thousands of learners and earners transforming their futures
+                Start learning practical AI skills and build new income opportunities with Digiafriq.
               </p>
             </div>
 
@@ -403,10 +403,10 @@ const SignupPage = () => {
         <div className="hidden lg:block w-full lg:w-1/2 bg-gradient-to-br from-[#ed874a] to-[#d76f32] flex items-center justify-center py-12 px-8 order-1 lg:order-2 overflow-y-auto">
           <div className="max-w-lg w-full text-center text-white my-8">
             <h2 className="text-3xl font-bold mb-4">
-              Join 1,500,000+ learners today!
+              Your AI Income Journey Starts Here
             </h2>
             <p className="text-lg mb-8 text-orange-100">
-              Transform your future with world-class courses and earn while you learn. Start your journey with DigiAfriq today.
+              Create your Digiafriq account to access structured AI programs designed to help you learn valuable skills and turn them into income opportunities.
             </p>
             
             {/* Illustration */}
