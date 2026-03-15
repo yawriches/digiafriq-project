@@ -159,95 +159,77 @@ const TransactionsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Transaction History</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Transaction History</h1>
+            <p className="text-sm text-gray-500 mt-0.5">View all commissions and withdrawals</p>
+          </div>
+          <Button variant="outline" className="text-xs h-8 rounded-lg">
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export
+          </Button>
         </div>
 
         {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">From:</label>
-              <input 
-                type="date" 
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-              />
+      <div className="bg-white rounded-xl border border-gray-200/80 p-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">From</label>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
             </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">To:</label>
-              <input 
-                type="date" 
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-              />
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">To</label>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
             </div>
-            <select 
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-            >
-              <option>All Types</option>
-              <option>Commission</option>
-              <option>Withdrawal</option>
-              <option>Fee</option>
-            </select>
-            <select 
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-            >
-              <option>All Status</option>
-              <option>Completed</option>
-              <option>Pending</option>
-              <option>Processing</option>
-              <option>Rejected</option>
-            </select>
-            <Button className="bg-[#ed874a] hover:bg-[#d76f32] text-white">
-              <Filter className="w-4 h-4 mr-2" />
-              Apply Filter
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">Type</label>
+              <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none bg-white">
+                <option>All Types</option>
+                <option>Commission</option>
+                <option>Withdrawal</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">Status</label>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none bg-white">
+                <option>All Status</option>
+                <option>Completed</option>
+                <option>Pending</option>
+                <option>Processing</option>
+              </select>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Transactions List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">All Transactions</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {/* Loading State */}
+      <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">All Transactions</h2>
+        </div>
+        <div>
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-              <span className="ml-3 text-gray-600">Loading transactions...</span>
+              <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+              <span className="ml-2 text-sm text-gray-500">Loading transactions...</span>
             </div>
           )}
 
-          {/* Error State */}
           {error && (
-            <div className="text-center py-8 text-red-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4" />
-              <p>Error loading transactions: {error}</p>
+            <div className="text-center py-10">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+              <p className="text-sm text-red-600">Error loading transactions: {error}</p>
             </div>
           )}
 
-          {/* Empty State */}
           {!loading && !error && allTransactions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <Activity className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">No transactions found</p>
-              <p className="text-sm">Your commissions and payouts will appear here</p>
+            <div className="text-center py-14">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Activity className="w-6 h-6 text-gray-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">No transactions found</p>
+              <p className="text-xs text-gray-500 mt-1">Your commissions and payouts will appear here</p>
             </div>
           )}
 
@@ -311,48 +293,32 @@ const TransactionsPage = () => {
 
           {/* Desktop List - Hidden on mobile */}
           {!loading && !error && allTransactions.length > 0 && (
-          <div className="hidden lg:block space-y-4 p-6">
+          <div className="hidden lg:block divide-y divide-gray-100">
             {filteredTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+              <div key={transaction.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center">
                     {getTransactionIcon(transaction.type)}
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h4 className="font-medium text-gray-900">{transaction.type}</h4>
-                      {getStatusIcon(transaction.status)}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">{transaction.description}</p>
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>ID: {transaction.id}</span>
-                      <span>Ref: {transaction.reference}</span>
-                      <span>{transaction.date}</span>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{transaction.type}</p>
+                    <p className="text-xs text-gray-500">{transaction.date} &middot; {transaction.reference}</p>
                   </div>
                 </div>
-                
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900">
-                      {transaction.amount}
-                    </div>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${transaction.statusColor}`}>
+                    <p className="text-sm font-semibold text-gray-900">{transaction.amount}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${transaction.statusColor}`}>
                       {transaction.status}
                     </span>
                   </div>
-                  
-                  <Button variant="ghost" size="sm">
-                    <Eye className="w-4 h-4" />
-                  </Button>
                 </div>
               </div>
             ))}
           </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       </div>
   )
 }

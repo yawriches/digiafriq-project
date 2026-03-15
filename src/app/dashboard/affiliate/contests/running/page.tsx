@@ -39,24 +39,18 @@ const RunningContestsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-        <span className="ml-2 text-gray-600">Loading contests...</span>
-      </div>
+      <div className="p-4 lg:p-6"><div className="flex items-center justify-center h-48">
+        <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+        <span className="ml-2 text-sm text-gray-500">Loading contests...</span>
+      </div></div>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-600">Error loading contests: {error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="mt-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-        >
-          Retry
-        </button>
-      </div>
+      <div className="p-4 lg:p-6"><div className="bg-red-50 border border-red-100 rounded-xl p-5">
+        <p className="text-sm text-red-600">Error loading contests: {error}</p>
+      </div></div>
     )
   }
 
@@ -70,23 +64,22 @@ const RunningContestsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Search */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Running Contests</h1>
-
-        {/* Search Bar */}
-        <div className="relative w-full lg:w-80">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Running Contests</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Active contests you can participate in</p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search contests..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-4 pr-12 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none"
           />
-          <button className="absolute right-0 top-0 h-full px-4 bg-[#ed874a] text-white rounded-r-lg hover:bg-[#d76f32] transition-colors">
-            <Search className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
@@ -144,17 +137,17 @@ const RunningContestsPage = () => {
         )}
       </div>
 
-      {/* Desktop Table - Hidden on mobile */}
-      <div className="hidden lg:block bg-white rounded-lg shadow-sm overflow-hidden">
+      {/* Desktop Table */}
+      <div className="hidden lg:block bg-white rounded-xl border border-gray-200/80 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left py-4 px-6 font-medium text-gray-700">SL</th>
-                <th className="text-left py-4 px-6 font-medium text-gray-700">Name</th>
-                <th className="text-left py-4 px-6 font-medium text-gray-700">Period</th>
-                <th className="text-left py-4 px-6 font-medium text-gray-700">Status</th>
-                <th className="text-left py-4 px-6 font-medium text-gray-700">Action</th>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">#</th>
+                <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Name</th>
+                <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Period</th>
+                <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Action</th>
               </tr>
             </thead>
             <tbody>

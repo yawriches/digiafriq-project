@@ -120,72 +120,67 @@ const SalesActivityPage = () => {
   // }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Sales Activity</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Sales Activity</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Track your commission earnings</p>
+          </div>
+          <Button variant="outline" className="text-xs h-8 rounded-lg" onClick={handleExport}>
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export
+          </Button>
         </div>
 
         {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-4 lg:p-6">
-          <div className="flex flex-col lg:flex-row lg:flex-wrap items-start lg:items-center gap-4">
-            <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 w-full lg:w-auto">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">From:</label>
-              <input 
-                type="date" 
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm w-full lg:w-auto"
-              />
+      <div className="bg-white rounded-xl border border-gray-200/80 p-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-end gap-3">
+            <div className="flex-1 w-full">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">From</label>
+              <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
             </div>
-            <div className="flex flex-col lg:flex-row lg:items-center space-y-2 lg:space-y-0 lg:space-x-2 w-full lg:w-auto">
-              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">To:</label>
-              <input 
-                type="date" 
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm w-full lg:w-auto"
-              />
+            <div className="flex-1 w-full">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">To</label>
+              <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
             </div>
-            <div className="flex flex-col lg:flex-row gap-2 w-full lg:w-auto">
-              <Button className="bg-[#ed874a] hover:bg-[#d76f32] w-full lg:w-auto">
-                <Filter className="w-4 h-4 mr-2" />
-                Apply Filter
-              </Button>
-              <Button variant="outline" className="w-full lg:w-auto" onClick={handleExport}>
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </div>
+            <Button className="bg-[#ed874a] hover:bg-[#d76f32] text-xs h-9 rounded-lg px-5 w-full sm:w-auto">
+              <Filter className="w-3.5 h-3.5 mr-1.5" />
+              Filter
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Sales Activity Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Detailed Sales Activity</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">Detailed Sales Activity</h2>
+        </div>
+        <div>
           {/* Loading State */}
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-              <span className="ml-3 text-gray-600">Loading sales data...</span>
+              <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+              <span className="ml-2 text-sm text-gray-500">Loading sales data...</span>
             </div>
           )}
 
           {/* Error State */}
           {error && (
-            <div className="text-center py-8 text-red-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4" />
-              <p>Error loading sales: {error}</p>
+            <div className="text-center py-10">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+              <p className="text-sm text-red-600">Error loading sales: {error}</p>
             </div>
           )}
 
           {/* Empty State */}
           {!loading && !error && salesActivity.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">No sales activity found</p>
-              <p className="text-sm">Your commission earnings will appear here once you make referrals</p>
+            <div className="text-center py-14">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <ShoppingCart className="w-6 h-6 text-gray-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">No sales activity found</p>
+              <p className="text-xs text-gray-500 mt-1">Commission earnings will appear here once you make referrals</p>
             </div>
           )}
 
@@ -245,11 +240,11 @@ const SalesActivityPage = () => {
           <div className="hidden lg:block overflow-x-scroll lg:overflow-x-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
             <table className="w-full" style={{ minWidth: '700px', tableLayout: 'fixed' }}>
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-3 px-4 lg:px-6 font-medium text-sm text-gray-700" style={{ minWidth: '140px' }}>Order ID</th>
-                  <th className="text-left py-3 px-4 lg:px-6 font-medium text-sm text-gray-700" style={{ minWidth: '100px' }}>Tier</th>
-                  <th className="text-left py-3 px-4 lg:px-6 font-medium text-sm text-gray-700" style={{ minWidth: '120px' }}>Commission</th>
-                  <th className="text-left py-3 px-4 lg:px-6 font-medium text-sm text-gray-700" style={{ minWidth: '120px' }}>Date</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide" style={{ minWidth: '140px' }}>Order ID</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide" style={{ minWidth: '100px' }}>Tier</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide" style={{ minWidth: '120px' }}>Commission</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide" style={{ minWidth: '120px' }}>Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -331,8 +326,8 @@ const SalesActivityPage = () => {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       </div>
   )
 }

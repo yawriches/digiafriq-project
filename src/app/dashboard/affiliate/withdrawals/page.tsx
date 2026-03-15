@@ -376,22 +376,23 @@ const WithdrawalsPage = () => {
   // Show loading state while profile is loading
   if (profileLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-        <span className="ml-2 text-gray-600">Loading payment methods...</span>
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+        <span className="ml-2 text-sm text-gray-500">Loading payment methods...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 max-w-[900px] mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Withdraw Funds</h1>
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold text-gray-900">Withdraw Funds</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Request a withdrawal from your available balance</p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-4 mb-8">
+        <div className="flex items-center justify-center space-x-4 mb-6">
           {[1, 2].map((stepNumber) => (
             <div key={stepNumber} className="flex items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -410,14 +411,14 @@ const WithdrawalsPage = () => {
 
         {/* Withdrawal Form */}
         <div className="max-w-2xl mx-auto">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
+          <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">
                 {step === 1 && 'Enter Amount & Select Method'}
                 {step === 2 && 'Confirm Withdrawal'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+              </h2>
+            </div>
+            <div className="p-5 space-y-5">
               {/* Step 1: Amount & Method Selection */}
               {step === 1 && (
                 <>
@@ -730,16 +731,16 @@ const WithdrawalsPage = () => {
                   </div>
                 </>
               )}
-          </CardContent>
-        </Card>
+            </div>
+        </div>
         </div>
 
         {/* Withdrawal Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Withdrawal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden mt-6">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900">Withdrawal Information</h2>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="space-y-3">
               <div className="flex items-start space-x-3">
                 <CheckCircle className="w-5 h-5 text-gray-600 mt-0.5" />
@@ -770,16 +771,16 @@ const WithdrawalsPage = () => {
               </div>
             </div>
 
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-gray-100">
               <Link href="/dashboard/profile">
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full text-sm h-9 rounded-lg">
                   <Settings className="w-4 h-4 mr-2" />
                   Manage Payment Methods
                 </Button>
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
   )
 }

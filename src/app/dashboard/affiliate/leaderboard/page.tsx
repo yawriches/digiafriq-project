@@ -1,160 +1,140 @@
 "use client"
 import React from 'react'
-import { Loader2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Loader2, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useLeaderboard } from '@/lib/hooks/useLeaderboard'
 
 const LeaderboardPage = () => {
   const { leaderboard, currentUserRank, loading, error } = useLeaderboard()
 
-  // Format revenue for display
   const formatRevenue = (amount: number): string => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}K`
-    }
+    if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`
     return `$${amount.toFixed(2)}`
   }
 
   if (loading) {
     return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Leaderboard</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center h-64">
-              <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-              <span className="ml-2 text-gray-600">Loading leaderboard...</span>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-4 lg:p-6 max-w-[900px]">
+        <h1 className="text-xl font-semibold text-gray-900 mb-6">Leaderboard</h1>
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+          <span className="ml-2 text-sm text-gray-500">Loading leaderboard...</span>
+        </div>
+      </div>
     )
   }
 
   if (error) {
     return (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Leaderboard</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-600">Error loading leaderboard: {error}</p>
-              <Button 
-                onClick={() => window.location.reload()} 
-                className="mt-2 bg-red-600 hover:bg-red-700"
-              >
-                Retry
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="p-4 lg:p-6 max-w-[900px]">
+        <h1 className="text-xl font-semibold text-gray-900 mb-6">Leaderboard</h1>
+        <div className="bg-red-50 border border-red-100 rounded-xl p-5">
+          <p className="text-sm text-red-600">Error loading leaderboard: {error}</p>
+          <Button onClick={() => window.location.reload()} className="mt-3 bg-red-600 hover:bg-red-700 text-sm h-9">Retry</Button>
+        </div>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800">Leaderboard</h1>
-        
-        <Card className="overflow-hidden">
-        <CardContent className="p-0">
+    <div className="p-4 lg:p-6 max-w-[900px]">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Leaderboard</h1>
+          {currentUserRank && (
+            <p className="text-sm text-gray-500 mt-0.5">Your rank: <span className="font-bold text-gray-900">#{currentUserRank}</span></p>
+          )}
+        </div>
+      </div>
 
-          {/* Mobile Cards - Hidden on desktop */}
-          <div className="block lg:hidden space-y-3 p-4">
+      {leaderboard.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-200/80 text-center py-16">
+          <Trophy className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+          <p className="text-sm font-medium text-gray-700">No leaderboard data available</p>
+          <p className="text-xs text-gray-400 mt-1">Start referring to appear on the leaderboard!</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+          {/* Mobile Cards */}
+          <div className="block lg:hidden divide-y divide-gray-100">
             {leaderboard.map((affiliate) => (
               <div 
                 key={affiliate.rank}
-                className={`bg-white rounded-lg border p-4 ${
-                  affiliate.isCurrentUser ? 'border-gray-400 bg-gray-50' : 'border-gray-200'
-                }`}
+                className={`p-4 ${affiliate.isCurrentUser ? 'bg-[#ed874a]/5' : ''}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100">
-                      <span className="text-sm font-semibold text-gray-700">#{affiliate.rank}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                      affiliate.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                      affiliate.rank === 2 ? 'bg-gray-200 text-gray-700' :
+                      affiliate.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {affiliate.rank <= 3 ? affiliate.award : affiliate.rank}
                     </div>
                     <div>
-                      <h3 className={`text-base font-semibold ${
-                        affiliate.isCurrentUser ? 'text-gray-900' : 'text-gray-800'
-                      }`}>
-                        {affiliate.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">{affiliate.level}</p>
-                      <p className="text-xs text-gray-400">{affiliate.total_referrals} referrals</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {affiliate.name}{affiliate.isCurrentUser ? ' (You)' : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">{affiliate.level} &middot; {affiliate.total_referrals} referrals</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-gray-900">{formatRevenue(affiliate.total_revenue)}</div>
-                    <div className="text-xl">{affiliate.award}</div>
-                  </div>
+                  <p className="text-sm font-bold text-gray-900">{formatRevenue(affiliate.total_revenue)}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Desktop Table - Hidden on mobile */}
-          <div className="hidden lg:block overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden lg:block">
             <table className="w-full">
               <thead>
-                <tr className="bg-[#ed874a] text-white">
-                  <th className="text-left py-4 px-6 font-semibold text-base">Rank</th>
-                  <th className="text-left py-4 px-6 font-semibold text-base">Affiliate</th>
-                  <th className="text-left py-4 px-6 font-semibold text-base">Level</th>
-                  <th className="text-right py-4 px-6 font-semibold text-base">Total Revenue</th>
-                  <th className="text-center py-4 px-6 font-semibold text-base">Award</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Rank</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Affiliate</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Level</th>
+                  <th className="text-right py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Revenue</th>
+                  <th className="text-right py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Referrals</th>
                 </tr>
               </thead>
-              <tbody className="bg-white">
-                {leaderboard.map((affiliate, index) => (
+              <tbody className="divide-y divide-gray-100">
+                {leaderboard.map((affiliate) => (
                   <tr 
-                    key={affiliate.rank} 
-                    className={`border-b border-gray-200 ${
-                      affiliate.isCurrentUser ? 'bg-gray-50' : ''
-                    }`}
+                    key={affiliate.rank}
+                    className={`transition-colors ${affiliate.isCurrentUser ? 'bg-[#ed874a]/5' : 'hover:bg-gray-50'}`}
                   >
-                    <td className="py-5 px-6">
-                      <span className="text-gray-600 font-medium text-base">
-                        {affiliate.rank}
-                      </span>
-                    </td>
-                    <td className="py-5 px-6">
-                      <span className={`font-semibold text-base ${
-                        affiliate.isCurrentUser ? 'text-gray-900' : 'text-gray-700'
+                    <td className="py-3.5 px-5">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                        affiliate.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                        affiliate.rank === 2 ? 'bg-gray-200 text-gray-700' :
+                        affiliate.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                        'bg-gray-100 text-gray-500'
                       }`}>
-                        {affiliate.name}
+                        {affiliate.rank <= 3 ? affiliate.award : affiliate.rank}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className="text-sm font-medium text-gray-900">
+                        {affiliate.name}{affiliate.isCurrentUser ? ' (You)' : ''}
                       </span>
                     </td>
-                    <td className="py-5 px-6">
-                      <span className="text-gray-600 text-base">
-                        {affiliate.level}
-                      </span>
+                    <td className="py-3.5 px-5">
+                      <span className="text-sm text-gray-600">{affiliate.level}</span>
                     </td>
-                    <td className="py-5 px-6 text-right">
-                      <span className="text-gray-600 font-medium text-base">{formatRevenue(affiliate.total_revenue)}</span>
+                    <td className="py-3.5 px-5 text-right">
+                      <span className="text-sm font-semibold text-gray-900">{formatRevenue(affiliate.total_revenue)}</span>
                     </td>
-                    <td className="py-5 px-6 text-center">
-                      <span className="text-3xl">
-                        {affiliate.rank === 1 ? '🏆' : affiliate.rank === 2 ? '🥈' : affiliate.rank === 3 ? '🥉' : '🏅'}
-                      </span>
+                    <td className="py-3.5 px-5 text-right">
+                      <span className="text-sm text-gray-600">{affiliate.total_referrals}</span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* Empty State */}
-          {leaderboard.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🏆</div>
-              <p className="text-gray-500 text-lg mb-2">No leaderboard data available</p>
-              <p className="text-gray-400 text-sm">Start referring affiliates to appear on the leaderboard!</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </div>
+        </div>
+      )}
+    </div>
   )
 }
 

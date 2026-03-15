@@ -224,77 +224,77 @@ const WithdrawalHistoryPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 lg:p-6 max-w-[1100px]">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Withdrawal History</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Track all your withdrawal requests</p>
+        </div>
+        <Button variant="outline" className="text-xs h-8 rounded-lg">
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          Export
+        </Button>
+      </div>
+
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">From:</label>
-              <input 
-                type="date" 
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">To:</label>
-              <input 
-                type="date" 
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-              />
-            </div>
-            <select className="border border-gray-200 rounded-md px-3 py-2 text-sm">
+      <div className="bg-white rounded-xl border border-gray-200/80 p-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">From</label>
+            <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">To</label>
+            <input type="date" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none" />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">Status</label>
+            <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none bg-white">
               <option>All Status</option>
               <option>Completed</option>
               <option>Processing</option>
               <option>Failed</option>
             </select>
-            <select className="border border-gray-200 rounded-md px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1 block">Method</label>
+            <select className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-[#ed874a] focus:ring-1 focus:ring-[#ed874a]/20 outline-none bg-white">
               <option>All Methods</option>
               <option>Bank Transfer</option>
-              <option>PayPal</option>
               <option>Mobile Money</option>
             </select>
-            <Button className="bg-[#ed874a] hover:bg-[#d76f32]">
-              <Filter className="w-4 h-4 mr-2" />
-              Apply Filter
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Withdrawal History Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">All Withdrawals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Loading State */}
+      <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-900">All Withdrawals</h2>
+        </div>
+        <div>
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[#ed874a]" />
-              <span className="ml-3 text-gray-600">Loading withdrawal history...</span>
+              <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
+              <span className="ml-2 text-sm text-gray-500">Loading withdrawal history...</span>
             </div>
           )}
 
-          {/* Error State */}
           {error && (
-            <div className="text-center py-8 text-red-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-4" />
-              <p>Error loading withdrawals: {error}</p>
+            <div className="text-center py-10">
+              <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+              <p className="text-sm text-red-600">Error loading withdrawals: {error}</p>
             </div>
           )}
 
-          {/* Empty State */}
           {!loading && !error && withdrawalHistory.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              <CreditCard className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">No withdrawal history</p>
-              <p className="text-sm">Your withdrawal transactions will appear here</p>
+            <div className="text-center py-14">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <CreditCard className="w-6 h-6 text-gray-400" />
+              </div>
+              <p className="text-sm font-medium text-gray-700">No withdrawal history</p>
+              <p className="text-xs text-gray-500 mt-1">Your withdrawal transactions will appear here</p>
             </div>
           )}
 
@@ -334,13 +334,13 @@ const WithdrawalHistoryPage = () => {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Date Requested</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Amount</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Method</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Reference</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 font-medium text-gray-700">Action</th>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Method</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Reference</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="text-left py-3 px-5 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -399,8 +399,8 @@ const WithdrawalHistoryPage = () => {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

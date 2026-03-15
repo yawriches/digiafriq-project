@@ -136,30 +136,34 @@ export default function LearnerMembershipPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-[#ed874a] mx-auto mb-4" />
-          <p className="text-gray-600">Loading memberships...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-[#ed874a] mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Loading memberships...</p>
         </div>
       </div>
     )
   }
 
   if (error) {
-    return <div className="text-center text-red-600 py-8">{error}</div>
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-100 rounded-xl p-5 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="container max-w-7xl py-8 px-4 sm:px-6 lg:px-8">
-      <div className="space-y-8">
+    <div className="p-4 lg:p-6 max-w-[1000px] mx-auto">
+      <div className="space-y-6">
         {/* Show Premium Card if user has active membership (not expiring soon) */}
         {hasActiveMembership ? (
           <div>
-            <div className="space-y-4 text-center mb-8">
-              <h1 className="text-3xl font-bold">Your Membership</h1>
-              <p className="text-lg text-muted-foreground">
-                Manage your active membership
-              </p>
+            <div className="text-center mb-6">
+              <h1 className="text-xl font-semibold text-gray-900">Your Membership</h1>
+              <p className="text-sm text-gray-500 mt-1">Manage your active membership</p>
             </div>
             <PremiumMembershipCard 
               expiryDate={activeExpiryDate!}
@@ -168,9 +172,9 @@ export default function LearnerMembershipPage() {
         ) : isRenewal ? (
           /* Show Renewal UI for expired or expiring-soon members */
           <>
-            <div className="space-y-4 text-center">
-              <h1 className="text-3xl font-bold text-gray-900">Renew Your Membership</h1>
-              <p className="text-lg text-muted-foreground">
+            <div className="text-center">
+              <h1 className="text-xl font-semibold text-gray-900">Renew Your Membership</h1>
+              <p className="text-sm text-gray-500 mt-1">
                 {expiredDate ? (
                   <>
                     Your membership expired on{' '}
@@ -193,12 +197,12 @@ export default function LearnerMembershipPage() {
             </div>
 
             {/* Data Preservation Notice */}
-            <div className="max-w-2xl mx-auto bg-green-50 border border-green-200 rounded-2xl p-6">
+            <div className="max-w-2xl mx-auto bg-green-50 border border-green-100 rounded-xl p-5">
               <div className="flex items-start gap-3 mb-4">
                 <ShieldCheck className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="font-semibold text-green-800 text-lg">Your data is safe</h3>
-                  <p className="text-green-700 text-sm mt-1">
+                  <h3 className="font-semibold text-green-800 text-sm">Your data is safe</h3>
+                  <p className="text-green-700 text-xs mt-1">
                     All your course progress, earnings, credentials, and settings are preserved. 
                     Renew to regain full access immediately.
                   </p>
@@ -221,7 +225,7 @@ export default function LearnerMembershipPage() {
             </div>
 
             {/* Membership packages for renewal */}
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {memberships?.map((membership) => (
                 <MembershipCard
                   key={membership.id}
@@ -236,14 +240,12 @@ export default function LearnerMembershipPage() {
         ) : (
           /* Show Membership Selection if no active membership (first-time) */
           <>
-            <div className="space-y-4 text-center">
-              <h1 className="text-3xl font-bold">Get Started with AI Cashflow</h1>
-              <p className="text-lg text-muted-foreground">
-                Join the AI Cashflow Program and unlock all features
-              </p>
+            <div className="text-center">
+              <h1 className="text-xl font-semibold text-gray-900">Get Started with AI Cashflow</h1>
+              <p className="text-sm text-gray-500 mt-1">Join the AI Cashflow Program and unlock all features</p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {memberships?.map((membership) => (
                 <MembershipCard
                   key={membership.id}

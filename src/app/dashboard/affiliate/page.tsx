@@ -6,12 +6,12 @@ import {
   Activity,
   Sparkles,
   Copy,
-  UserPlus,
   Clock,
   Users,
-  Trophy
+  Trophy,
+  ArrowRight,
+  ArrowUpRight
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAffiliateData } from '@/lib/hooks/useAffiliateData'
 import { useAuth } from '@/lib/supabase/auth'
@@ -38,13 +38,9 @@ const AffiliateDashboard = () => {
 
   const totalEarnings = getTotalEarnings()
   const currentBalanceValue = getAvailableEarnings()
-  
-  // Use real-time sales counts from affiliateStats (fetched from database)
   const totalSales = affiliateStats.totalSales
-
   const loading = affiliateLoading || currencyLoading
 
-  // Pending withdrawals state
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Withdrawal[]>([])
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(true)
 
@@ -65,19 +61,15 @@ const AffiliateDashboard = () => {
     .filter(w => w.status === 'PENDING')
     .reduce((sum, w) => sum + w.amount_usd, 0)
 
-  // Copy to clipboard function with fallback
   const copyToClipboard = async (text: string) => {
     try {
-      // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text)
       } else {
-        // Fallback for older browsers or non-secure contexts
         const textArea = document.createElement('textarea')
         textArea.value = text
         textArea.style.position = 'fixed'
         textArea.style.left = '-999999px'
-        textArea.style.top = '-999999px'
         document.body.appendChild(textArea)
         textArea.focus()
         textArea.select()
@@ -86,379 +78,270 @@ const AffiliateDashboard = () => {
       }
       toast.success('Link copied to clipboard!')
     } catch (err) {
-      console.error('Failed to copy: ', err)
       toast.error('Failed to copy link')
     }
   }
 
-  const statsCards = [
-    {
-      title: "Current Balance",
-      value: formatAmount(currentBalanceValue),
-      icon: DollarSign,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      iconBg: "bg-green-100"
-    },
-    {
-      title: "Total Earnings", 
-      value: formatAmount(totalEarnings),
-      icon: TrendingUp,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50", 
-      iconBg: "bg-blue-100"
-    },
-    {
-      title: "Number of Sales",
-      value: totalSales.toString(),
-      icon: Users,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      iconBg: "bg-orange-100"
-    }
-  ]
+  const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Affiliate'
 
-  if (loading) {
-    return <AffiliateDashboardSkeleton />
-  }
+  if (loading) return <AffiliateDashboardSkeleton />
 
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600">Error loading dashboard: {error}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            className="mt-2 bg-red-600 hover:bg-red-700"
-          >
-            Retry
-          </Button>
+        <div className="bg-red-50 border border-red-100 rounded-xl p-5">
+          <p className="text-red-600 text-sm">Error loading dashboard: {error}</p>
+          <Button onClick={() => window.location.reload()} className="mt-3 bg-red-600 hover:bg-red-700 text-sm h-9">Retry</Button>
         </div>
       </div>
     )
   }
 
   return (
-      <div className="p-6">
-      {/* Compact Welcome Section */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-lg sm:text-xl font-semibold text-gray-900">
-              Welcome, {profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Affiliate'}!
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500">Track your affiliate performance</p>
-          </div>
-          {!loading && (
-            <div className="text-right">
-              <p className="text-base sm:text-lg font-bold text-gray-900">
-                {formatAmount(currentBalanceValue)}
-              </p>
-              <p className="text-xs text-gray-500">Balance ({CURRENCY_RATES[selectedCurrency].name})</p>
-            </div>
-          )}
-        </div>
+    <div className="p-4 lg:p-6 max-w-[1200px]">
+      {/* Welcome */}
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">Welcome back, {firstName}</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Track your affiliate performance and earnings.</p>
+      </div>
 
-        {/* Date Filter - Mobile responsive */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="grid grid-cols-2 gap-2 flex-1">
-            <input 
-              type="date"
-              placeholder="Start date"
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ed874a] focus:border-transparent text-gray-700 bg-white"
-            />
-            <input 
-              type="date"
-              placeholder="End date"
-              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ed874a] focus:border-transparent text-gray-700 bg-white"
-            />
+      {/* Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6" data-tooltip="earnings-tab">
+        {/* Current Balance */}
+        <div className="bg-white rounded-xl border border-gray-200/80 p-5 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Balance</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatAmount(currentBalanceValue)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+            </div>
           </div>
-          <Button className="bg-[#ed874a] hover:bg-[#d76f32] text-white px-6 py-2.5 rounded-lg font-medium w-full sm:w-auto">
-            Filter
+        </div>
+        {/* Total Earnings */}
+        <div className="bg-white rounded-xl border border-gray-200/80 p-5 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Earned</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatAmount(totalEarnings)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
+        {/* Sales */}
+        <div className="bg-white rounded-xl border border-gray-200/80 p-5 hover:shadow-sm transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Sales</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{totalSales}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <Users className="w-5 h-5 text-amber-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pending Withdrawals */}
+      {pendingAmount > 0 && (
+        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900">Pending Withdrawals</p>
+            <p className="text-xs text-amber-700">{formatAmount(pendingAmount)} awaiting review</p>
+          </div>
+        </div>
+      )}
+
+      {/* Referral Link Card */}
+      <div className="bg-white rounded-xl border border-gray-200/80 p-5 mb-6" data-tooltip="affiliate-link">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-4 h-4 text-[#ed874a]" />
+          <h2 className="text-sm font-semibold text-gray-900">Your Sales Link</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Share this link to earn <span className="font-semibold text-[#ed874a]">60% commission</span> on every AI Cashflow Program sale.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 font-mono text-xs text-gray-700 truncate">
+            {urls.affiliateUrl || urls.learnerUrl || 'Generating link...'}
+          </div>
+          <Button 
+            className="bg-[#ed874a] hover:bg-[#d76f32] text-xs h-9 rounded-lg px-4 shrink-0"
+            onClick={() => (urls.affiliateUrl || urls.learnerUrl) && copyToClipboard(urls.affiliateUrl || urls.learnerUrl)}
+            disabled={!urls.affiliateUrl && !urls.learnerUrl}
+          >
+            <Copy className="w-3.5 h-3.5 mr-1.5" />
+            Copy Link
           </Button>
         </div>
       </div>
 
-      {/* Stats Grid - Mobile optimized */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" data-tooltip="earnings-tab">
-        {statsCards.map((stat, index) => (
-            <Card key={index} className="relative overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
-                  <div className={`w-12 h-12 rounded-lg ${stat.iconBg} flex items-center justify-center`}>
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-      </div>
-
-      {/* Pending Withdrawals Card */}
-      {pendingAmount > 0 && (
-        <Card className="mb-6 border-l-4 border-l-yellow-500">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Pending Withdrawals</h3>
-                <p className="text-sm text-yellow-600">
-                  <span className="font-medium">{formatAmount(pendingAmount)}</span> awaiting review
-                </p>
-              </div>
+      {/* Two Column Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Leaderboard */}
+        <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#ed874a]" />
+              <h2 className="text-sm font-semibold text-gray-900">Leaderboard</h2>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Cashflow Referral Link Section */}
-      <div className="mb-8" data-tooltip="affiliate-link">
-        <Card className="border-2 border-[#ed874a]/20 bg-gradient-to-br from-orange-50/50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
-              <Sparkles className="w-6 h-6 mr-2 text-[#ed874a]" />
-              Your Sales Link
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Share this link to earn <span className="font-semibold text-[#ed874a]">60% commission</span> on every AI Cashflow Program sale.
-            </p>
-            <div className="p-4 bg-white rounded-xl border-2 border-gray-200">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <code className="flex-1 text-sm bg-gray-50 p-3 rounded-lg border text-gray-800 font-mono break-all">
-                  {urls.affiliateUrl || urls.learnerUrl || 'Generating link...'}
-                </code>
-                <Button 
-                  size="lg" 
-                  className="bg-[#ed874a] hover:bg-[#d76f32] text-white w-full sm:w-auto"
-                  onClick={() => (urls.affiliateUrl || urls.learnerUrl) && copyToClipboard(urls.affiliateUrl || urls.learnerUrl)}
-                  disabled={!urls.affiliateUrl && !urls.learnerUrl}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Link
-                </Button>
-              </div>
+            <Link href="/dashboard/affiliate/leaderboard" className="text-xs font-medium text-[#ed874a] hover:text-[#d76f32] flex items-center gap-0.5">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          {currentUserRank && (
+            <div className="px-5 py-2 bg-[#ed874a]/5 border-b border-[#ed874a]/10">
+              <p className="text-xs text-gray-600">Your rank: <span className="font-bold text-gray-900">#{currentUserRank}</span></p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Leaderboard Section */}
-      <div className="mb-8">
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-semibold flex items-center">
-                <Trophy className="w-5 h-5 mr-2 text-[#ed874a]" />
-                Leaderboard
-              </CardTitle>
-              <Link href="/dashboard/affiliate/leaderboard" className="text-sm text-[#ed874a] hover:underline font-medium">
-                View Full Leaderboard
-              </Link>
-            </div>
-            {currentUserRank && (
-              <p className="text-sm text-gray-500 mt-1">Your rank: <span className="font-semibold text-gray-900">#{currentUserRank}</span></p>
-            )}
-          </CardHeader>
-          <CardContent>
+          )}
+          <div className="divide-y divide-gray-50">
             {leaderboardLoading ? (
-              <div className="space-y-3">
+              <div className="p-5 space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg animate-pulse">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-                      <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  <div key={i} className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 bg-gray-100 rounded-full" />
+                      <div className="h-3.5 bg-gray-100 rounded w-20" />
                     </div>
-                    <div className="h-4 bg-gray-200 rounded w-16"></div>
+                    <div className="h-3.5 bg-gray-100 rounded w-14" />
                   </div>
                 ))}
               </div>
             ) : leaderboard.length === 0 ? (
-              <div className="text-center py-6 text-gray-500">
-                <Trophy className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No leaderboard data yet</p>
+              <div className="text-center py-10">
+                <Trophy className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-xs text-gray-500">No leaderboard data yet</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {leaderboard.slice(0, 10).map((entry) => (
+              <div className="p-3">
+                {leaderboard.slice(0, 7).map((entry) => (
                   <div
                     key={entry.user_id}
-                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                      entry.isCurrentUser ? 'bg-orange-50 border border-[#ed874a]/30' : 'bg-gray-50 hover:bg-gray-100'
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors ${
+                      entry.isCurrentUser ? 'bg-[#ed874a]/5' : 'hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
                         entry.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
                         entry.rank === 2 ? 'bg-gray-200 text-gray-700' :
                         entry.rank === 3 ? 'bg-orange-100 text-orange-700' :
-                        'bg-gray-100 text-gray-600'
+                        'bg-gray-100 text-gray-500'
                       }`}>
-                        {entry.rank <= 3 ? entry.award : `#${entry.rank}`}
+                        {entry.rank <= 3 ? entry.award : entry.rank}
                       </div>
                       <div>
-                        <p className={`text-sm font-medium ${entry.isCurrentUser ? 'text-gray-900' : 'text-gray-700'}`}>
+                        <p className="text-xs font-medium text-gray-800">
                           {entry.name}{entry.isCurrentUser ? ' (You)' : ''}
                         </p>
-                        <p className="text-xs text-gray-500">{entry.level}</p>
+                        <p className="text-[10px] text-gray-400">{entry.level}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">
-                        ${entry.total_revenue >= 1000 ? `${(entry.total_revenue / 1000).toFixed(1)}K` : entry.total_revenue.toFixed(2)}
+                      <p className="text-xs font-semibold text-gray-900">
+                        ${entry.total_revenue >= 1000 ? `${(entry.total_revenue / 1000).toFixed(1)}K` : entry.total_revenue.toFixed(0)}
                       </p>
-                      <p className="text-xs text-gray-500">{entry.total_referrals} sales</p>
+                      <p className="text-[10px] text-gray-400">{entry.total_referrals} sales</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
 
-      {/* Recent Activities - Combined sales and withdrawals */}
-      <div className="mb-8">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-semibold flex items-center">
-              <Activity className="w-5 h-5 mr-2 text-gray-600" />
-              Recent Activities
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg animate-pulse">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-24"></div>
-                      </div>
-                    </div>
-                    <div className="h-5 bg-gray-200 rounded w-16"></div>
-                  </div>
-                ))}
-              </div>
-            ) : (() => {
-              // Combine commissions, withdrawal requests, and payout withdrawals into a single activities array
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl border border-gray-200/80 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-gray-500" />
+              <h2 className="text-sm font-semibold text-gray-900">Recent Activity</h2>
+            </div>
+            <Link href="/dashboard/affiliate/activity/sales" className="text-xs font-medium text-[#ed874a] hover:text-[#d76f32] flex items-center gap-0.5">
+              View all <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {(() => {
               const activities = [
-                // Sales from commissions
                 ...recentCommissions.map((c: any) => ({
-                  id: c.id,
-                  type: 'sale' as const,
-                  subType: c.commission_type || 'learner',
+                  id: c.id, type: 'sale' as const,
                   amount: c.commission_amount || c.amount || 0,
-                  status: c.status,
-                  description: c.notes || c.description,
-                  created_at: c.created_at
+                  status: c.status, created_at: c.created_at
                 })),
-                // Pending/approved withdrawal requests (from withdrawals table)
                 ...pendingWithdrawals.map((w: any) => ({
-                  id: w.id,
-                  type: 'withdrawal' as const,
-                  subType: 'request',
-                  amount: w.amount_usd,
-                  status: w.status,
-                  description: `Withdrawal request`,
+                  id: w.id, type: 'withdrawal' as const,
+                  amount: w.amount_usd, status: w.status,
                   created_at: w.created_at
                 })),
-                // Completed / processing payouts (from payouts table)
                 ...recentPayouts.map((p: any) => ({
-                  id: p.id,
-                  type: 'withdrawal' as const,
-                  subType: 'payout',
-                  amount: p.amount,
-                  status: p.status,
-                  description: `Withdrawal`,
+                  id: p.id, type: 'withdrawal' as const,
+                  amount: p.amount, status: p.status,
                   created_at: p.created_at
                 }))
-              ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
               if (activities.length === 0) {
                 return (
-                  <div className="text-center py-8 text-gray-500">
-                    <Activity className="w-12 h-12 mx-auto mb-3 opacity-50 text-gray-400" />
-                    <p className="text-sm">No recent activities</p>
-                    <p className="text-xs mt-1">Your sales and withdrawal activities will appear here</p>
+                  <div className="text-center py-10">
+                    <Activity className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-xs text-gray-500">No recent activities</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Sales and withdrawals will appear here</p>
                   </div>
-                );
+                )
               }
 
               return (
-                <div className="space-y-3">
-                  {activities.slice(0, 10).map((activity) => {
-                    const isSale = activity.type === 'sale';
-                    const isWithdrawal = activity.type === 'withdrawal';
-
-                    // Simplified colors for AI Cashflow
-                    const bgColor = isSale ? 'bg-orange-50 hover:bg-orange-100' : 'bg-gray-50 hover:bg-gray-100';
-                    const iconBg = isSale ? 'bg-orange-100' : 'bg-gray-200';
-                    const iconColor = isSale ? 'text-[#ed874a]' : 'text-gray-600';
-                    const amountColor = isWithdrawal ? 'text-gray-700' : 'text-green-600';
-                    const amountPrefix = isWithdrawal ? '-' : '+';
-
-                    const activityLabel = isSale ? 'AI Cashflow Sale' : 'Withdrawal';
-                    const ActivityIcon = isSale ? Sparkles : DollarSign;
-
+                <div className="p-3">
+                  {activities.slice(0, 8).map((activity) => {
+                    const isSale = activity.type === 'sale'
                     return (
-                      <div 
-                        key={activity.id} 
-                        className={`flex items-center justify-between p-3 rounded-lg transition-colors ${bgColor}`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${iconBg}`}>
-                            <ActivityIcon className={`w-5 h-5 ${iconColor}`} />
+                      <div key={activity.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSale ? 'bg-emerald-50' : 'bg-gray-100'}`}>
+                            {isSale 
+                              ? <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                              : <DollarSign className="w-4 h-4 text-gray-500" />
+                            }
                           </div>
                           <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {activityLabel}
-                              </span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                activity.status === 'approved' || activity.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                                activity.status === 'pending' || activity.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                                activity.status === 'completed' || activity.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}>
-                                {activity.status?.toLowerCase()}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {new Date(activity.created_at).toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric', 
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                            <p className="text-xs font-medium text-gray-800">
+                              {isSale ? 'Commission Earned' : 'Withdrawal'}
+                            </p>
+                            <p className="text-[10px] text-gray-400">
+                              {new Date(activity.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className={`text-sm font-semibold ${amountColor}`}>
-                            {amountPrefix}{formatAmount(activity.amount)}
+                          <p className={`text-xs font-semibold ${isSale ? 'text-emerald-600' : 'text-gray-700'}`}>
+                            {isSale ? '+' : '-'}{formatAmount(activity.amount)}
                           </p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            activity.status === 'approved' || activity.status === 'APPROVED' || activity.status === 'completed' || activity.status === 'COMPLETED'
+                              ? 'bg-emerald-50 text-emerald-600'
+                              : activity.status === 'pending' || activity.status === 'PENDING'
+                              ? 'bg-amber-50 text-amber-600'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {activity.status?.toLowerCase()}
+                          </span>
                         </div>
                       </div>
-                    );
+                    )
                   })}
                 </div>
-              );
+              )
             })()}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
-
     </div>
   )
 }
