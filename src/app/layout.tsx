@@ -13,7 +13,7 @@ import { PageRefreshHandler } from '@/components/PageRefreshHandler'
 
 export const metadata: Metadata = {
   title: {
-    default: "Digiafriq - Learn Digital Skills, Earn Affiliate Income",
+    default: "Digiafriq - Monetise Everyday Ai skills",
     template: "%s | Digiafriq",
   },
   description:
