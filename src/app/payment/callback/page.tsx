@@ -35,123 +35,127 @@ function PaymentCallbackPageInner() {
   // Add flag to track if verification is already running
   const verificationInProgressRef = useRef(false); // Track if verification is already running
 
-  useEffect(() => {
-    console.log('🔥 useEffect triggered, instanceId:', instanceId, 'user:', !!user, 'verification.status:', verification.status);
+  // Track whether we've already attempted verification
+  const hasAttemptedRef = useRef(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const verifyPayment = async (userId?: string) => {
+    // Prevent duplicate verification calls
+    if (verificationInProgressRef.current || hasAttemptedRef.current) {
+      return;
+    }
     
-    const verifyPayment = async () => {
-      console.log('🔥 verifyPayment function called, verificationInProgressRef.current:', verificationInProgressRef.current);
-      
-      // Prevent duplicate verification calls
-      if (verificationInProgressRef.current) {
-        console.log('🔥 Verification already in progress, skipping duplicate call');
+    verificationInProgressRef.current = true;
+    hasAttemptedRef.current = true;
+    
+    try {
+      const reference = searchParams.get('reference');
+      const trxref = searchParams.get('trxref');
+      const paymentRef = reference || trxref;
+
+      if (!paymentRef) {
+        setVerification({ status: 'error' });
+        toast.error('No payment reference found');
         return;
       }
-      
-      verificationInProgressRef.current = true; // Mark as in progress
-      console.log('🔥 Starting verification, marked as in progress');
-      
-      try {
-        // Get payment reference from URL params
-        const reference = searchParams.get('reference');
-        const trxref = searchParams.get('trxref');
-        const paymentRef = reference || trxref;
 
-        if (!paymentRef) {
-          console.log('🔥 TOAST: Showing error toast for missing reference, instanceId:', instanceId);
-          setVerification({ status: 'error' });
-          toast.error('No payment reference found');
-          return;
+      console.log('Verifying payment with reference:', paymentRef, 'user_id:', userId);
+
+      const response = await fetch('/api/payments/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reference: paymentRef,
+          user_id: userId
+        }),
+      });
+
+      const data = await response.json();
+      console.log('Payment verification response:', data);
+
+      if (data.success && data.payment) {
+        const isAddonUpgrade = data.payment.payment_type === 'addon_upgrade';
+
+        const { data: membershipData, error: membershipError } = await supabase
+          .from('membership_packages')
+          .select('name, member_type, price, currency')
+          .eq('id', data.payment.membership_package_id)
+          .single();
+
+        if (membershipError) {
+          console.error('Error fetching membership details:', membershipError);
         }
 
-        console.log('Verifying payment with reference:', paymentRef);
-
-        // Verify payment with backend
-        const response = await fetch('/api/payments/verify', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            reference: paymentRef,
-            user_id: user?.id
-          }),
+        setVerification({
+          status: 'success',
+          membershipType: (membershipData as any)?.member_type,
+          membershipName: (membershipData as any)?.name,
+          amount: data.payment.amount,
+          currency: data.payment.currency,
+          reference: paymentRef,
+          isAddonUpgrade
         });
 
-        const data = await response.json();
-        console.log('Payment verification response:', data);
-
-        if (data.success && data.payment) {
-          // Check if this is an addon upgrade
-          const isAddonUpgrade = data.payment.payment_type === 'addon_upgrade';
-
-          // Payment successful - get membership details
-          const { data: membershipData, error: membershipError } = await supabase
-            .from('membership_packages')
-            .select('name, member_type, price, currency')
-            .eq('id', data.payment.membership_package_id)
-            .single();
-
-          if (membershipError) {
-            console.error('Error fetching membership details:', membershipError);
-          }
-
-          setVerification({
-            status: 'success',
-            membershipType: (membershipData as any)?.member_type,
-            membershipName: (membershipData as any)?.name,
-            amount: data.payment.amount,
-            currency: data.payment.currency,
-            reference: paymentRef,
-            isAddonUpgrade
-          });
-
-          console.log('🔥 TOAST: Showing success toast, instanceId:', instanceId);
-          if (isAddonUpgrade) {
-            toast.success('🎉 Digital Cashflow System unlocked!');
-          } else {
-            toast.success('Payment verified successfully!');
-          }
-
-          // Refresh user profile to update roles and available_roles
-          console.log('🔄 Refreshing user profile after successful payment...');
-          await refreshProfile();
-          console.log('✅ User profile refreshed with updated roles');
-
-          // Redirect after 3 seconds
-          setTimeout(() => {
-            if (isAddonUpgrade) {
-              router.push('/dashboard/learner/membership');
-            } else {
-              redirectToAppropriateDashboard((membershipData as any)?.member_type || 'learner');
-            }
-          }, 3000);
-
+        if (isAddonUpgrade) {
+          toast.success('Digital Cashflow System unlocked!');
         } else {
-          console.log('🔥 TOAST: Showing failed toast, instanceId:', instanceId);
-          setVerification({ status: 'failed' });
-          toast.error(data.message || 'Payment verification failed');
+          toast.success('Payment verified successfully!');
         }
 
-      } catch (error) {
-        console.log('🔥 TOAST: Showing catch error toast, instanceId:', instanceId);
-        console.error('Payment verification error:', error);
-        setVerification({ status: 'error' });
-        toast.error('Failed to verify payment');
-      } finally {
-        // Always reset the verification progress flag
-        verificationInProgressRef.current = false;
-        console.log('🔥 Verification completed, reset progress flag');
+        // Refresh user profile if user is available
+        try { await refreshProfile(); } catch (e) { /* ignore if no session */ }
+
+        // Redirect after 3 seconds
+        setTimeout(() => {
+          if (isAddonUpgrade) {
+            router.push('/dashboard/learner/membership');
+          } else {
+            redirectToAppropriateDashboard((membershipData as any)?.member_type || 'learner');
+          }
+        }, 3000);
+
+      } else {
+        setVerification({ status: 'failed' });
+        toast.error(data.message || 'Payment verification failed');
+      }
+
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      setVerification({ status: 'error' });
+      toast.error('Failed to verify payment');
+    } finally {
+      verificationInProgressRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (verification.status !== 'verifying' || hasAttemptedRef.current) return;
+
+    // If user is already available, verify immediately
+    if (user) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      verifyPayment(user.id);
+      return;
+    }
+
+    // If user is not yet available, wait up to 5 seconds then verify without user_id
+    // The backend can still find the payment by reference alone
+    if (!timeoutRef.current) {
+      timeoutRef.current = setTimeout(() => {
+        if (!hasAttemptedRef.current) {
+          console.log('⏰ Auth timeout - verifying payment without user_id');
+          verifyPayment(undefined);
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
-
-    // Only verify if we have a user and haven't verified yet
-    if (user && verification.status === 'verifying') {
-      console.log('🔥 About to call verifyPayment');
-      verifyPayment();
-    } else {
-      console.log('🔥 Skipped verifyPayment call, user:', !!user, 'status:', verification.status);
-    }
-  }, [user]); // Only depend on user, not searchParams
+  }, [user]); // Only depend on user
 
   const redirectToAppropriateDashboard = (membershipType: 'learner' | 'affiliate') => {
     if (membershipType === 'affiliate') {

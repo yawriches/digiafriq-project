@@ -146,8 +146,9 @@ const SignupPage = () => {
       // Small delay to ensure auth state is updated
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      // Redirect directly to learner dashboard
-      router.push('/dashboard/learner')
+      // New users have no membership yet, send directly to membership page
+      // This avoids the redirect loop: dashboard → no membership → membership page
+      router.push('/dashboard/learner/membership')
       
     } catch (err: any) {
       console.error('Signup error:', err)

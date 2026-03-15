@@ -24,26 +24,32 @@ export default function LearnerLayout({
   const lastCheckedPath = useRef<string | null>(null);
 
   const checkMembership = useCallback(async (userId: string, currentPath: string) => {
-    const { count } = await supabase
-      .from('user_memberships')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .gt('expires_at', new Date().toISOString());
+    try {
+      const { count } = await supabase
+        .from('user_memberships')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString());
 
-    const hasActive = (count ?? 0) > 0;
-    setHasActiveMembership(hasActive);
-    setMembershipChecked(true);
-    lastCheckedPath.current = currentPath;
+      const hasActive = (count ?? 0) > 0;
+      setHasActiveMembership(hasActive);
+      setMembershipChecked(true);
+      lastCheckedPath.current = currentPath;
 
-    // Immediate redirect if no active membership (don't wait for useEffect)
-    const isMembership = currentPath === '/dashboard/learner/membership';
-    const isCheckout = currentPath?.startsWith('/dashboard/learner/membership/checkout');
-    if (!hasActive && !isMembership && !isCheckout) {
-      setIsRedirecting(true);
-      window.location.href = '/dashboard/learner/membership';
+      // Redirect if no active membership (use router.replace to avoid history stack issues)
+      const isMembership = currentPath === '/dashboard/learner/membership';
+      const isCheckout = currentPath?.startsWith('/dashboard/learner/membership/checkout');
+      if (!hasActive && !isMembership && !isCheckout && !isRedirecting) {
+        setIsRedirecting(true);
+        router.replace('/dashboard/learner/membership');
+      }
+    } catch (error) {
+      console.error('Membership check error:', error);
+      // On error, allow access to membership page at least
+      setMembershipChecked(true);
     }
-  }, []);
+  }, [isRedirecting, router]);
 
   // Re-check membership on every pathname change (navigation)
   useEffect(() => {
@@ -61,9 +67,9 @@ export default function LearnerLayout({
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      window.location.href = `/login?redirectTo=${encodeURIComponent(pathname)}`;
+      router.replace(`/login?redirectTo=${encodeURIComponent(pathname)}`);
     }
-  }, [user, authLoading, pathname]);
+  }, [user, authLoading, pathname, router]);
 
   const isMembershipPage = pathname === '/dashboard/learner/membership';
   const isCheckoutPage = pathname?.startsWith('/dashboard/learner/membership/checkout');
