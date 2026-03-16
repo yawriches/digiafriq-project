@@ -76,8 +76,8 @@ const UnifiedProfilePage = () => {
   const [showAddPayment, setShowAddPayment] = useState(false)
   const [editingPayment, setEditingPayment] = useState<any>(null)
 
-  // Check if user has affiliate access
-  const hasAffiliateAccess = hasDCS || authProfile?.available_roles?.includes('affiliate')
+  // Check if user has affiliate access AND has completed onboarding (payment methods added)
+  const hasAffiliateAccess = (hasDCS || authProfile?.available_roles?.includes('affiliate')) && paymentMethods.length > 0
 
   if (loading || dcsLoading) {
     return (

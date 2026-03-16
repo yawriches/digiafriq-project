@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Edit2, Trash2, Loader2, CheckCircle, XCircle, Globe } from 'lucide-react'
 import { toast } from 'sonner'
+import AdminDashboardLayout from '@/components/dashboard/AdminDashboardLayout'
 
 const CountriesPage = () => {
   const { countries, loading, createCountry, updateCountry, deleteCountry, refetch } = useAdminCountries()
@@ -114,17 +115,18 @@ const CountriesPage = () => {
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-6">
+      <AdminDashboardLayout title="Countries Management">
         <div className="flex items-center justify-center h-48">
           <Loader2 className="w-6 h-6 animate-spin text-[#ed874a]" />
           <span className="ml-2 text-sm text-gray-500">Loading countries...</span>
         </div>
-      </div>
+      </AdminDashboardLayout>
     )
   }
 
   return (
-    <div className="p-4 lg:p-6 max-w-[1100px]">
+    <AdminDashboardLayout title="Countries Management">
+      <div className="max-w-[1100px]">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -327,7 +329,8 @@ const CountriesPage = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AdminDashboardLayout>
   )
 }
 
