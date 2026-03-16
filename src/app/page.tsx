@@ -118,6 +118,10 @@ const faqs = [
     answer: "No. The platform supports beginners through to advanced learners with different programs and resources for each level. Whether you're just starting or looking to scale, there's a pathway for you.",
   },
   {
+    question: "Are the AI tools free?",
+    answer: "We use free tools in our courses so beginners can get started instantly. As you scale, you can upgrade to paid tools for enhanced capabilities.",
+  },
+  {
     question: "Is there a separate membership fee?",
     answer: "Access to Digiafriq's core system is included when you join a qualifying program. There are no hidden fees or surprise charges.",
   },

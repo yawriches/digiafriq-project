@@ -8,10 +8,12 @@ import { Mail, Lock, Loader2, Eye, EyeOff, User, ArrowRight, CheckCircle, Users,
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useCountries } from '@/lib/hooks/useCountries'
 
 const SignupPage = () => {
   const router = useRouter()
   const { signUp, user, profile, loading: authLoading } = useAuth()
+  const { countries, loading: countriesLoading, getDefaultCountry } = useCountries()
   
   // Form data
   const [formData, setFormData] = useState({
@@ -22,6 +24,16 @@ const SignupPage = () => {
     phoneNumber: '',
     country: ''
   })
+  
+  // Set default country when countries are loaded
+  useEffect(() => {
+    if (!countriesLoading && countries.length > 0 && !formData.country) {
+      const defaultCountry = getDefaultCountry()
+      if (defaultCountry) {
+        setFormData(prev => ({ ...prev, country: defaultCountry }))
+      }
+    }
+  }, [countriesLoading, countries, getDefaultCountry, formData.country])
   
   // UI state
   const [loading, setLoading] = useState(false)
@@ -268,20 +280,14 @@ const SignupPage = () => {
                           value={formData.country}
                           onChange={(e) => handleInputChange('country', e.target.value)}
                           className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition appearance-none"
-                          disabled={loading}
+                          disabled={loading || countriesLoading}
                         >
                           <option value="">Select your country</option>
-                          <option value="Nigeria">Nigeria</option>
-                          <option value="Ghana">Ghana</option>
-                          <option value="Kenya">Kenya</option>
-                          <option value="Cameroon">Cameroon</option>
-                          <option value="South Africa">South Africa</option>
-                          <option value="Egypt">Egypt</option>
-                          <option value="Morocco">Morocco</option>
-                          <option value="Ethiopia">Ethiopia</option>
-                          <option value="Tanzania">Tanzania</option>
-                          <option value="Uganda">Uganda</option>
-                          <option value="Other">Other</option>
+                          {countries.map((country) => (
+                            <option key={country.id} value={country.name}>
+                              {country.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>

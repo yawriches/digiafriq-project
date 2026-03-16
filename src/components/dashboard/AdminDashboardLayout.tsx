@@ -20,7 +20,8 @@ import {
   Award,
   CreditCard,
   Bell,
-  Trophy
+  Trophy,
+  Globe
 } from 'lucide-react'
 
 interface AdminDashboardLayoutProps {
@@ -72,6 +73,7 @@ const AdminDashboardLayout: React.FC<AdminDashboardLayoutProps> = ({ children, t
     },
     { title: "Analytics", icon: TrendingUp, href: "/dashboard/admin/analytics" },
     { title: "Reports", icon: FileText, href: "/dashboard/admin/reports" },
+    { title: "Countries", icon: Globe, href: "/dashboard/admin/countries" },
     { title: "Settings", icon: Settings, href: "/dashboard/admin/settings" },
     { title: "Log out", icon: LogOut, href: "#" }
   ]
