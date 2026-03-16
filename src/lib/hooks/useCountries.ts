@@ -12,6 +12,15 @@ export interface Country {
   updated_at: string
 }
 
+// Helper to get auth headers
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${session?.access_token || ''}`
+  }
+}
+
 export function useCountries() {
   const [countries, setCountries] = useState<Country[]>([])
   const [loading, setLoading] = useState(true)
@@ -86,9 +95,10 @@ export function useAdminCountries() {
 
   const createCountry = async (country: Partial<Country>) => {
     try {
+      const headers = await getAuthHeaders()
       const response = await fetch('/api/admin/countries', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(country)
       })
 
@@ -104,9 +114,10 @@ export function useAdminCountries() {
 
   const updateCountry = async (id: string, updates: Partial<Country>) => {
     try {
+      const headers = await getAuthHeaders()
       const response = await fetch('/api/admin/countries', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ id, ...updates })
       })
 
@@ -122,8 +133,10 @@ export function useAdminCountries() {
 
   const deleteCountry = async (id: string) => {
     try {
+      const headers = await getAuthHeaders()
       const response = await fetch(`/api/admin/countries?id=${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers
       })
 
       if (!response.ok) throw new Error('Failed to delete country')
