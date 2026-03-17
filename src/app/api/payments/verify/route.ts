@@ -927,10 +927,17 @@ export async function POST(request: NextRequest) {
       console.log('🔍 Looking up payment in database with reference:', reference)
       console.log('🔍 Search details:', { reference, user_id })
 
-      // First, check if payment exists in our database (check provider_reference column)
+      // Helper to check if payment status indicates success (handles both 'success' and 'successful')
+      const isPaymentSuccessful = (status: string | undefined) => {
+        const normalizedStatus = status?.toLowerCase()
+        return normalizedStatus === 'success' || normalizedStatus === 'successful'
+      }
+
+      // ── Step 1: Find payment record in database ──────────────────────────
       let payment: any = null
       let paymentError: any = null
-      
+
+      // Try provider_reference first
       try {
         const { data: initialPayment, error: initialError } = await supabase
           .from('payments')
@@ -969,15 +976,12 @@ export async function POST(request: NextRequest) {
         providerReference: payment?.provider_reference
       })
 
-      // If payment not found with provider_reference, try to find it by user_id and recent creation
-      if (!payment || paymentError) {
+      // If payment not found with provider_reference, try to find by user_id and recent creation
+      if (!payment && !paymentError) {
         console.log('🔍 Payment not found by reference, searching by user and recent creation...')
         
-        let recentPayment: any = null
-        let recentError: any = null
-        
         try {
-          const { data: foundRecentPayment, error: foundRecentError } = await supabase
+          const { data: recentPayment, error: recentError } = await supabase
             .from('payments')
             .select(`
               id,
@@ -994,99 +998,122 @@ export async function POST(request: NextRequest) {
               created_at
             `)
             .eq('user_id', user_id)
-            .eq('status', 'pending')
-            .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()) // Last 30 minutes
+            .in('status', ['pending', 'completed'])
+            .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()) // Last 60 minutes
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle() as any
 
-          recentPayment = foundRecentPayment
-          recentError = foundRecentError
+          if (recentPayment && !recentError) {
+            console.log('✅ Found recent payment, using it for verification')
+            
+            // Update the payment with the provider reference if it's missing
+            if (!recentPayment.provider_reference) {
+              console.log('🔄 Updating recent payment with provider reference...')
+              try {
+                await supabase
+                  .from('payments')
+                  .update({ provider_reference: reference })
+                  .eq('id', recentPayment.id)
+                recentPayment.provider_reference = reference
+                console.log('✅ Updated provider reference for recent payment')
+              } catch (updateError) {
+                console.error('❌ Exception updating provider reference:', updateError)
+              }
+            }
+            
+            payment = recentPayment
+          }
         } catch (recentQueryError) {
           console.error('❌ Recent payment query error:', recentQueryError)
-          recentError = recentQueryError
-        }
-
-        console.log('📊 Recent payment search result:', {
-          recentPaymentFound: !!recentPayment,
-          recentError: recentError?.message,
-          recentPaymentId: recentPayment?.id,
-          recentPaymentStatus: recentPayment?.status,
-          recentProviderReference: recentPayment?.provider_reference
-        })
-
-        if (recentPayment && !recentError) {
-          console.log('✅ Found recent payment, using it for verification')
-          
-          // Update the payment with the provider reference if it's missing
-          if (!recentPayment.provider_reference) {
-            console.log('🔄 Updating recent payment with provider reference...')
-            try {
-              const { error: updateError } = await supabase
-                .from('payments')
-                .update({ provider_reference: reference })
-                .eq('id', recentPayment.id)
-              
-              if (updateError) {
-                console.error('❌ Failed to update provider reference:', updateError)
-              } else {
-                console.log('✅ Updated provider reference for recent payment')
-                recentPayment.provider_reference = reference
-              }
-            } catch (updateError) {
-              console.error('❌ Exception updating provider reference:', updateError)
-            }
-          }
-          
-          payment = recentPayment
-          paymentError = null
         }
       }
 
       if (paymentError) {
-        console.error('❌ DATABASE ERROR: Payment not found in database:', paymentError)
-        console.error('❌ Full error details:', JSON.stringify(paymentError, null, 2))
+        console.error('❌ DATABASE ERROR:', paymentError)
         return NextResponse.json(
-          { success: false, message: 'Payment not found', details: paymentError.message },
-          { status: 404 }
+          { success: false, message: 'Payment lookup error', details: paymentError.message },
+          { status: 500 }
         )
       }
 
-      // Declare verificationData in broader scope
-      let verificationData: any = null
-      
-      // If payment doesn't exist, we need to create it after verification
-      if (!paymentError && !payment) {
-        console.log('❌ PAYMENT RECORD NOT FOUND: No payment record exists in database for reference:', reference)
-        console.log('🔄 Will create payment record if verification succeeds')
+      // ── Step 2: If payment already completed, return idempotent success ──
+      if (payment && payment.status === 'completed') {
+        console.log('⚡ Payment already completed, checking if membership exists...')
         
-        // Try to verify with all providers to find which one has the transaction
-        let providerUsed = null
+        const { data: existingMembership } = await supabase
+          .from('user_memberships')
+          .select('id')
+          .eq('payment_id', payment.id)
+          .maybeSingle() as any
 
-        // Helper to check if payment status indicates success (handles both 'success' and 'successful')
-        const isPaymentSuccessful = (status: string | undefined) => {
-          const normalizedStatus = status?.toLowerCase();
-          return normalizedStatus === 'success' || normalizedStatus === 'successful';
-        };
-
-        // Try Paystack first
-        try {
-          const paystackProvider = PaymentProviderFactory.create('paystack')
-          verificationData = await paystackProvider.verifyTransaction(reference)
-          if (verificationData.status && isPaymentSuccessful(verificationData.data.status)) {
-            providerUsed = 'paystack'
-            console.log('✅ Transaction found in Paystack')
-          }
-        } catch (paystackError) {
-          console.log('❌ Paystack verification failed:', (paystackError as Error).message)
+        if (existingMembership) {
+          console.log('⚡ Membership already exists for this payment, returning success')
+          return NextResponse.json({
+            success: true,
+            message: 'Payment already verified and membership active',
+            payment: {
+              id: payment.id,
+              amount: payment.amount,
+              currency: payment.currency,
+              status: 'completed',
+              membership_package_id: payment.membership_package_id
+            }
+          })
         }
 
-        // If Paystack failed, try Kora
-        if (!verificationData || !verificationData.status || !isPaymentSuccessful(verificationData.data.status)) {
+        // Payment is completed but no membership — continue to create membership
+        console.log('⚠️ Payment completed but no membership found, will create membership...')
+      }
+
+      // ── Step 3: Verify with payment provider ─────────────────────────────
+      let verificationData: any = null
+      let providerUsed: string | null = null
+
+      // Determine which provider to verify with
+      const providerToTry = payment?.payment_provider || null
+
+      if (providerToTry) {
+        // Try the known provider first
+        console.log('🔍 Verifying with known provider:', providerToTry)
+        try {
+          const provider = PaymentProviderFactory.create(providerToTry)
+          verificationData = await provider.verifyTransaction(reference)
+          if (verificationData?.status && isPaymentSuccessful(verificationData.data?.status)) {
+            providerUsed = providerToTry
+            console.log('✅ Verification successful with', providerToTry)
+          } else {
+            console.log('⚠️ Provider returned non-success status:', verificationData?.data?.status)
+          }
+        } catch (providerError) {
+          console.error(`❌ ${providerToTry} verification failed:`, (providerError as Error).message)
+        }
+      }
+
+      // If known provider failed or no provider known, try all providers
+      if (!providerUsed) {
+        console.log('🔍 Trying all providers for verification...')
+        
+        // Try Paystack
+        if (providerToTry !== 'paystack') {
+          try {
+            const paystackProvider = PaymentProviderFactory.create('paystack')
+            verificationData = await paystackProvider.verifyTransaction(reference)
+            if (verificationData?.status && isPaymentSuccessful(verificationData.data?.status)) {
+              providerUsed = 'paystack'
+              console.log('✅ Transaction found in Paystack')
+            }
+          } catch (paystackError) {
+            console.log('❌ Paystack verification failed:', (paystackError as Error).message)
+          }
+        }
+
+        // Try Kora
+        if (!providerUsed && providerToTry !== 'kora') {
           try {
             const koraProvider = PaymentProviderFactory.create('kora')
             verificationData = await koraProvider.verifyTransaction(reference)
-            if (verificationData.status && isPaymentSuccessful(verificationData.data.status)) {
+            if (verificationData?.status && isPaymentSuccessful(verificationData.data?.status)) {
               providerUsed = 'kora'
               console.log('✅ Transaction found in Kora')
             }
@@ -1094,52 +1121,55 @@ export async function POST(request: NextRequest) {
             console.log('❌ Kora verification failed:', (koraError as Error).message)
           }
         }
+      }
 
-        if (!verificationData || !verificationData.status || !providerUsed) {
-          console.log('❌ VERIFICATION FAILED: Transaction not found in any provider')
-          return NextResponse.json({
-            success: false,
-            message: 'Payment verification failed - transaction not found in any payment provider',
-            details: 'The reference was not found in Paystack or Kora systems'
-          })
-        }
+      if (!providerUsed) {
+        console.log('❌ VERIFICATION FAILED: Transaction not found in any provider')
+        return NextResponse.json({
+          success: false,
+          message: 'Payment verification failed - transaction not confirmed by payment provider',
+          details: 'The payment could not be verified with Paystack or Kora. If you made a payment, please contact support.'
+        })
+      }
 
-        console.log('✅ VERIFICATION SUCCESSFUL with provider:', providerUsed)
-        console.log('✅ Payment status:', verificationData.data.status)
+      console.log('✅ VERIFICATION SUCCESSFUL with provider:', providerUsed)
+      console.log('✅ Payment status from provider:', verificationData.data?.status)
+
+      // ── Step 4: Ensure payment record exists ─────────────────────────────
+      if (!payment) {
+        console.log('🔄 No payment record found, creating from verified transaction...')
         
-        // Create payment record as fallback
         const membershipPackageId = verificationData.data?.metadata?.membership_package_id
         if (!membershipPackageId) {
-          console.error('❌ Cannot create fallback payment: No membership_package_id in verification metadata')
+          console.error('❌ Cannot create payment: No membership_package_id in verification metadata')
           return NextResponse.json({
             success: false,
-            message: 'Payment verification failed - missing membership information'
+            message: 'Payment verified but missing membership information. Please contact support with reference: ' + reference
           })
         }
 
-        console.log('🔄 Creating fallback payment record...')
         const { data: newPayment, error: createError } = await supabase
           .from('payments')
           .insert({
             user_id: user_id,
             membership_package_id: membershipPackageId,
-            amount: verificationData.data.amount / 100, // Convert from kobo/cents
+            amount: verificationData.data.amount / 100,
             currency: verificationData.data.currency,
             payment_provider: providerUsed,
             payment_type: 'membership',
             status: 'completed',
-            provider_reference: reference, // Use provider_reference for all providers
-            paid_at: verificationData.data.paid_at || new Date().toISOString()
+            provider_reference: reference,
+            paid_at: verificationData.data.paid_at || new Date().toISOString(),
+            metadata: verificationData.data.metadata || {}
           })
           .select()
           .single() as any
 
         if (createError) {
-          console.error('❌ Failed to create fallback payment record:', createError)
+          console.error('❌ Failed to create payment record:', createError)
           
-          // Check if it's a duplicate key error - if so, try to find existing record
           if (createError.code === '23505') {
-            console.log('🔄 Duplicate payment detected, trying to find existing record...')
+            console.log('🔄 Duplicate payment detected, fetching existing...')
             const { data: existingPayment } = await supabase
               .from('payments')
               .select()
@@ -1147,23 +1177,44 @@ export async function POST(request: NextRequest) {
               .single()
             
             if (existingPayment) {
-              console.log('✅ Found existing payment record, using it for membership creation')
-              return await processMembershipCreation(existingPayment, verificationData)
+              payment = existingPayment
             }
           }
           
-          return NextResponse.json({
-            success: false,
-            message: 'Payment verification failed - could not create payment record',
-            details: createError.message
-          }, { status: 500 })
+          if (!payment) {
+            return NextResponse.json({
+              success: false,
+              message: 'Payment verified but failed to save record. Please contact support with reference: ' + reference,
+              details: createError.message
+            }, { status: 500 })
+          }
+        } else {
+          payment = newPayment
+          console.log('✅ Payment record created:', payment.id)
         }
+      }
 
-        const payment = newPayment
+      // ── Step 5: Update payment status to completed ───────────────────────
+      if (payment.status !== 'completed') {
+        console.log('🔄 Updating payment status to completed...')
+        const { error: statusUpdateError } = await supabase
+          .from('payments')
+          .update({ 
+            status: 'completed',
+            paid_at: verificationData.data?.paid_at || new Date().toISOString()
+          })
+          .eq('id', payment.id)
+        
+        if (statusUpdateError) {
+          console.error('⚠️ Failed to update payment status (non-blocking):', statusUpdateError)
+        } else {
+          payment.status = 'completed'
+          console.log('✅ Payment status updated to completed')
+        }
       }
       
-      // Continue with membership creation
-      return await processMembershipCreation(payment, verificationData)
+      // ── Step 6: Process membership creation ──────────────────────────────
+      return await processMembershipCreation(payment, verificationData || { data: { metadata: payment.metadata } })
 
     } catch (error) {
       console.error('💥 CRITICAL ERROR: Payment verification failed with exception:', error)

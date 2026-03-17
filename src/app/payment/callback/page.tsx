@@ -39,6 +39,9 @@ function PaymentCallbackPageInner() {
   const hasAttemptedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const MAX_RETRIES = 3;
+  const retryCountRef = useRef(0);
+
   const verifyPayment = async (userId?: string) => {
     // Prevent duplicate verification calls
     if (verificationInProgressRef.current || hasAttemptedRef.current) {
@@ -48,83 +51,118 @@ function PaymentCallbackPageInner() {
     verificationInProgressRef.current = true;
     hasAttemptedRef.current = true;
     
-    try {
-      const reference = searchParams.get('reference');
-      const trxref = searchParams.get('trxref');
-      const paymentRef = reference || trxref;
+    const reference = searchParams.get('reference');
+    const trxref = searchParams.get('trxref');
+    const paymentRef = reference || trxref;
 
-      if (!paymentRef) {
-        setVerification({ status: 'error' });
-        toast.error('No payment reference found');
-        return;
-      }
+    if (!paymentRef) {
+      setVerification({ status: 'error' });
+      toast.error('No payment reference found');
+      verificationInProgressRef.current = false;
+      return;
+    }
 
-      console.log('Verifying payment with reference:', paymentRef, 'user_id:', userId);
+    // Retry loop with exponential backoff
+    while (retryCountRef.current <= MAX_RETRIES) {
+      const attempt = retryCountRef.current + 1;
+      try {
+        console.log(`Verifying payment (attempt ${attempt}/${MAX_RETRIES + 1}) with reference:`, paymentRef, 'user_id:', userId);
 
-      const response = await fetch('/api/payments/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reference: paymentRef,
-          user_id: userId
-        }),
-      });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-      const data = await response.json();
-      console.log('Payment verification response:', data);
-
-      if (data.success && data.payment) {
-        const isAddonUpgrade = data.payment.payment_type === 'addon_upgrade';
-
-        const { data: membershipData, error: membershipError } = await supabase
-          .from('membership_packages')
-          .select('name, member_type, price, currency')
-          .eq('id', data.payment.membership_package_id)
-          .single();
-
-        if (membershipError) {
-          console.error('Error fetching membership details:', membershipError);
-        }
-
-        setVerification({
-          status: 'success',
-          membershipType: (membershipData as any)?.member_type,
-          membershipName: (membershipData as any)?.name,
-          amount: data.payment.amount,
-          currency: data.payment.currency,
-          reference: paymentRef,
-          isAddonUpgrade
+        const response = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference: paymentRef,
+            user_id: userId
+          }),
+          signal: controller.signal,
         });
 
-        if (isAddonUpgrade) {
-          toast.success('Digital Cashflow System unlocked!');
-        } else {
-          toast.success('Payment verified successfully!');
+        clearTimeout(timeoutId);
+
+        const data = await response.json();
+        console.log('Payment verification response:', data);
+
+        if (data.success && data.payment) {
+          const isAddonUpgrade = data.payment.payment_type === 'addon_upgrade';
+
+          const { data: membershipData, error: membershipError } = await supabase
+            .from('membership_packages')
+            .select('name, member_type, price, currency')
+            .eq('id', data.payment.membership_package_id)
+            .single();
+
+          if (membershipError) {
+            console.error('Error fetching membership details:', membershipError);
+          }
+
+          setVerification({
+            status: 'success',
+            membershipType: (membershipData as any)?.member_type,
+            membershipName: (membershipData as any)?.name,
+            amount: data.payment.amount,
+            currency: data.payment.currency,
+            reference: paymentRef,
+            isAddonUpgrade
+          });
+
+          if (isAddonUpgrade) {
+            toast.success('Digital Cashflow System unlocked!');
+          } else {
+            toast.success('Payment verified successfully!');
+          }
+
+          // Refresh user profile if user is available
+          try { await refreshProfile(); } catch (e) { /* ignore if no session */ }
+
+          // Redirect after 3 seconds
+          setTimeout(() => {
+            if (isAddonUpgrade) {
+              router.push('/dashboard/learner/membership');
+            } else {
+              redirectToAppropriateDashboard((membershipData as any)?.member_type || 'learner');
+            }
+          }, 3000);
+
+          verificationInProgressRef.current = false;
+          return; // Success — exit
         }
 
-        // Refresh user profile if user is available
-        try { await refreshProfile(); } catch (e) { /* ignore if no session */ }
+        // Non-success response from API (e.g. provider couldn't confirm yet)
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current++;
+          const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000);
+          console.log(`⏳ Verification attempt ${attempt} returned non-success, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
 
-        // Redirect after 3 seconds
-        setTimeout(() => {
-          if (isAddonUpgrade) {
-            router.push('/dashboard/learner/membership');
-          } else {
-            redirectToAppropriateDashboard((membershipData as any)?.member_type || 'learner');
-          }
-        }, 3000);
-
-      } else {
+        // All retries exhausted
         setVerification({ status: 'failed' });
-        toast.error(data.message || 'Payment verification failed');
-      }
+        toast.error(data.message || 'Payment verification failed. If you made a payment, please contact support.');
+        verificationInProgressRef.current = false;
+        return;
 
-    } catch (error) {
-      console.error('Payment verification error:', error);
-      setVerification({ status: 'error' });
-      toast.error('Failed to verify payment');
-    } finally {
-      verificationInProgressRef.current = false;
+      } catch (error) {
+        console.error(`Payment verification error (attempt ${attempt}):`, error);
+
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current++;
+          const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000);
+          console.log(`⏳ Network error, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // All retries exhausted
+        setVerification({ status: 'error' });
+        toast.error('Failed to verify payment. Please check your connection and try again.');
+        verificationInProgressRef.current = false;
+        return;
+      }
     }
   };
 
@@ -166,8 +204,16 @@ function PaymentCallbackPageInner() {
   };
 
   const handleRetry = () => {
-    verificationInProgressRef.current = false; // Reset verification progress for retry
-    window.location.reload();
+    retryCountRef.current = 0;
+    hasAttemptedRef.current = false;
+    verificationInProgressRef.current = false;
+    setVerification({ status: 'verifying' });
+    // Re-trigger verification
+    if (user) {
+      verifyPayment(user.id);
+    } else {
+      verifyPayment(undefined);
+    }
   };
 
   const handleGoHome = () => {
